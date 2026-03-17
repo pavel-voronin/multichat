@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background: #f5f5f5;
+    color: #111827;
+    font-family:
+      ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Monaco, Consolas,
+      'Liberation Mono', 'Courier New', monospace;
+    user-select: none;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  input,
+  textarea,
+  .chat-log,
+  .chat-log * {
+    user-select: text;
+  }
+
+  textarea {
+    field-sizing: content;
+  }
+}
