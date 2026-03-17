@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="modal-backdrop" @click.self="close">
+    <div v-if="ui.showSettings" class="modal-backdrop" @click.self="close">
       <div class="modal-card">
         <h2 class="modal-title">Settings</h2>
 
@@ -35,7 +35,7 @@
           </UiButton>
           <UiButton
             class="modal-secondary-button"
-            @click="$emit('reset')"
+            @click="reset"
           >
             Full reset
           </UiButton>
@@ -50,55 +50,51 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { useRuntime } from '../useRuntime';
+import { useRuntimeState } from '../useRuntimeState';
+import { useUiState } from '../useUiState';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const props = defineProps<{
-  modelValue: boolean;
-  apiKey: string;
-  defaultContextWindowSize: number;
-}>();
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  save: [
-    payload: {
-      apiKey: string;
-      defaultContextWindowSize: number;
-    },
-  ];
-  reset: [];
-}>();
-
-const draftKey = ref(props.apiKey);
-const draftDefaultContextWindowSize = ref(props.defaultContextWindowSize);
-
-watch(
-  () => props.apiKey,
-  (value) => {
-    draftKey.value = value;
-  },
+const runtime = useRuntime();
+const state = useRuntimeState(runtime);
+const ui = useUiState();
+const draftKey = ref(state.value.settings.openRouterApiKey);
+const draftDefaultContextWindowSize = ref(
+  state.value.settings.defaultContextWindowSize,
 );
 
 watch(
-  () => props.defaultContextWindowSize,
-  (value) => {
-    draftDefaultContextWindowSize.value = value;
+  () => ui.showSettings,
+  (isOpen) => {
+    if (!isOpen) {
+      return;
+    }
+
+    draftKey.value = state.value.settings.openRouterApiKey;
+    draftDefaultContextWindowSize.value =
+      state.value.settings.defaultContextWindowSize;
   },
 );
 
 function close() {
-  emit('update:modelValue', false);
+  ui.showSettings = false;
 }
 
 function save() {
-  emit('save', {
-    apiKey: draftKey.value.trim(),
+  runtime.updateSettings({
+    openRouterApiKey: draftKey.value.trim(),
     defaultContextWindowSize: Math.max(
       1,
       Math.floor(draftDefaultContextWindowSize.value || 1),
     ),
   });
+  close();
+}
+
+function reset() {
+  runtime.reset();
+  ui.reopenAgentWizardAfterSettings = false;
   close();
 }
 </script>

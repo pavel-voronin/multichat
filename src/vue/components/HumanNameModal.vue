@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="human-modal-backdrop" @click.self="close">
+    <div v-if="ui.showHumanNameModal" class="human-modal-backdrop" @click.self="close">
       <div class="human-modal-card">
         <h2 class="human-modal-title">Edit human</h2>
 
@@ -34,40 +34,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { useRuntime } from '../useRuntime';
+import { useRuntimeState } from '../useRuntimeState';
+import { useUiState } from '../useUiState';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const props = defineProps<{
-  modelValue: boolean;
-  name: string;
-}>();
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  save: [payload: { name: string }];
-}>();
-
-const draftName = ref(props.name);
-
-watch(
-  () => props.name,
-  (value) => {
-    draftName.value = value;
-  },
+const runtime = useRuntime();
+const state = useRuntimeState(runtime);
+const ui = useUiState();
+const humanName = computed(
+  () =>
+    state.value.participants.find((participant) => participant.role === 'human')?.name ??
+    'Human',
 );
+const draftName = ref(humanName.value);
 
 watch(
-  () => props.modelValue,
+  () => ui.showHumanNameModal,
   (isOpen) => {
     if (isOpen) {
-      draftName.value = props.name;
+      draftName.value = humanName.value;
     }
   },
 );
 
 function close() {
-  emit('update:modelValue', false);
+  ui.showHumanNameModal = false;
 }
 
 function save() {
@@ -76,7 +70,7 @@ function save() {
     return;
   }
 
-  emit('save', { name });
+  runtime.updateHumanParticipant({ name });
   close();
 }
 </script>

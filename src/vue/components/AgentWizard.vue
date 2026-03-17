@@ -1,16 +1,16 @@
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="wizard-backdrop" @click.self="close">
+    <div v-if="ui.showAgentWizard" class="wizard-backdrop" @click.self="close">
       <div class="wizard-card">
         <h2 class="wizard-title">
           {{ agent ? 'Edit agent' : 'Create agent' }}
         </h2>
 
-        <div v-if="!apiKeyPresent" class="wizard-blocked">
+        <div v-if="!isApiKeyPresent" class="wizard-blocked">
           <p class="wizard-copy">
             OpenRouter key is required before creating agents.
           </p>
-          <UiButton class="wizard-primary-button" variant="primary" @click="$emit('openSettings')">
+          <UiButton class="wizard-primary-button" variant="primary" @click="openSettings">
             Open settings
           </UiButton>
         </div>
@@ -120,33 +120,24 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import type { AgentConfig, OpenRouterModel } from '../../core';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
+import { useRuntime } from '../useRuntime';
+import { useRuntimeState } from '../useRuntimeState';
+import { useUiState } from '../useUiState';
 import UiButton from './ui/UiButton.vue';
 import UiCheckbox from './ui/UiCheckbox.vue';
 import UiInput from './ui/UiInput.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
 
-const props = defineProps<{
-  modelValue: boolean;
-  apiKeyPresent: boolean;
-  agent?: AgentConfig | null;
-  fetchModels: () => Promise<OpenRouterModel[]>;
-}>();
-
-const emit = defineEmits<{
-  'update:modelValue': [value: boolean];
-  save: [
-    payload: {
-      id?: string;
-      name: string;
-      modelId: string;
-      pricing?: OpenRouterModel['pricing'];
-      systemPrompt: string;
-      contextWindowSize: number | null;
-    },
-  ];
-  openSettings: [];
-}>();
+const runtime = useRuntime();
+const state = useRuntimeState(runtime);
+const ui = useUiState();
+const agent = computed<AgentConfig | null>(
+  () => state.value.agents.find((item) => item.id === ui.editingAgentId) ?? null,
+);
+const isApiKeyPresent = computed(() =>
+  Boolean(state.value.settings.openRouterApiKey),
+);
 
 const models = ref<OpenRouterModel[]>([]);
 const isLoadingModels = ref(false);
@@ -198,7 +189,7 @@ const groupedModels = computed(() => {
 });
 
 watch(
-  () => props.agent,
+  agent,
   (agent) => {
     name.value = agent?.name ?? '';
     modelId.value = agent?.modelId ?? '';
@@ -210,9 +201,9 @@ watch(
 );
 
 watch(
-  () => props.modelValue,
+  () => ui.showAgentWizard,
   async (isOpen) => {
-    if (isOpen && props.apiKeyPresent) {
+    if (isOpen && isApiKeyPresent.value) {
       await loadModels();
     }
   },
@@ -222,7 +213,7 @@ async function loadModels() {
   isLoadingModels.value = true;
   modelsError.value = '';
   try {
-    models.value = await props.fetchModels();
+    models.value = await runtime.listModels();
     models.value.sort((left, right) => {
       const leftProvider = left.id.split('/')[0] ?? left.id;
       const rightProvider = right.id.split('/')[0] ?? right.id;
@@ -257,28 +248,57 @@ function applyPreset() {
 }
 
 function close() {
-  emit('update:modelValue', false);
+  ui.showAgentWizard = false;
 }
 
 function save() {
   const selectedModel = models.value.find((model) => model.id === modelId.value);
-
-  emit('save', {
-    id: props.agent?.id,
+  const payload = {
     name: name.value.trim(),
     modelId: modelId.value,
-    pricing: selectedModel?.pricing ?? props.agent?.pricing,
+    pricing: selectedModel?.pricing ?? agent.value?.pricing,
     systemPrompt: systemPrompt.value.trim(),
     contextWindowSize:
       contextWindowSize.value && contextWindowSize.value > 0
         ? Math.floor(contextWindowSize.value)
         : null,
-  });
+  };
+
+  if (agent.value?.id) {
+    runtime.updateAgent(agent.value.id, payload);
+  } else {
+    runtime.createAgent({
+      ...payload,
+      capabilities: {
+        prefersTools: true,
+        supportsToolUse: 'unknown',
+      },
+    });
+  }
+
   close();
 }
 
+function openSettings() {
+  ui.reopenAgentWizardAfterSettings = ui.showAgentWizard;
+  ui.showAgentWizard = false;
+  ui.showSettings = true;
+}
+
+watch(
+  () => ui.showSettings,
+  (isOpen, wasOpen) => {
+    if (isOpen || !wasOpen || !ui.reopenAgentWizardAfterSettings) {
+      return;
+    }
+
+    ui.reopenAgentWizardAfterSettings = false;
+    ui.showAgentWizard = true;
+  },
+);
+
 onMounted(async () => {
-  if (props.modelValue && props.apiKeyPresent) {
+  if (ui.showAgentWizard && isApiKeyPresent.value) {
     await loadModels();
   }
 });

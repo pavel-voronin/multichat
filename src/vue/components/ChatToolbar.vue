@@ -1,13 +1,13 @@
 <template>
   <header class="playground-toolbar">
-    <UiButton class="toolbar-button" size="md" @click="$emit('toggle-cutoffs')">
-      {{ showContextCutoffs ? 'Hide borders' : 'Show borders' }}
+    <UiButton class="toolbar-button" size="md" @click="toggleContextCutoffs">
+      {{ state.settings.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="$emit('toggle-cost-mode')">
+    <UiButton class="toolbar-button" size="md" @click="toggleCostDisplayMode">
       {{
-        costDisplayMode === 'off'
+        state.settings.costDisplayMode === 'off'
           ? 'Cost: off'
-          : costDisplayMode === 'request'
+          : state.settings.costDisplayMode === 'request'
             ? 'Cost: request'
           : 'Cost: net'
       }}
@@ -15,19 +15,23 @@
     <UiButton
       class="toolbar-button"
       size="md"
-      @click="$emit('toggle-silent-decisions')"
+      @click="toggleSilentDecisions"
     >
-      {{ showSilentDecisions ? 'Technical info: on' : 'Technical info: off' }}
+      {{
+        state.settings.showSilentDecisions
+          ? 'Technical info: on'
+          : 'Technical info: off'
+      }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="$emit('toggle-logs')">
-      {{ showLogs ? 'Logs: on' : 'Logs: off' }}
+    <UiButton class="toolbar-button" size="md" @click="ui.showLogsPanel = !ui.showLogsPanel">
+      {{ ui.showLogsPanel ? 'Logs: on' : 'Logs: off' }}
     </UiButton>
     <div class="toolbar-actions">
       <UiButton
         class="toolbar-button"
         variant="danger"
         size="md"
-        @click="$emit('reset-agents')"
+        @click="runtime.resetAgentHistoryContext()"
       >
         Reset agents
       </UiButton>
@@ -35,15 +39,15 @@
         class="toolbar-button"
         variant="danger"
         size="md"
-        :disabled="!canStop"
-        @click="$emit('stop')"
+        :disabled="!state.execution.isSweepRunning"
+        @click="runtime.stop()"
       >
         Stop
       </UiButton>
       <UiButton
         class="toolbar-button"
         size="md"
-        @click="$emit('open-settings')"
+        @click="ui.showSettings = true"
       >
         Settings
       </UiButton>
@@ -53,25 +57,37 @@
 
 <script setup lang="ts">
 import type { CostDisplayMode } from '../../core';
+import { useRuntime } from '../useRuntime';
+import { useRuntimeState } from '../useRuntimeState';
+import { useUiState } from '../useUiState';
 import UiButton from './ui/UiButton.vue';
 
-defineProps<{
-  showContextCutoffs: boolean;
-  costDisplayMode: CostDisplayMode;
-  showSilentDecisions: boolean;
-  showLogs: boolean;
-  canStop: boolean;
-}>();
+const runtime = useRuntime();
+const state = useRuntimeState(runtime);
+const ui = useUiState();
 
-defineEmits<{
-  'toggle-cutoffs': [];
-  'toggle-cost-mode': [];
-  'toggle-silent-decisions': [];
-  'toggle-logs': [];
-  'reset-agents': [];
-  stop: [];
-  'open-settings': [];
-}>();
+function toggleContextCutoffs() {
+  runtime.updateSettings({
+    showContextCutoffs: !state.value.settings.showContextCutoffs,
+  });
+}
+
+function toggleCostDisplayMode() {
+  const nextModeByCurrent: Record<CostDisplayMode, CostDisplayMode> = {
+    off: 'request',
+    request: 'net',
+    net: 'off',
+  };
+  runtime.updateSettings({
+    costDisplayMode: nextModeByCurrent[state.value.settings.costDisplayMode],
+  });
+}
+
+function toggleSilentDecisions() {
+  runtime.updateSettings({
+    showSilentDecisions: !state.value.settings.showSilentDecisions,
+  });
+}
 </script>
 
 <style scoped>
