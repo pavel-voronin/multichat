@@ -17,7 +17,21 @@
           :disabled="!canSend"
           @click="$emit('send')"
         >
-          Send
+          <span class="send-button-content">
+            <span class="send-button-label">Send</span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 16 16"
+              width="12"
+              height="12"
+              title="Enter"
+            >
+              <path
+                d="M13 3.5v5a1 1 0 0 1-1 1H5.2l2.1 2.1-.7.7-3.3-3.3 3.3-3.3.7.7-2.1 2.1H12V3.5h1Z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
         </UiButton>
       </div>
     </div>
@@ -75,5 +89,13 @@ defineExpose({
 
 .composer-actions {
   @apply flex shrink-0 gap-2 self-end;
+}
+
+.send-button-content {
+  @apply inline-flex items-center gap-1.5;
+}
+
+.send-button-label {
+  @apply leading-none;
 }
 </style>

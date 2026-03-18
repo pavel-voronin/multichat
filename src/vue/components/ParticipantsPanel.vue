@@ -167,7 +167,8 @@ function openDeleteAgentModal(participantId: string) {
 @reference "../../styles.css";
 
 .participants-column {
-  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-b-md border border-neutral-300 bg-white;
+  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-tr-md rounded-br-md border-y border-r border-neutral-300 bg-white;
+  border-bottom-left-radius: 0;
 }
 
 .participants-header {
