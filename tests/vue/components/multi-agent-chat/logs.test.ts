@@ -51,4 +51,36 @@ describe('MultiAgentChat logs panel', () => {
       'message-created',
     );
   });
+
+  it('shows a shared log stream across tabs', async () => {
+    const runtime = createRuntime();
+    runtime.updateSettings({ openRouterApiKey: 'key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'from first tab',
+      target: 'public',
+    });
+
+    runtime.createTab({ title: '#second' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'from second tab',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+    const logsButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Logs: off'));
+
+    expect(logsButton).toBeDefined();
+    await logsButton!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const text = wrapper.find('.logs-panel-text').text();
+    expect(text).toContain('from first tab');
+    expect(text).toContain('from second tab');
+  });
 });

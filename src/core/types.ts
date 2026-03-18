@@ -7,6 +7,9 @@ export type RuntimeEventType =
   | 'runtime-error'
   | 'sweep-stopped';
 export type DebugLogKind =
+  | 'tab-created'
+  | 'tab-renamed'
+  | 'tab-closed'
   | 'agent-created'
   | 'agent-updated'
   | 'agent-removed'
@@ -296,8 +299,6 @@ export interface ChatTabState {
   agents: AgentConfig[];
   timeline: TimelineEntry[];
   metrics: Record<string, AgentMetrics>;
-  debugLogs: DebugLogEntry[];
-  errors: RuntimeError[];
   execution: ExecutionState;
   requestTraces: Record<string, RequestTrace>;
   messageInspectionIndex: Record<string, MessageInspectionIndex>;
@@ -315,6 +316,8 @@ export interface ChatTabSummary {
 
 export interface WorkspaceState {
   settings: SettingsState;
+  debugLogs: DebugLogEntry[];
+  errors: RuntimeError[];
   tabs: ChatTabState[];
   activeTabId: string;
 }

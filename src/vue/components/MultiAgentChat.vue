@@ -1,10 +1,6 @@
 <template>
   <div class="playground-shell">
     <div class="playground-layout">
-      <div class="playground-toolbar-row">
-        <ChatToolbar />
-      </div>
-
       <div class="playground-tabs-row">
         <ChatTabs />
       </div>
@@ -30,7 +26,6 @@
 <script setup lang="ts">
 import AgentWizard from './AgentWizard.vue';
 import ChatOverlays from './ChatOverlays.vue';
-import ChatToolbar from './ChatToolbar.vue';
 import ChatTabs from './ChatTabs.vue';
 import ConversationPanel from './ConversationPanel.vue';
 import DeleteAgentModal from './DeleteAgentModal.vue';
@@ -49,12 +44,8 @@ import SettingsModal from './SettingsModal.vue';
 }
 
 .playground-layout {
-  @apply grid min-h-0 grid-cols-[1fr_17rem] grid-rows-[auto_auto_1fr_auto] gap-x-0 gap-y-0;
+  @apply grid min-h-0 grid-cols-[1fr_17rem] grid-rows-[auto_1fr_auto] gap-x-0 gap-y-0;
   height: 100%;
-}
-
-.playground-toolbar-row {
-  @apply col-span-2 mb-2 w-full;
 }
 
 .playground-tabs-row {

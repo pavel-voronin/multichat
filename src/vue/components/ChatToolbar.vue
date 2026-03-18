@@ -95,7 +95,7 @@ function toggleSilentDecisions() {
 @reference "../../styles.css";
 
 .playground-toolbar {
-  @apply flex min-h-0 w-full items-center gap-2 rounded-md border border-neutral-300 bg-white px-2 py-1.5;
+  @apply flex min-h-0 w-full items-center gap-2 border-b border-neutral-300 bg-neutral-50 px-3 py-1.5;
 }
 
 .toolbar-button {

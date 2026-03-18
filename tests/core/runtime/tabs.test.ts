@@ -54,6 +54,23 @@ describe('MultiChatRuntime tabs', () => {
     expect(runtime.getWorkspaceState().tabs[0]?.title).toBe('#default');
   });
 
+  it('records tab operations in the shared debug log', () => {
+    const runtime = createEmptyRuntime();
+    const firstTabId = runtime.getWorkspaceState().activeTabId;
+    const secondTab = runtime.createTab({ title: '#second' });
+
+    runtime.renameTab(secondTab.id, '#renamed');
+    runtime.moveTab(secondTab.id, 0);
+    runtime.activateTab(firstTabId);
+    runtime.closeTab(secondTab.id);
+
+    const kinds = runtime.getState().debugLogs.map((entry) => entry.kind);
+
+    expect(kinds).toContain('tab-created');
+    expect(kinds).toContain('tab-renamed');
+    expect(kinds).toContain('tab-closed');
+  });
+
   it('falls back to generated default name when renamed to empty', () => {
     const runtime = createEmptyRuntime();
     const secondTab = runtime.createTab();

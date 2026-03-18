@@ -168,6 +168,8 @@ describe('MultiChatRuntime history cutoffs', () => {
             showSilentDecisions: false,
             costDisplayMode: 'request',
           },
+          debugLogs: [],
+          errors: [],
           activeTabId: 'tab-1',
           tabs: [
             {
@@ -198,8 +200,6 @@ describe('MultiChatRuntime history cutoffs', () => {
                 },
               ],
               metrics: {},
-              debugLogs: [],
-              errors: [],
               execution: {
                 isSweepRunning: false,
                 queuedSweep: false,

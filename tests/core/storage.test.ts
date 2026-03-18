@@ -11,6 +11,8 @@ function createState(): WorkspaceState {
       showSilentDecisions: false,
       costDisplayMode: 'request',
     },
+    debugLogs: [],
+    errors: [],
     activeTabId: 'tab-1',
     tabs: [
       {
@@ -20,8 +22,6 @@ function createState(): WorkspaceState {
         agents: [],
         timeline: [],
         metrics: {},
-        debugLogs: [],
-        errors: [],
         execution: {
           isSweepRunning: false,
           queuedSweep: false,

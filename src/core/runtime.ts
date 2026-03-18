@@ -90,8 +90,6 @@ function createEmptyTabState(input: {
     agents: [],
     timeline: [],
     metrics: {},
-    debugLogs: [],
-    errors: [],
     execution: initialExecutionState(),
     requestTraces: {},
     messageInspectionIndex: {},
@@ -108,6 +106,8 @@ function initialWorkspace(config: RuntimeConfig): WorkspaceState {
   const tabId = 'tab-default';
   return {
     settings: initialSettings(config),
+    debugLogs: [],
+    errors: [],
     tabs: [
       createEmptyTabState({
         id: tabId,
@@ -143,6 +143,8 @@ function mergePersistedWorkspace(
       ...base.settings,
       ...persisted.settings,
     },
+    debugLogs: persisted.debugLogs ?? [],
+    errors: persisted.errors ?? [],
     tabs,
     activeTabId,
   };
@@ -169,8 +171,6 @@ function normalizeTabState(
     agents: (tab.agents ?? []).map(normalizeAgentConfig),
     timeline: tab.timeline ?? [],
     metrics: tab.metrics ?? {},
-    debugLogs: tab.debugLogs ?? [],
-    errors: tab.errors ?? [],
     execution: {
       ...initialExecutionState(),
       ...tab.execution,
@@ -740,6 +740,13 @@ export class MultiChatRuntime {
     if (input?.activate ?? true) {
       this.workspace.activeTabId = tab.id;
     }
+    this.pushDebugLog(
+      {
+        kind: 'tab-created',
+        details: `tab=${tab.title} tabId=${tab.id} activate=${input?.activate ?? true} source=${input?.source ?? 'user'}`,
+      },
+      tab,
+    );
     this.persistAndNotify();
     return deepClone(tab);
   }
@@ -756,7 +763,15 @@ export class MultiChatRuntime {
       return;
     }
 
+    const previousTitle = tab.title;
     tab.title = nextTitle;
+    this.pushDebugLog(
+      {
+        kind: 'tab-renamed',
+        details: `tabId=${tab.id} from=${JSON.stringify(previousTitle)} to=${JSON.stringify(nextTitle)} source=${_source}`,
+      },
+      tab,
+    );
     this.persistAndNotify();
   }
 
@@ -797,6 +812,13 @@ export class MultiChatRuntime {
       return;
     }
 
+    this.pushDebugLog(
+      {
+        kind: 'tab-closed',
+        details: `tab=${tab.title} tabId=${tab.id} source=${_source}`,
+      },
+      tab,
+    );
     this.workspace.tabs.splice(index, 1);
     this.abortControllers.delete(tab.id);
     this.lastProcessedVisibleContextKeys.delete(tab.id);
@@ -1894,7 +1916,7 @@ export class MultiChatRuntime {
     >,
     tab: ChatTabState,
   ): void {
-    tab.errors.push({
+    this.workspace.errors.push({
       id: this.createId(),
       createdAt: this.now().toISOString(),
       ...input,
@@ -1924,10 +1946,10 @@ export class MultiChatRuntime {
 
   private pushDebugLog(
     input: Omit<DebugLogEntry, 'id' | 'createdAt'>,
-    tab: ChatTabState,
+    _tab: ChatTabState,
   ): void {
-    tab.debugLogs.push({
-      id: `debug-${tab.debugLogs.length + 1}`,
+    this.workspace.debugLogs.push({
+      id: `debug-${this.workspace.debugLogs.length + 1}`,
       createdAt: this.now().toISOString(),
       ...input,
     });
@@ -2108,8 +2130,8 @@ export class MultiChatRuntime {
       timeline: tab.timeline,
       metrics: tab.metrics,
       settings: this.workspace.settings,
-      debugLogs: tab.debugLogs,
-      errors: tab.errors,
+      debugLogs: this.workspace.debugLogs,
+      errors: this.workspace.errors,
       execution: tab.execution,
       requestTraces: tab.requestTraces,
       messageInspectionIndex: tab.messageInspectionIndex,

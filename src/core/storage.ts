@@ -1,7 +1,7 @@
 import type { PersistenceAdapter, WorkspaceState } from './types';
 import { deepClone } from './utils';
 
-const STORAGE_VERSION = 7;
+const STORAGE_VERSION = 8;
 const STORAGE_KEY = 'multichat.runtime';
 
 interface StoredPayload {

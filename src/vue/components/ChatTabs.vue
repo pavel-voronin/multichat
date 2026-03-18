@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-title {
-  @apply block min-w-0 flex-1 truncate font-semibold;
+  @apply block min-w-0 flex-1 truncate;
 }
 
 .chat-tab-badge {
