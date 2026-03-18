@@ -58,8 +58,7 @@
 
 <script setup lang="ts">
 import { useTemplateRef, watchEffect } from 'vue';
-import type { CostDisplayMode } from '../../core';
-import type { CostTrackedItem } from '../utils/costing';
+import type { CostDisplayMode, CostTrackedItem } from '../types';
 
 defineProps<{
   message: (CostTrackedItem & { id: string }) | null;

@@ -330,7 +330,7 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { ChatMessage, RequestTrace } from '../../core';
 import { useRequestInspection } from '../composables/useRequestInspection';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 import {
   formatMessageAuthor,
@@ -348,12 +348,11 @@ const tabs = [
   { id: 'raw-json', label: 'Raw JSON' },
 ] as const;
 
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { state } = storeToRefs(chat);
 const ui = useUiStore();
 const inspection = useRequestInspection({
-  runtime,
+  chat,
   state,
   ui,
 });
@@ -375,7 +374,7 @@ const currentAction = computed(() => {
 });
 const parentTrace = computed(() =>
   currentTrace.value?.parentTraceId
-    ? runtime.getRequestTrace(currentTrace.value.parentTraceId)
+    ? chat.getRequestTrace(currentTrace.value.parentTraceId)
     : null,
 );
 const producedMessage = computed(() =>
@@ -417,7 +416,7 @@ const downstreamTraceCards = computed(() =>
     ? (messageGraph.value?.downstreamTraces ?? [])
     : currentTrace.value
       ? currentTrace.value.childTraceIds
-          .map((traceId) => runtime.getRequestTrace(traceId))
+          .map((traceId) => chat.getRequestTrace(traceId))
           .filter((trace): trace is RequestTrace => Boolean(trace))
       : [],
 );

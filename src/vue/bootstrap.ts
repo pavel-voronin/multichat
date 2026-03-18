@@ -6,6 +6,7 @@ import {
   type MultiChatRuntime,
 } from '../core';
 import { useMessageInputStore } from './stores/messageInput';
+import { usePreferencesStore } from './stores/preferences';
 import { useRuntimeStore } from './stores/runtime';
 import { useUiStore } from './stores/ui';
 import { setOverlayControls } from './useOverlayControls';
@@ -22,6 +23,7 @@ export function initializeChatApp(
   runtime: MultiChatRuntime = createDefaultRuntime(),
 ): MultiChatRuntime {
   useUiStore(pinia).reset();
+  usePreferencesStore(pinia).reset();
   useMessageInputStore(pinia).reset();
   useRuntimeStore(pinia).initialize(runtime);
   return runtime;

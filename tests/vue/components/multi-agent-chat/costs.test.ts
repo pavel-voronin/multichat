@@ -49,8 +49,6 @@ describe('MultiAgentChat cost display', () => {
     expect(costModeButton).toBeDefined();
 
     await costModeButton!.trigger('click');
-
-    expect(runtime.getState().settings.costDisplayMode).toBe('net');
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain('$0.4400');
@@ -95,8 +93,6 @@ describe('MultiAgentChat cost display', () => {
 
     await costModeButton!.trigger('click');
     await costModeButton!.trigger('click');
-
-    expect(runtime.getState().settings.costDisplayMode).toBe('off');
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).not.toContain('$0.0200');

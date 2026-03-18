@@ -59,73 +59,17 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed } from 'vue';
-import type { Participant } from '../../core';
 import { useMessageInputStore } from '../stores/messageInput';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 import { useOverlayControls } from '../useOverlayControls';
-import { formatMessageCost } from '../utils/costing';
 import UiButton from './ui/UiButton.vue';
 
-const runtimeStore = useRuntimeStore();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { participantRows } = storeToRefs(chat);
 const ui = useUiStore();
 const messageInput = useMessageInputStore();
 const overlayControls = useOverlayControls();
-const visibleParticipants = computed(() =>
-  state.value.participants.filter((participant) => {
-    if (participant.role === 'human') {
-      return true;
-    }
-
-    const agent = state.value.agents.find((item) => item.id === participant.id);
-    return agent?.isHidden !== true;
-  }),
-);
-const participantRows = computed(() =>
-  visibleParticipants.value.map((participant) => ({
-    id: participant.id,
-    name: participant.name,
-    role: participant.role,
-    subtitle: participantSubtitle(participant),
-    showMoney: showParticipantMoney(participant),
-    spentSummary: participantSpentSummary(participant),
-  })),
-);
-
-function participantSubtitle(participant: Participant): string {
-  if (participant.role === 'human') {
-    return 'human';
-  }
-
-  return (
-    state.value.agents.find((agent) => agent.id === participant.id)?.modelId ??
-    participant.role
-  );
-}
-
-function showParticipantMoney(participant: Participant): boolean {
-  if (state.value.settings.costDisplayMode === 'off') {
-    return false;
-  }
-
-  return (
-    participant.role === 'agent' &&
-    state.value.agents.find((agent) => agent.id === participant.id)
-      ?.isHidden !== true
-  );
-}
-
-function participantSpentSummary(participant: Participant): string {
-  if (participant.role !== 'agent') {
-    return formatMessageCost(0);
-  }
-
-  return formatMessageCost(
-    state.value.metrics[participant.id]?.estimatedCost ?? 0,
-  );
-}
 
 function openCreateAgentWizard() {
   ui.editingAgentId = null;
@@ -133,9 +77,7 @@ function openCreateAgentWizard() {
 }
 
 function openParticipantEditor(participantId: string) {
-  const participant = state.value.participants.find(
-    (item) => item.id === participantId,
-  );
+  const participant = participantRows.value.find((item) => item.id === participantId);
   if (!participant) {
     return;
   }
@@ -150,9 +92,7 @@ function openParticipantEditor(participantId: string) {
 }
 
 function openDeleteAgentModal(participantId: string) {
-  const participant = state.value.participants.find(
-    (item) => item.id === participantId,
-  );
+  const participant = participantRows.value.find((item) => item.id === participantId);
   if (!participant || participant.role !== 'agent') {
     return;
   }
@@ -167,7 +107,8 @@ function openDeleteAgentModal(participantId: string) {
 @reference "../../styles.css";
 
 .participants-column {
-  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-tr-md rounded-br-md border-y border-r border-neutral-300 bg-white;
+  @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-br-md border-y border-r border-neutral-300 bg-white;
+  border-top-width: 0;
   border-bottom-left-radius: 0;
 }
 

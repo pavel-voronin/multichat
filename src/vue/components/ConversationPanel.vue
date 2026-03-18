@@ -1,7 +1,5 @@
 <template>
   <section class="chat-column">
-    <ChatToolbar />
-
     <div ref="messageLog" class="chat-log" @scroll="updatePinnedState">
       <ChatTimeline />
     </div>
@@ -24,7 +22,6 @@ import { useMessageInputStore } from '../stores/messageInput';
 import { useRuntimeStore } from '../stores/runtime';
 import ChatComposer from './ChatComposer.vue';
 import ChatTimeline from './ChatTimeline.vue';
-import ChatToolbar from './ChatToolbar.vue';
 
 const messageLogRef = useTemplateRef<HTMLDivElement>('messageLog');
 const messageInputRef = useTemplateRef<{ focus: () => void }>('messageInput');
@@ -63,7 +60,8 @@ function updatePinnedState() {
 @reference "../../styles.css";
 
 .chat-column {
-  @apply h-full grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-bl-md border border-neutral-300 bg-white;
+  @apply h-full grid min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-bl-md border border-neutral-300 bg-white;
+  border-top-width: 0;
 }
 
 .chat-log {

@@ -1,9 +1,10 @@
 import { mount } from '@vue/test-utils';
-import { createPinia } from 'pinia';
+import { createPinia, type Pinia } from 'pinia';
 import { vi } from 'vitest';
 import MultiAgentChat from '../../../../src/vue/components/MultiAgentChat.vue';
 import { MultiChatRuntime } from '../../../../src/core/runtime';
 import { initializeChatApp } from '../../../../src/vue/bootstrap';
+import { usePreferencesStore } from '../../../../src/vue/stores/preferences';
 import type {
   ChatMessage,
   OpenRouterTransport,
@@ -60,13 +61,27 @@ export function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
     .map((entry) => entry.message);
 }
 
-export function mountChat(runtime: MultiChatRuntime) {
+export function mountChat(
+  runtime: MultiChatRuntime,
+  options?: {
+    configure?: (pinia: Pinia) => void;
+  },
+) {
   const pinia = createPinia();
   initializeChatApp(pinia, runtime);
+  options?.configure?.(pinia);
   return mount(MultiAgentChat, {
     attachTo: document.body,
     global: {
       plugins: [pinia],
     },
   });
+}
+
+export function setTechnicalInfoVisible(pinia: Pinia): void {
+  usePreferencesStore(pinia).showSilentDecisions = true;
+}
+
+export function setContextPreviewVisible(pinia: Pinia): void {
+  usePreferencesStore(pinia).showContextCutoffs = true;
 }

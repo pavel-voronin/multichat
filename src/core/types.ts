@@ -28,7 +28,6 @@ export type DebugLogKind =
   | 'runtime-reset';
 export type AgentExecutionMode = 'tools' | 'json';
 export type ToolSupport = 'unknown' | 'supported' | 'unsupported';
-export type CostDisplayMode = 'off' | 'request' | 'net';
 export type RequestTraceStatus = 'running' | 'succeeded' | 'failed' | 'aborted';
 export type RequestTraceLinkKind =
   | 'parent'
@@ -173,9 +172,6 @@ export interface AgentContextCutoff {
 export interface SettingsState {
   openRouterApiKey: string;
   defaultContextWindowSize: number;
-  showContextCutoffs: boolean;
-  showSilentDecisions: boolean;
-  costDisplayMode: CostDisplayMode;
 }
 
 export interface RuntimeError {
@@ -223,12 +219,7 @@ export interface TimelineTechnicalEventEntry extends TimelineEntryBase {
 export interface TimelineHistoryCutoffEntry extends TimelineEntryBase {
   kind: 'history-cutoff';
   cutoff: {
-    source: 'manual' | 'preview';
-    label?: string;
-    anchor?: ContextCutoffAnchor;
-    agentIds?: string[];
-    agentNames?: string[];
-    usesGlobalWindow?: boolean;
+    source: 'manual';
   };
 }
 
@@ -236,23 +227,6 @@ export type TimelineEntry =
   | TimelineMessageEntry
   | TimelineTechnicalEventEntry
   | TimelineHistoryCutoffEntry;
-
-export interface TimelineFilterState {
-  showTechnicalEvents: boolean;
-  showPreviewCutoffs: boolean;
-}
-
-export type VisibleTimelineEntry =
-  | (TimelineMessageEntry & {
-      sortAt: number;
-      isMuted: boolean;
-    })
-  | (TimelineTechnicalEventEntry & {
-      sortAt: number;
-    })
-  | (TimelineHistoryCutoffEntry & {
-      sortAt: number;
-    });
 
 export interface DebugLogEntry {
   id: string;
@@ -285,11 +259,6 @@ export interface ExecutionState {
   stopRequested: boolean;
 }
 
-export interface ChatTabUiMeta {
-  unreadCount?: number;
-  headerBadge?: string | number | null;
-}
-
 export type TabMutationSource = 'user' | 'system' | 'future-event';
 
 export interface ChatTabState {
@@ -302,16 +271,6 @@ export interface ChatTabState {
   execution: ExecutionState;
   requestTraces: Record<string, RequestTrace>;
   messageInspectionIndex: Record<string, MessageInspectionIndex>;
-  draftMessage: string;
-  uiMeta: ChatTabUiMeta;
-}
-
-export interface ChatTabSummary {
-  id: string;
-  title: string;
-  isActive: boolean;
-  unreadCount: number;
-  headerBadge: string | number | null;
 }
 
 export interface WorkspaceState {
@@ -324,7 +283,6 @@ export interface WorkspaceState {
 
 export interface RuntimeState {
   activeTabId: string;
-  draftMessage: string;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];

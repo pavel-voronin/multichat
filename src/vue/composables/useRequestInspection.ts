@@ -1,14 +1,14 @@
 import { computed, type Ref } from 'vue';
 import type {
   ChatMessage,
-  MultiChatRuntime,
   RequestTrace,
   RuntimeState,
 } from '../../core';
+import type { useChatStore } from '../stores/chat';
 import type { InspectionTab, useUiStore } from '../stores/ui';
 
 export function useRequestInspection(input: {
-  runtime: MultiChatRuntime;
+  chat: ReturnType<typeof useChatStore>;
   state: Readonly<Ref<RuntimeState>>;
   ui: ReturnType<typeof useUiStore>;
 }) {
@@ -19,17 +19,17 @@ export function useRequestInspection(input: {
   );
   const currentTrace = computed(() =>
     input.ui.selectedTraceId
-      ? input.runtime.getRequestTrace(input.ui.selectedTraceId)
+      ? input.chat.getRequestTrace(input.ui.selectedTraceId)
       : null,
   );
   const messageGraph = computed(() =>
     input.ui.selectedMessageId
-      ? input.runtime.getMessageInspectionGraph(input.ui.selectedMessageId)
+      ? input.chat.getMessageInspectionGraph(input.ui.selectedMessageId)
       : null,
   );
   const relatedTraces = computed(() =>
     currentTrace.value
-      ? input.runtime.getRelatedRequestTraces(currentTrace.value.id)
+      ? input.chat.getRelatedRequestTraces(currentTrace.value.id)
       : [],
   );
 
@@ -69,16 +69,11 @@ export function useRequestInspection(input: {
   }
 
   function canInspectMessage(message: ChatMessage): boolean {
-    if (message.sourceTraceId) {
-      return true;
-    }
-
-    const subject = input.runtime.getInspectionSubjectForMessage(message.id);
-    return subject.downstreamTraces.length > 0;
+    return input.chat.canInspectMessage(message);
   }
 
   function getInspectionSubjectForMessage(messageId: string) {
-    return input.runtime.getInspectionSubjectForMessage(messageId);
+    return input.chat.getInspectionSubjectForMessage(messageId);
   }
 
   function relatedMessagesForTrace(trace: RequestTrace): ChatMessage[] {

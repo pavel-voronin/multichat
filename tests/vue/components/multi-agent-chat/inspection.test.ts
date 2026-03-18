@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { MultiChatRuntime } from '../../../../src/core/runtime';
 import type { OpenRouterTransport } from '../../../../src/core';
-import { createRuntime, mountChat } from './helpers';
+import { createRuntime, mountChat, setTechnicalInfoVisible } from './helpers';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -88,14 +88,17 @@ describe('MultiAgentChat request inspection', () => {
 
   it('opens request inspection from a silent technical event timestamp', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ showSilentDecisions: true });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'stay silent please',
       target: 'public',
     });
 
-    const wrapper = mountChat(runtime);
+    const wrapper = mountChat(runtime, {
+      configure: (pinia) => {
+        setTechnicalInfoVisible(pinia);
+      },
+    });
 
     await wrapper
       .get('.runtime-line .message-time-trigger-active')

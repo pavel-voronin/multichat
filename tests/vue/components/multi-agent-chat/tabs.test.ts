@@ -43,8 +43,6 @@ describe('MultiAgentChat tabs', () => {
     const textarea = wrapper.get('textarea');
     await textarea.setValue('draft one');
 
-    expect(runtime.getWorkspaceState().tabs[0]?.draftMessage).toBe('draft one');
-
     const secondTabButton = wrapper
       .findAll('.chat-tab')
       .find((tab) => tab.text().includes('#second'));
@@ -58,7 +56,6 @@ describe('MultiAgentChat tabs', () => {
     expect((secondTextarea.element as HTMLTextAreaElement).value).toBe('');
 
     await secondTextarea.setValue('draft two');
-    expect(runtime.getWorkspaceState().tabs[1]?.draftMessage).toBe('draft two');
 
     const firstTabButton = wrapper
       .findAll('.chat-tab')

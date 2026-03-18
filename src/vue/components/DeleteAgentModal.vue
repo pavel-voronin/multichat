@@ -29,11 +29,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const runtime = useRuntimeStore().requireRuntime();
+const chat = useChatStore();
 const ui = useUiStore();
 const modalCopy = computed(() =>
   ui.pendingDeleteAgentName
@@ -53,7 +53,7 @@ function confirm() {
     return;
   }
 
-  runtime.removeAgent(ui.pendingDeleteAgentId);
+  chat.removeAgent(ui.pendingDeleteAgentId);
   close();
 }
 </script>

@@ -80,6 +80,47 @@ describe('MultiChatRuntime history cutoffs', () => {
     ).toBe(false);
   });
 
+  it('keeps only the latest manual cutoff after repeated resets', async () => {
+    const runtime = createRuntime();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'before first reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    runtime.resetAgentHistoryContext();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'between resets',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    runtime.resetAgentHistoryContext();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'after second reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    const manualCutoffs = runtime
+      .getTimelineEntries()
+      .filter(
+        (entry) =>
+          entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual',
+      );
+
+    expect(manualCutoffs).toHaveLength(1);
+    expect(
+      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+    ).toEqual(['after second reset']);
+  });
+
   it('combines manual reset with per-agent and global windows in preview cutoffs', async () => {
     const runtime = createRuntime();
     runtime.updateSettings({ defaultContextWindowSize: 3 });
@@ -152,7 +193,7 @@ describe('MultiChatRuntime history cutoffs', () => {
     ]);
   });
 
-  it('persists manual cutoff and cutoff preview settings', () => {
+  it('persists manual cutoff state', () => {
     const save = vi.fn();
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
@@ -164,9 +205,6 @@ describe('MultiChatRuntime history cutoffs', () => {
           settings: {
             openRouterApiKey: 'persisted-key',
             defaultContextWindowSize: 5,
-            showContextCutoffs: true,
-            showSilentDecisions: false,
-            costDisplayMode: 'request',
           },
           debugLogs: [],
           errors: [],
@@ -208,11 +246,6 @@ describe('MultiChatRuntime history cutoffs', () => {
               },
               requestTraces: {},
               messageInspectionIndex: {},
-              draftMessage: '',
-              uiMeta: {
-                unreadCount: 0,
-                headerBadge: null,
-              },
             },
           ],
         }),
@@ -232,7 +265,7 @@ describe('MultiChatRuntime history cutoffs', () => {
       id: 'cutoff-1',
       createdAt: '2026-03-16T10:01:00.000Z',
     });
-    expect(state.settings.showContextCutoffs).toBe(true);
+    expect(state.settings.defaultContextWindowSize).toBe(5);
     expect(save).toHaveBeenCalled();
   });
 
@@ -281,10 +314,10 @@ describe('MultiChatRuntime history cutoffs', () => {
     ]);
   });
 
-  it('labels preview cutoff as all agents when all active agents share one cutoff', async () => {
+  it('groups cutoff previews for all active agents when they share one cutoff', async () => {
     const runtime = createRuntime();
     runtime.updateSettings({ defaultContextWindowSize: 1 });
-    runtime.createAgent({
+    const alpha = runtime.createAgent({
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
@@ -312,21 +345,11 @@ describe('MultiChatRuntime history cutoffs', () => {
       triggerSweep: false,
     });
 
-    const previewCutoff = runtime
-      .getVisibleTimelineEntries({
-        participantId: 'human',
-        filters: { showPreviewCutoffs: true },
-      })
-      .find(
-        (entry) =>
-          entry.kind === 'history-cutoff' && entry.cutoff.source === 'preview',
-      );
-
-    expect(previewCutoff).toBeDefined();
-    expect(
-      previewCutoff && previewCutoff.kind === 'history-cutoff'
-        ? previewCutoff.cutoff.label
-        : '',
-    ).toBe('context for: all agents');
+    expect(runtime.getAgentContextCutoffs()).toEqual([
+      expect.objectContaining({
+        agentIds: [alpha.id],
+        agentNames: ['Alpha'],
+      }),
+    ]);
   });
 });

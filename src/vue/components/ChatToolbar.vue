@@ -1,20 +1,20 @@
 <template>
   <header class="playground-toolbar">
-    <UiButton class="toolbar-button" size="md" @click="toggleContextCutoffs">
-      {{ state.settings.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
+    <UiButton class="toolbar-button" size="md" @click="chat.toggleContextCutoffs">
+      {{ preferences.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="toggleCostDisplayMode">
+    <UiButton class="toolbar-button" size="md" @click="chat.cycleCostDisplayMode">
       {{
-        state.settings.costDisplayMode === 'off'
+        preferences.costDisplayMode === 'off'
           ? 'Cost: off'
-          : state.settings.costDisplayMode === 'request'
+          : preferences.costDisplayMode === 'request'
             ? 'Cost: request'
             : 'Cost: net'
       }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="toggleSilentDecisions">
+    <UiButton class="toolbar-button" size="md" @click="chat.toggleSilentDecisions">
       {{
-        state.settings.showSilentDecisions
+        preferences.showSilentDecisions
           ? 'Technical info: on'
           : 'Technical info: off'
       }}
@@ -31,7 +31,7 @@
         class="toolbar-button"
         variant="danger"
         size="md"
-        @click="runtime.resetAgentHistoryContext()"
+        @click="chat.resetAgentHistoryContext()"
       >
         Reset agents
       </UiButton>
@@ -40,7 +40,7 @@
         variant="danger"
         size="md"
         :disabled="!state.execution.isSweepRunning"
-        @click="runtime.stop()"
+        @click="chat.stop()"
       >
         Stop
       </UiButton>
@@ -57,45 +57,21 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import type { CostDisplayMode } from '../../core';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { preferences, state } = storeToRefs(chat);
 const ui = useUiStore();
-
-function toggleContextCutoffs() {
-  runtime.updateSettings({
-    showContextCutoffs: !state.value.settings.showContextCutoffs,
-  });
-}
-
-function toggleCostDisplayMode() {
-  const nextModeByCurrent: Record<CostDisplayMode, CostDisplayMode> = {
-    off: 'request',
-    request: 'net',
-    net: 'off',
-  };
-  runtime.updateSettings({
-    costDisplayMode: nextModeByCurrent[state.value.settings.costDisplayMode],
-  });
-}
-
-function toggleSilentDecisions() {
-  runtime.updateSettings({
-    showSilentDecisions: !state.value.settings.showSilentDecisions,
-  });
-}
 </script>
 
 <style scoped>
 @reference "../../styles.css";
 
 .playground-toolbar {
-  @apply flex min-h-0 w-full items-center gap-2 border-b border-neutral-300 bg-neutral-50 px-3 py-1.5;
+  @apply flex min-h-0 w-full items-center gap-2 border-x border-b border-neutral-300 bg-toolbar-surface px-3 py-1.5;
+  border-top-right-radius: 0.375rem;
 }
 
 .toolbar-button {

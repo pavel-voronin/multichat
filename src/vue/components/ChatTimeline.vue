@@ -80,7 +80,7 @@
           <button
             type="button"
             class="cutoff-link"
-            @click="runtime.clearHistoryBeforeAgentCutoff()"
+            @click="chat.clearHistoryBeforeAgentCutoff()"
           >
             Clear chat history
           </button>
@@ -96,16 +96,12 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed } from 'vue';
-import type {
-  ChatMessage,
-  RuntimeEvent,
-  VisibleTimelineEntry,
-} from '../../core';
+import type { ChatMessage, RuntimeEvent } from '../../core';
 import { useRequestInspection } from '../composables/useRequestInspection';
 import { useMessageInputStore } from '../stores/messageInput';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
+import type { VisibleTimelineEntry } from '../types';
 import { useOverlayControls } from '../useOverlayControls';
 import {
   formatMessageAuthor,
@@ -121,32 +117,20 @@ import {
   shouldShowMessageCost,
 } from '../utils/costing';
 
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { state, preferences, visibleTimelineEntries } = storeToRefs(chat);
 const messageInputState = useMessageInputStore();
 const overlayControls = useOverlayControls();
 const ui = useUiStore();
 const inspection = useRequestInspection({
-  runtime,
+  chat,
   state,
   ui,
 });
 const messageSeparator = ' ';
 const formatMessageAuthorForTemplate = formatMessageAuthorForView;
 const formatTechnicalEventLabelForTemplate = formatTechnicalEventLabelForView;
-const human = computed(() =>
-  state.value.participants.find((participant) => participant.role === 'human'),
-);
-const chatTimelineEntries = computed(() =>
-  runtime.getVisibleTimelineEntries({
-    participantId: human.value?.id ?? 'human',
-    filters: {
-      showTechnicalEvents: state.value.settings.showSilentDecisions,
-      showPreviewCutoffs: state.value.settings.showContextCutoffs,
-    },
-  }),
-);
+const chatTimelineEntries = visibleTimelineEntries;
 
 function canInspectMessage(message: ChatMessage) {
   return inspection.canInspectMessage(message);
@@ -155,19 +139,19 @@ function canInspectMessage(message: ChatMessage) {
 function displayedCost(
   item: Parameters<typeof displayedMessageCost>[0],
 ): number {
-  return displayedMessageCost(item, state.value.settings.costDisplayMode);
+  return displayedMessageCost(item, preferences.value.costDisplayMode);
 }
 
 function shouldShowCost(
   item: Parameters<typeof shouldShowMessageCost>[0],
 ): boolean {
-  return shouldShowMessageCost(item, state.value.settings.costDisplayMode);
+  return shouldShowMessageCost(item, preferences.value.costDisplayMode);
 }
 
 function costSummaryClass(
   item: Parameters<typeof messageCostSummaryClass>[0],
 ): string {
-  return messageCostSummaryClass(item, state.value.settings.costDisplayMode);
+  return messageCostSummaryClass(item, preferences.value.costDisplayMode);
 }
 
 function openInspection(message: ChatMessage) {
@@ -192,7 +176,7 @@ function openInspection(message: ChatMessage) {
 }
 
 function canInspectEvent(event: RuntimeEvent) {
-  return Boolean(event.sourceTraceId);
+  return chat.canInspectEvent(event);
 }
 
 function openEventInspection(event: RuntimeEvent) {

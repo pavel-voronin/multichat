@@ -8,7 +8,6 @@ afterEach(() => {
 describe('MultiAgentChat history controls', () => {
   it('shows a manual cutoff banner and mutes older messages after reset', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ showSilentDecisions: true });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'Before cutoff',
@@ -22,6 +21,11 @@ describe('MultiAgentChat history controls', () => {
     });
 
     const wrapper = mountChat(runtime);
+    await wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Technical info: off'))!
+      .trigger('click');
+    await wrapper.vm.$nextTick();
 
     await wrapper
       .findAll('.toolbar-button')
@@ -56,7 +60,6 @@ describe('MultiAgentChat history controls', () => {
 
   it('clears older messages when clicking the cutoff link', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ showSilentDecisions: true });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'Before cutoff',
@@ -64,6 +67,11 @@ describe('MultiAgentChat history controls', () => {
     });
 
     const wrapper = mountChat(runtime);
+    await wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Technical info: off'))!
+      .trigger('click');
+    await wrapper.vm.$nextTick();
 
     await wrapper
       .findAll('.toolbar-button')
@@ -83,6 +91,40 @@ describe('MultiAgentChat history controls', () => {
     expect(wrapper.text()).not.toContain('stayed silent: noop');
     expect(wrapper.text()).toContain('After cutoff');
     expect(wrapper.findAll('.message-line-muted')).toHaveLength(0);
+  });
+
+  it('renders only the latest manual cutoff banner after repeated resets', async () => {
+    const runtime = createRuntime();
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Before first reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    const wrapper = mountChat(runtime);
+    const resetButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text() === 'Reset agents')!;
+
+    await resetButton.trigger('click');
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Between resets',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    await resetButton.trigger('click');
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'After second reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    expect(wrapper.findAll('.cutoff-banner-manual')).toHaveLength(1);
+    expect(wrapper.findAll('.cutoff-link')).toHaveLength(1);
   });
 
   it('keeps context preview hidden by default', async () => {
@@ -139,8 +181,6 @@ describe('MultiAgentChat history controls', () => {
 
     expect(contextBordersButton).toBeDefined();
     await contextBordersButton!.trigger('click');
-
-    expect(runtime.getState().settings.showContextCutoffs).toBe(true);
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain('context for: Alpha');

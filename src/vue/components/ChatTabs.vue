@@ -85,26 +85,15 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
-import { useRuntimeStore } from '../stores/runtime';
+import type { RenderedTab } from '../types';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 
 type EditableInput = HTMLInputElement | null;
 type TabElement = HTMLDivElement | null;
-type RenderedTab = {
-  id: string;
-  title: string;
-  isActive: boolean;
-  unreadCount: number;
-  headerBadge: string | number | null;
-  header: {
-    title: string;
-    badge: string | number | null;
-  };
-};
 
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { workspace } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { workspace, renderedTabs } = storeToRefs(chat);
 const ui = useUiStore();
 const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
@@ -120,24 +109,9 @@ const scrollElementRef = useTemplateRef<HTMLDivElement>('scrollElement');
 const EMPTY_RAIL_DOUBLE_CLICK_DELAY_MS = 400;
 const EMPTY_RAIL_DOUBLE_CLICK_MOVE_THRESHOLD_PX = 6;
 
-const renderedTabs = computed<RenderedTab[]>(() =>
-  workspace.value.tabs.map((tab) => ({
-    ...tab,
-    isActive: tab.id === workspace.value.activeTabId,
-    unreadCount: tab.uiMeta.unreadCount ?? 0,
-    headerBadge: tab.uiMeta.headerBadge ?? null,
-    header: {
-      title: tab.title,
-      badge:
-        tab.uiMeta.headerBadge ??
-        ((tab.uiMeta.unreadCount ?? 0) > 0 ? tab.uiMeta.unreadCount ?? 0 : null),
-    },
-  })),
-);
-
 function createTab() {
   cancelRename();
-  const tab = runtime.createTab({ activate: true });
+  const tab = chat.createTab({ activate: true });
   ui.resetChatScopedState();
   void nextTick(() => {
     scrollTabIntoView(tab.id);
@@ -154,7 +128,7 @@ function activateTab(tabId: string) {
   }
 
   cancelRename();
-  runtime.activateTab(tabId);
+  chat.activateTab(tabId);
   ui.resetChatScopedState();
   void nextTick(() => {
     scrollTabIntoView(tabId);
@@ -172,7 +146,7 @@ function startRename(tab: RenderedTab) {
 }
 
 function commitRename(tab: RenderedTab) {
-  runtime.renameTab(tab.id, editingTitle.value);
+  chat.renameTab(tab.id, editingTitle.value);
   cancelRename();
 }
 
@@ -250,7 +224,7 @@ function handleDocumentPointerDown(event: PointerEvent) {
 
 function closeTab(tabId: string) {
   cancelRename();
-  runtime.closeTab(tabId);
+  chat.closeTab(tabId);
   ui.resetChatScopedState();
 }
 
@@ -271,7 +245,7 @@ function handleDragOver(targetTabId: string) {
     return;
   }
 
-  runtime.moveTab(sourceTabId, targetIndex);
+  chat.moveTab(sourceTabId, targetIndex);
 }
 
 function handleDrop(targetTabId: string, event: DragEvent) {
@@ -398,7 +372,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-active {
-  @apply z-10 border-b-neutral-100 bg-white text-neutral-950;
+  @apply z-10 border-b-transparent bg-toolbar-surface text-neutral-950;
 }
 
 .chat-tab-dragging {

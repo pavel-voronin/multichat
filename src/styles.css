@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-toolbar-surface: #fafafa;
+}
+
 @layer base {
   *,
   ::before,

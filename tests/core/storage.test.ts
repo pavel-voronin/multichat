@@ -7,9 +7,6 @@ function createState(): WorkspaceState {
     settings: {
       openRouterApiKey: 'abc',
       defaultContextWindowSize: 40,
-      showContextCutoffs: false,
-      showSilentDecisions: false,
-      costDisplayMode: 'request',
     },
     debugLogs: [],
     errors: [],
@@ -30,11 +27,6 @@ function createState(): WorkspaceState {
         },
         requestTraces: {},
         messageInspectionIndex: {},
-        draftMessage: '',
-        uiMeta: {
-          unreadCount: 0,
-          headerBadge: null,
-        },
       },
     ],
   };

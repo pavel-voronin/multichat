@@ -1,2 +1,6 @@
 export { default as MultiAgentChat } from './components/MultiAgentChat.vue';
-export * from '../core';
+export {
+  createDefaultRuntime,
+  disposeChatApp,
+  initializeChatApp,
+} from './bootstrap';

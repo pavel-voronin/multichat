@@ -6,7 +6,6 @@ import type {
   AgentMetrics,
   ChatMessage,
   ChatTabState,
-  ChatTabSummary,
   ContextCutoffAnchor,
   DebugLogEntry,
   MessageInspectionIndex,
@@ -20,10 +19,8 @@ import type {
   SettingsState,
   TabMutationSource,
   TimelineEntry,
-  TimelineFilterState,
   TimelineHistoryCutoffEntry,
   TimelineMessageEntry,
-  VisibleTimelineEntry,
   WorkspaceState,
   TransportUsage,
 } from './types';
@@ -63,9 +60,6 @@ function initialSettings(config: RuntimeConfig): SettingsState {
   return {
     openRouterApiKey: '',
     defaultContextWindowSize: config.maxContextMessages ?? 40,
-    showContextCutoffs: false,
-    showSilentDecisions: false,
-    costDisplayMode: 'request',
   };
 }
 
@@ -93,11 +87,6 @@ function createEmptyTabState(input: {
     execution: initialExecutionState(),
     requestTraces: {},
     messageInspectionIndex: {},
-    draftMessage: '',
-    uiMeta: {
-      unreadCount: 0,
-      headerBadge: null,
-    },
   };
 }
 
@@ -180,11 +169,6 @@ function normalizeTabState(
     },
     requestTraces: tab.requestTraces ?? {},
     messageInspectionIndex: tab.messageInspectionIndex ?? {},
-    draftMessage: tab.draftMessage ?? '',
-    uiMeta: {
-      unreadCount: tab.uiMeta?.unreadCount ?? 0,
-      headerBadge: tab.uiMeta?.headerBadge ?? null,
-    },
   };
 }
 
@@ -228,16 +212,6 @@ export class MultiChatRuntime {
 
   getWorkspaceState(): WorkspaceState {
     return deepClone(this.workspace);
-  }
-
-  getTabSummaries(): ChatTabSummary[] {
-    return this.workspace.tabs.map((tab) => ({
-      id: tab.id,
-      title: tab.title,
-      isActive: tab.id === this.workspace.activeTabId,
-      unreadCount: tab.uiMeta.unreadCount ?? 0,
-      headerBadge: tab.uiMeta.headerBadge ?? null,
-    }));
   }
 
   subscribe(listener: RuntimeListener): () => void {
@@ -377,93 +351,6 @@ export class MultiChatRuntime {
         .filter((item): item is ChatMessage => Boolean(item))
         .map((item) => deepClone(item)),
     };
-  }
-
-  getVisibleTimelineEntries(input: {
-    participantId: string;
-    filters?: Partial<TimelineFilterState>;
-    tabId?: string;
-  }): VisibleTimelineEntry[] {
-    const tab = this.requireTab(input.tabId ?? this.workspace.activeTabId);
-    const filters: TimelineFilterState = {
-      showTechnicalEvents: false,
-      showPreviewCutoffs: false,
-      ...input.filters,
-    };
-    const activeManualCutoffIndex = this.getActiveManualCutoffIndex(tab);
-    const visibleEntries: VisibleTimelineEntry[] = [];
-    const visibleMessages: ChatMessage[] = [];
-
-    for (const [index, entry] of tab.timeline.entries()) {
-      if (entry.kind === 'message') {
-        if (
-          !this.isMessageVisibleToParticipant(
-            entry.message,
-            input.participantId,
-          )
-        ) {
-          continue;
-        }
-
-        visibleMessages.push(entry.message);
-        visibleEntries.push({
-          ...deepClone(entry),
-          sortAt: Date.parse(entry.createdAt),
-          isMuted:
-            activeManualCutoffIndex !== null && index < activeManualCutoffIndex,
-        });
-        continue;
-      }
-
-      if (entry.kind === 'technical-event') {
-        if (
-          !filters.showTechnicalEvents ||
-          !this.shouldShowTechnicalEvent(entry.event)
-        ) {
-          continue;
-        }
-
-        visibleEntries.push({
-          ...deepClone(entry),
-          sortAt: Date.parse(entry.createdAt),
-        });
-        continue;
-      }
-
-      if (entry.cutoff.source !== 'manual') {
-        continue;
-      }
-
-      visibleEntries.push({
-        ...deepClone(entry),
-        sortAt: Date.parse(entry.createdAt),
-      });
-    }
-
-    if (filters.showPreviewCutoffs) {
-      for (const cutoff of this.getAgentContextCutoffs(tab.id)) {
-        const sortAt = this.resolveCutoffSortTime(
-          cutoff.anchor,
-          visibleMessages,
-        );
-        visibleEntries.push({
-          id: `preview-cutoff-${tab.id}-${cutoff.anchor.kind}-${cutoff.anchor.messageId ?? 'none'}-${cutoff.agentIds.join(',')}`,
-          createdAt: new Date(sortAt).toISOString(),
-          kind: 'history-cutoff',
-          cutoff: {
-            source: 'preview',
-            label: this.formatPreviewCutoffLabel(cutoff, tab),
-            anchor: cutoff.anchor,
-            agentIds: cutoff.agentIds,
-            agentNames: cutoff.agentNames,
-            usesGlobalWindow: cutoff.usesGlobalWindow,
-          },
-          sortAt,
-        });
-      }
-    }
-
-    return visibleEntries.sort(compareVisibleTimelineEntries);
   }
 
   async sendMessage(
@@ -624,21 +511,12 @@ export class MultiChatRuntime {
     this.persistAndNotify();
   }
 
-  updateDraftMessage(
-    draftMessage: string,
-    tabId = this.workspace.activeTabId,
-  ): void {
-    const tab = this.requireTab(tabId);
-    if (tab.draftMessage === draftMessage) {
-      return;
-    }
-
-    tab.draftMessage = draftMessage;
-    this.persistAndNotify();
-  }
-
   resetAgentHistoryContext(tabId = this.workspace.activeTabId): void {
     const tab = this.requireTab(tabId);
+    tab.timeline = tab.timeline.filter(
+      (entry) =>
+        !(entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'),
+    );
     const cutoff = this.createManualCutoffEntry();
     tab.timeline.push(cutoff);
     this.pushDebugLog(
@@ -1996,73 +1874,6 @@ export class MultiChatRuntime {
     };
   }
 
-  private shouldShowTechnicalEvent(event: RuntimeEvent): boolean {
-    return event.type === 'silent-decision' || event.type === 'runtime-error';
-  }
-
-  private formatPreviewCutoffLabel(
-    cutoff: AgentContextCutoff,
-    tab: ChatTabState,
-  ): string {
-    const activeAgentCount = this.getActiveAgents(tab).length;
-    if (activeAgentCount > 0 && cutoff.agentIds.length === activeAgentCount) {
-      return 'context for: all agents';
-    }
-
-    return `context for: ${cutoff.agentNames.join(', ')}`;
-  }
-
-  private resolveCutoffSortTime(
-    anchor: ContextCutoffAnchor,
-    messages: ChatMessage[],
-  ): number {
-    if (!messages.length) {
-      return 0;
-    }
-
-    if (anchor.kind === 'start') {
-      return Date.parse(messages[0].createdAt) - 0.5;
-    }
-
-    if (anchor.kind === 'end') {
-      return Date.parse(messages.at(-1)!.createdAt) + 0.5;
-    }
-
-    const messageIndex = messages.findIndex(
-      (message) => message.id === anchor.messageId,
-    );
-    if (messageIndex === -1) {
-      return anchor.kind === 'after-message'
-        ? Date.parse(messages.at(-1)!.createdAt) + 0.5
-        : Date.parse(messages[0].createdAt) - 0.5;
-    }
-
-    const previousMessage =
-      anchor.kind === 'after-message'
-        ? messages[messageIndex]
-        : messages[messageIndex - 1];
-    const nextMessage =
-      anchor.kind === 'after-message'
-        ? messages[messageIndex + 1]
-        : messages[messageIndex];
-    const previousTime = previousMessage
-      ? Date.parse(previousMessage.createdAt)
-      : null;
-    const nextTime = nextMessage ? Date.parse(nextMessage.createdAt) : null;
-
-    if (previousTime !== null && nextTime !== null) {
-      return previousTime === nextTime
-        ? previousTime + 0.5
-        : previousTime + (nextTime - previousTime) / 2;
-    }
-
-    if (previousTime !== null) {
-      return previousTime + 0.5;
-    }
-
-    return (nextTime ?? 0) - 0.5;
-  }
-
   private participantName(participantId: string, tab: ChatTabState): string {
     return (
       tab.participants.find((participant) => participant.id === participantId)
@@ -2124,7 +1935,6 @@ export class MultiChatRuntime {
   private buildRuntimeState(tab: ChatTabState): RuntimeState {
     return deepClone({
       activeTabId: this.workspace.activeTabId,
-      draftMessage: tab.draftMessage,
       participants: tab.participants,
       agents: tab.agents,
       timeline: tab.timeline,
@@ -2155,21 +1965,4 @@ export function createMultiChatRuntime(
   config: RuntimeConfig,
 ): MultiChatRuntime {
   return new MultiChatRuntime(config);
-}
-
-function compareVisibleTimelineEntries(
-  left: VisibleTimelineEntry,
-  right: VisibleTimelineEntry,
-): number {
-  if (left.sortAt !== right.sortAt) {
-    return left.sortAt - right.sortAt;
-  }
-
-  const priority = {
-    'history-cutoff': 0,
-    message: 1,
-    'technical-event': 2,
-  } as const;
-
-  return priority[left.kind] - priority[right.kind];
 }

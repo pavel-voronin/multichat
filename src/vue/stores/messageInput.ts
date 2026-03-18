@@ -10,10 +10,18 @@ export const useMessageInputStore = defineStore('messageInput', () => {
   const runtime = computed(() => runtimeStore.requireRuntime());
   const { state } = storeToRefs(runtimeStore);
   const messageInputElement = ref<MessageInputElement>(null);
+  const draftByTabId = ref<Record<string, string>>({});
+  const activeTabId = computed(() => state.value?.activeTabId ?? '');
   const draftMessage = computed({
-    get: () => state.value?.draftMessage ?? '',
+    get: () => draftByTabId.value[activeTabId.value] ?? '',
     set: (value: string) => {
-      runtime.value.updateDraftMessage(value);
+      if (!activeTabId.value) {
+        return;
+      }
+      draftByTabId.value = {
+        ...draftByTabId.value,
+        [activeTabId.value]: value,
+      };
     },
   });
 
@@ -55,8 +63,9 @@ export const useMessageInputStore = defineStore('messageInput', () => {
       return;
     }
 
-    runtime.value.updateDraftMessage(
-      addParticipantMentionPrefix(draftMessage.value, participant.name),
+    draftMessage.value = addParticipantMentionPrefix(
+      draftMessage.value,
+      participant.name,
     );
     void nextTick().then(() => messageInputElement.value?.focus());
   }
@@ -71,7 +80,7 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     }
 
     const content = draftMessage.value;
-    runtime.value.updateDraftMessage('');
+    draftMessage.value = '';
 
     await nextTick();
     messageInputElement.value?.focus();
@@ -87,8 +96,19 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     messageInputElement.value = element;
   }
 
+  function clearDraft(tabId: string): void {
+    if (!(tabId in draftByTabId.value)) {
+      return;
+    }
+
+    const nextDrafts = { ...draftByTabId.value };
+    delete nextDrafts[tabId];
+    draftByTabId.value = nextDrafts;
+  }
+
   function reset(): void {
     messageInputElement.value = null;
+    draftByTabId.value = {};
   }
 
   return {
@@ -98,6 +118,7 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     mentionMessageSender,
     mentionParticipantById,
     setMessageInputElement,
+    clearDraft,
     reset,
   };
 });

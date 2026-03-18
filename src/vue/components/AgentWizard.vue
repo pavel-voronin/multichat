@@ -125,7 +125,7 @@ import { storeToRefs } from 'pinia';
 import { computed, onMounted, ref, watch } from 'vue';
 import type { AgentConfig, OpenRouterModel } from '../../core';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
-import { useRuntimeStore } from '../stores/runtime';
+import { useChatStore } from '../stores/chat';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiCheckbox from './ui/UiCheckbox.vue';
@@ -133,9 +133,8 @@ import UiInput from './ui/UiInput.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
 
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { state } = storeToRefs(chat);
 const ui = useUiStore();
 const agent = computed<AgentConfig | null>(
   () =>
@@ -237,7 +236,7 @@ async function loadModels() {
   isLoadingModels.value = true;
   modelsError.value = '';
   try {
-    models.value = await runtime.listModels();
+    models.value = await chat.listModels();
     models.value.sort((left, right) => {
       const leftProvider = left.id.split('/')[0] ?? left.id;
       const rightProvider = right.id.split('/')[0] ?? right.id;
@@ -291,9 +290,9 @@ function save() {
   };
 
   if (agent.value?.id) {
-    runtime.updateAgent(agent.value.id, payload);
+    chat.updateAgent(agent.value.id, payload);
   } else {
-    runtime.createAgent({
+    chat.createAgent({
       ...payload,
       capabilities: {
         prefersTools: true,

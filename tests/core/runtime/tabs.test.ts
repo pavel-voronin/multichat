@@ -80,11 +80,10 @@ describe('MultiChatRuntime tabs', () => {
     expect(runtime.getWorkspaceState().tabs[1]?.title).toBe('#default2');
   });
 
-  it('isolates participants, history, drafts, and reset history per tab', async () => {
+  it('isolates participants, history, and reset history per tab', async () => {
     const runtime = createEmptyRuntime();
     const defaultTabId = runtime.getWorkspaceState().activeTabId;
 
-    runtime.updateDraftMessage('draft one');
     runtime.createAgent({
       name: 'Alpha',
       modelId: 'model-a',
@@ -100,7 +99,6 @@ describe('MultiChatRuntime tabs', () => {
     runtime.resetAgentHistoryContext();
 
     const secondTab = runtime.createTab({ title: '#second' });
-    runtime.updateDraftMessage('draft two');
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b',
@@ -114,7 +112,6 @@ describe('MultiChatRuntime tabs', () => {
       triggerSweep: false,
     });
 
-    expect(runtime.getState().draftMessage).toBe('draft two');
     expect(runtime.getState().participants.map((participant) => participant.name)).toEqual([
       'Human',
       'Beta',
@@ -125,7 +122,6 @@ describe('MultiChatRuntime tabs', () => {
 
     runtime.activateTab(defaultTabId);
 
-    expect(runtime.getState().draftMessage).toBe('draft one');
     expect(runtime.getState().participants.map((participant) => participant.name)).toEqual([
       'Human',
       'Alpha',

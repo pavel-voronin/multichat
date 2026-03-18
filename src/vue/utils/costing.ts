@@ -1,13 +1,5 @@
-import type { AgentConfig, ChatMessage, CostDisplayMode } from '../../core';
-
-export type CostTrackedItem = Pick<
-  ChatMessage,
-  | 'costUsd'
-  | 'requestCostUsd'
-  | 'ownPromptCostUsd'
-  | 'downstreamPromptCostUsd'
-  | 'downstreamPromptCostContributors'
->;
+import type { AgentConfig } from '../../core';
+import type { CostDisplayMode, CostTrackedItem } from '../types';
 
 export function formatMessageCost(costUsd: number): string {
   const minimumFractionDigits = costUsd > 0 && costUsd < 0.0001 ? 6 : 4;

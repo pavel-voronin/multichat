@@ -41,8 +41,6 @@ describe('MultiAgentChat technical info', () => {
 
     expect(technicalInfoButton).toBeDefined();
     await technicalInfoButton!.trigger('click');
-
-    expect(runtime.getState().settings.showSilentDecisions).toBe(true);
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain('Technical info: on');

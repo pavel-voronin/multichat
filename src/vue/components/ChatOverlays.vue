@@ -4,7 +4,7 @@
     :placement="costBubblePlacement"
     :style="costBubbleStyle"
     :title="costBubbleTitle"
-    :cost-display-mode="state.settings.costDisplayMode"
+    :cost-display-mode="preferences.costDisplayMode"
     :request-cost="costRequest"
     :own-prompt-cost="costOwnPrompt"
     :downstream-cost="costDownstream"
@@ -35,8 +35,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { RuntimeEvent, VisibleTimelineEntry } from '../../core';
-import { useRuntimeStore } from '../stores/runtime';
+import type { RuntimeEvent } from '../../core';
+import { useChatStore } from '../stores/chat';
+import type { VisibleTimelineEntry } from '../types';
 import { setOverlayControls } from '../useOverlayControls';
 import {
   formatMessageAuthor,
@@ -61,22 +62,10 @@ const costBubbleElementRef = ref<HTMLDivElement | null>(null);
 const modelPriceBubbleElementRef = ref<HTMLDivElement | null>(null);
 const costBubble = useFloatingHoverBubble(costBubbleElementRef);
 const modelPriceBubble = useFloatingHoverBubble(modelPriceBubbleElementRef);
-const runtimeStore = useRuntimeStore();
-const runtime = runtimeStore.requireRuntime();
-const { state } = storeToRefs(runtimeStore);
+const chat = useChatStore();
+const { preferences, state, visibleTimelineEntries } = storeToRefs(chat);
 const agents = computed(() => state.value.agents);
-const human = computed(() =>
-  state.value.participants.find((participant) => participant.role === 'human'),
-);
-const chatTimelineEntries = computed(() =>
-  runtime.getVisibleTimelineEntries({
-    participantId: human.value?.id ?? 'human',
-    filters: {
-      showTechnicalEvents: state.value.settings.showSilentDecisions,
-      showPreviewCutoffs: state.value.settings.showContextCutoffs,
-    },
-  }),
-);
+const chatTimelineEntries = visibleTimelineEntries;
 const visibleMessages = computed(() =>
   chatTimelineEntries.value
     .filter(
@@ -134,7 +123,7 @@ const costSummaryClass = computed(() =>
   hoveredCostItem.value
     ? messageCostSummaryClass(
         hoveredCostItem.value,
-        state.value.settings.costDisplayMode,
+        preferences.value.costDisplayMode,
       )
     : 'message-cost-request',
 );
@@ -143,7 +132,7 @@ const costShownText = computed(() =>
     hoveredCostItem.value
       ? displayedMessageCost(
           hoveredCostItem.value,
-          state.value.settings.costDisplayMode,
+          preferences.value.costDisplayMode,
         )
       : 0,
   ),
@@ -172,7 +161,7 @@ const costBubbleTitle = computed(() => {
     return '';
   }
 
-  if (state.value.settings.costDisplayMode === 'request') {
+  if (preferences.value.costDisplayMode === 'request') {
     return 'Outgoing request cost';
   }
 
