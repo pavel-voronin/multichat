@@ -30,13 +30,14 @@
         </label>
 
         <div class="modal-actions">
-          <UiButton class="modal-primary-button" variant="primary" @click="save">
+          <UiButton
+            class="modal-primary-button"
+            variant="primary"
+            @click="save"
+          >
             Save
           </UiButton>
-          <UiButton
-            class="modal-secondary-button"
-            @click="reset"
-          >
+          <UiButton class="modal-secondary-button" @click="reset">
             Full reset
           </UiButton>
           <UiButton class="modal-secondary-button" @click="close">
@@ -49,16 +50,17 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
-import { useUiState } from '../useUiState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
+const runtimeStore = useRuntimeStore();
+const runtime = runtimeStore.requireRuntime();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
 const draftKey = ref(state.value.settings.openRouterApiKey);
 const draftDefaultContextWindowSize = ref(
   state.value.settings.defaultContextWindowSize,
@@ -129,5 +131,4 @@ function reset() {
 .modal-copy {
   @apply text-[12px] text-neutral-500;
 }
-
 </style>

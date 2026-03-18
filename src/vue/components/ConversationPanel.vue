@@ -5,47 +5,49 @@
     </div>
 
     <ChatComposer
-      ref="composer"
-      v-model="draftMessage"
-      :can-send="composerState.canSend.value"
-      @send="composerState.sendCurrentMessage"
+      ref="messageInput"
+      v-model="draftMessageModel"
+      :can-send="canSend"
+      @send="messageInputState.sendCurrentMessage"
     />
   </section>
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import { computed, nextTick, useTemplateRef, watch, watchEffect } from 'vue';
-import { useComposerState } from '../useComposerState';
 import { usePinnedScroll } from '../composables/usePinnedScroll';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
+import { useMessageInputStore } from '../stores/messageInput';
+import { useRuntimeStore } from '../stores/runtime';
 import ChatComposer from './ChatComposer.vue';
 import ChatTimeline from './ChatTimeline.vue';
 
 const messageLogRef = useTemplateRef<HTMLDivElement>('messageLog');
-const composerRef = useTemplateRef<{ focus: () => void }>('composer');
+const messageInputRef = useTemplateRef<{ focus: () => void }>('messageInput');
 const messageScroll = usePinnedScroll(messageLogRef);
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const composerState = useComposerState();
+const runtimeStore = useRuntimeStore();
+const { state } = storeToRefs(runtimeStore);
+const messageInputState = useMessageInputStore();
+const { draftMessage, canSend } = storeToRefs(messageInputState);
 
-const draftMessage = computed({
-  get: () => composerState.draftMessage.value,
+const draftMessageModel = computed({
+  get: () => draftMessage.value,
   set: (value: string) => {
-    composerState.draftMessage.value = value;
+    draftMessage.value = value;
   },
 });
 
 watchEffect(() => {
-  composerState.setComposerElement(composerRef.value ?? null);
+  messageInputState.setMessageInputElement(messageInputRef.value ?? null);
 });
 
 watch(
-  () => runtime.getTimelineEntries().length,
+  () => state.value.timeline.length,
   async () => {
     await nextTick();
     messageScroll.scrollToBottomIfPinned();
   },
+  { immediate: true },
 );
 
 function updatePinnedState() {

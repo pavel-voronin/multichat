@@ -23,14 +23,18 @@
         class="message-cost-row"
       >
         <span class="message-cost-label">Own input</span>
-        <span class="message-cost-input">-{{ formatMessageCost(ownPromptCost) }}</span>
+        <span class="message-cost-input"
+          >-{{ formatMessageCost(ownPromptCost) }}</span
+        >
       </span>
       <span
         v-if="costDisplayMode === 'net' && downstreamCost > 0"
         class="message-cost-row"
       >
         <span class="message-cost-label">Readers ({{ totalListenCount }})</span>
-        <span class="message-cost-output">+{{ formatMessageCost(downstreamCost) }}</span>
+        <span class="message-cost-output"
+          >+{{ formatMessageCost(downstreamCost) }}</span
+        >
       </span>
       <span
         v-for="contributor in contributors"
@@ -54,10 +58,11 @@
 
 <script setup lang="ts">
 import { useTemplateRef, watchEffect } from 'vue';
-import type { ChatMessage, CostDisplayMode } from '../../core';
+import type { CostDisplayMode } from '../../core';
+import type { CostTrackedItem } from '../utils/costing';
 
 defineProps<{
-  message: ChatMessage | null;
+  message: (CostTrackedItem & { id: string }) | null;
   placement: 'up' | 'down';
   style: Record<string, string>;
   title: string;

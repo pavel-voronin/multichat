@@ -1,6 +1,10 @@
 <template>
   <Teleport to="body">
-    <div v-if="ui.showHumanNameModal" class="human-modal-backdrop" @click.self="close">
+    <div
+      v-if="ui.showHumanNameModal"
+      class="human-modal-backdrop"
+      @click.self="close"
+    >
       <div class="human-modal-card">
         <h2 class="human-modal-title">Edit human</h2>
 
@@ -34,20 +38,21 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
-import { useUiState } from '../useUiState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
+const runtimeStore = useRuntimeStore();
+const runtime = runtimeStore.requireRuntime();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
 const humanName = computed(
   () =>
-    state.value.participants.find((participant) => participant.role === 'human')?.name ??
-    'Human',
+    state.value.participants.find((participant) => participant.role === 'human')
+      ?.name ?? 'Human',
 );
 const draftName = ref(humanName.value);
 

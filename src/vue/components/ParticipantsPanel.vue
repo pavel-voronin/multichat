@@ -17,7 +17,7 @@
         v-for="participant in participantRows"
         :key="participant.id"
         class="participant-row"
-        @dblclick="composer.mentionParticipantById(participant.id)"
+        @dblclick="messageInput.mentionParticipantById(participant.id)"
       >
         <div class="participant-copy">
           <span class="participant-heading">
@@ -25,7 +25,9 @@
             <span
               v-if="participant.showMoney"
               class="participant-price-trigger"
-              @mouseenter="overlayControls.openModelPriceBubble(participant.id, $event)"
+              @mouseenter="
+                overlayControls.openModelPriceBubble(participant.id, $event)
+              "
               @mouseleave="overlayControls.scheduleModelPriceBubbleClose()"
               >{{ participant.spentSummary }}</span
             >
@@ -56,25 +58,74 @@
 </template>
 
 <script setup lang="ts">
-import { useChatViewModel } from '../composables/useChatViewModel';
-import { useComposerState } from '../useComposerState';
+import { storeToRefs } from 'pinia';
+import { computed } from 'vue';
+import type { Participant } from '../../core';
+import { useMessageInputStore } from '../stores/messageInput';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import { useOverlayControls } from '../useOverlayControls';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
-import { useUiState } from '../useUiState';
+import { formatMessageCost } from '../utils/costing';
 import UiButton from './ui/UiButton.vue';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
-const composer = useComposerState();
+const runtimeStore = useRuntimeStore();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
+const messageInput = useMessageInputStore();
 const overlayControls = useOverlayControls();
-const chatViewModel = useChatViewModel({
-  state,
-  runtime,
-  onParticipantDblClick: () => {},
-});
-const participantRows = chatViewModel.participantRows;
+const visibleParticipants = computed(() =>
+  state.value.participants.filter((participant) => {
+    if (participant.role === 'human') {
+      return true;
+    }
+
+    const agent = state.value.agents.find((item) => item.id === participant.id);
+    return agent?.isHidden !== true;
+  }),
+);
+const participantRows = computed(() =>
+  visibleParticipants.value.map((participant) => ({
+    id: participant.id,
+    name: participant.name,
+    role: participant.role,
+    subtitle: participantSubtitle(participant),
+    showMoney: showParticipantMoney(participant),
+    spentSummary: participantSpentSummary(participant),
+  })),
+);
+
+function participantSubtitle(participant: Participant): string {
+  if (participant.role === 'human') {
+    return 'human';
+  }
+
+  return (
+    state.value.agents.find((agent) => agent.id === participant.id)?.modelId ??
+    participant.role
+  );
+}
+
+function showParticipantMoney(participant: Participant): boolean {
+  if (state.value.settings.costDisplayMode === 'off') {
+    return false;
+  }
+
+  return (
+    participant.role === 'agent' &&
+    state.value.agents.find((agent) => agent.id === participant.id)
+      ?.isHidden !== true
+  );
+}
+
+function participantSpentSummary(participant: Participant): string {
+  if (participant.role !== 'agent') {
+    return formatMessageCost(0);
+  }
+
+  return formatMessageCost(
+    state.value.metrics[participant.id]?.estimatedCost ?? 0,
+  );
+}
 
 function openCreateAgentWizard() {
   ui.editingAgentId = null;

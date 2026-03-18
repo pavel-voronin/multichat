@@ -1,8 +1,14 @@
 import { mount } from '@vue/test-utils';
+import { createPinia } from 'pinia';
 import { describe, expect, it, vi } from 'vitest';
 import MultiAgentChat from '../src/vue/components/MultiAgentChat.vue';
 import { MultiChatRuntime } from '../src/core/runtime';
-import type { ChatMessage, OpenRouterTransport, TimelineMessageEntry } from '../src/core';
+import { initializeChatApp } from '../src/vue/bootstrap';
+import type {
+  ChatMessage,
+  OpenRouterTransport,
+  TimelineMessageEntry,
+} from '../src/core';
 
 function createRuntime() {
   const transport: OpenRouterTransport = {
@@ -46,6 +52,17 @@ function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
     .map((entry) => entry.message);
 }
 
+function mountChat(runtime: MultiChatRuntime) {
+  const pinia = createPinia();
+  initializeChatApp(pinia, runtime);
+  return mount(MultiAgentChat, {
+    attachTo: document.body,
+    global: {
+      plugins: [pinia],
+    },
+  });
+}
+
 describe('MultiAgentChat', () => {
   it('switches from blocked agent wizard to settings instead of stacking modals', async () => {
     const transport: OpenRouterTransport = {
@@ -69,10 +86,7 @@ describe('MultiAgentChat', () => {
       },
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     await wrapper.get('.participants-add-button').trigger('click');
     expect(document.body.textContent).toContain('Create agent');
@@ -108,10 +122,7 @@ describe('MultiAgentChat', () => {
 
   it('sends public message on enter', async () => {
     const runtime = createRuntime();
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const textarea = wrapper.get('textarea');
     await textarea.setValue('Hello world');
@@ -123,9 +134,7 @@ describe('MultiAgentChat', () => {
 
   it('double click participant inserts a mention prefix', async () => {
     const runtime = createRuntime();
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     await wrapper.findAll('.participant-row')[1].trigger('dblclick');
 
@@ -144,9 +153,7 @@ describe('MultiAgentChat', () => {
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     const textarea = wrapper.get('textarea');
     await textarea.setValue('Alpha: hello');
@@ -167,9 +174,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     const sender = wrapper.get('.message-sender');
     expect(sender.text()).toBe('<Human>');
@@ -183,9 +188,7 @@ describe('MultiAgentChat', () => {
 
   it('renders stop button next to send', () => {
     const runtime = createRuntime();
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     expect(
       wrapper
@@ -198,9 +201,7 @@ describe('MultiAgentChat', () => {
 
   it('shows Human as the default participant name', () => {
     const runtime = createRuntime();
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).toContain('Human');
   });
@@ -214,14 +215,208 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     const line = wrapper.get('.message-line');
-    expect(line.element.textContent).toMatch(
+    const normalizedText = line.element.textContent
+      ?.replace(/\s+/g, ' ')
+      .trim();
+    expect(normalizedText).toMatch(
       /^\[\d{2}:\d{2}:\d{2}\] <Human> hello world$/,
     );
+  });
+
+  it('opens request inspection for a human message from the timestamp', async () => {
+    const runtime = createRuntime();
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-b:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'inspect me',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+
+    expect(document.body.textContent).toContain('Human message');
+    expect(document.body.textContent).toContain('Downstream traces');
+    expect(document.body.textContent).toContain('Triggered by this message');
+    expect(document.body.textContent).toContain('Alpha · tools · succeeded');
+
+    wrapper.unmount();
+  });
+
+  it('opens the single downstream silent trace directly from a human message timestamp', async () => {
+    const runtime = createRuntime();
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'one silent reader',
+      target: 'private',
+      recipientId: runtime.getState().agents[0]!.id,
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+
+    expect(document.body.textContent).toContain('Request trace');
+    expect(document.body.textContent).toContain('Alpha · tools');
+    expect(document.body.textContent).toContain('stayed silent: noop');
+
+    wrapper.unmount();
+  });
+
+  it('shows silent outcome details inside request inspection', async () => {
+    const runtime = createRuntime();
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'should stay silent',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+    const traceButton = Array.from(
+      document.body.querySelectorAll('button'),
+    ).find((button) =>
+      button.textContent?.includes('Alpha · tools · succeeded'),
+    ) as HTMLButtonElement | undefined;
+    expect(traceButton).toBeDefined();
+
+    traceButton?.click();
+    await wrapper.vm.$nextTick();
+
+    const outputTab = Array.from(document.body.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === 'Output',
+    ) as HTMLButtonElement | undefined;
+    expect(outputTab).toBeDefined();
+
+    outputTab?.click();
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('Silent outcome');
+    expect(document.body.textContent).toContain('Stayed silent: noop');
+    expect(document.body.textContent).toContain(
+      'Silent decision with reason: noop',
+    );
+
+    wrapper.unmount();
+  });
+
+  it('opens request inspection from a silent technical event timestamp', async () => {
+    const runtime = createRuntime();
+    runtime.updateSettings({ showSilentDecisions: true });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'stay silent please',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper
+      .get('.runtime-line .message-time-trigger-active')
+      .trigger('click');
+
+    expect(document.body.textContent).toContain('Request trace');
+    expect(document.body.textContent).toContain('Alpha · tools');
+    expect(document.body.textContent).toContain('stayed silent: noop');
+
+    wrapper.unmount();
+  });
+
+  it('opens source trace inspection for an agent message from the timestamp', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [{ id: 'model-a:free', name: 'Model A Free' }];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'speak_public', text: 'trace reply' },
+          usage: {
+            promptTokens: 8,
+            completionTokens: 2,
+            totalTokens: 10,
+            estimatedCost: 0.05,
+          },
+        };
+      },
+    };
+    const runtime = new MultiChatRuntime({
+      transport,
+      storage: {
+        load: () => null,
+        save: vi.fn(),
+        reset: vi.fn(),
+      },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'key' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'please answer',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper.findAll('.message-time-trigger-active')[1]!.trigger('click');
+
+    expect(document.body.textContent).toContain('Request trace');
+    expect(document.body.textContent).toContain('Alpha · tools');
+    expect(document.body.textContent).toContain('produced');
+    expect(document.body.textContent).toContain('trace reply');
+
+    wrapper.unmount();
+  });
+
+  it('scrolls chat history to the bottom on initial mount when messages already exist', async () => {
+    const runtime = createRuntime();
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'First',
+      target: 'public',
+      triggerSweep: false,
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Second',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    const wrapper = mountChat(runtime);
+
+    const chatLog = wrapper.get('.chat-log').element as HTMLDivElement;
+    Object.defineProperties(chatLog, {
+      clientHeight: {
+        configurable: true,
+        value: 100,
+      },
+      scrollHeight: {
+        configurable: true,
+        value: 480,
+      },
+    });
+
+    await wrapper.vm.$nextTick();
+
+    expect(chatLog.scrollTop).toBe(480);
+
+    wrapper.unmount();
   });
 
   it('toggles cost display mode from request cost to net cost', async () => {
@@ -255,10 +450,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).toContain('$0.5000');
     expect(wrapper.text()).not.toContain('req $0.5000');
@@ -309,10 +501,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const costModeButton = wrapper
       .findAll('.toolbar-button')
@@ -371,16 +560,14 @@ describe('MultiAgentChat', () => {
     });
     await runtime.runAgentSweep('manual');
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const priceTrigger = wrapper.get('.participant-price-trigger');
     expect(priceTrigger.text()).toContain('$0.1234');
     expect(wrapper.text()).toContain('$0.1234');
 
     await priceTrigger.trigger('mouseenter');
+    await wrapper.vm.$nextTick();
 
     expect(document.body.textContent).toContain('Alpha');
     expect(document.body.textContent).toContain('Prompt');
@@ -407,9 +594,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     await wrapper
       .findAll('.toolbar-button')
@@ -451,9 +636,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-    });
+    const wrapper = mountChat(runtime);
 
     await wrapper
       .findAll('.toolbar-button')
@@ -484,10 +667,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).not.toContain(
       'From here messages are included in context by current settings',
@@ -505,10 +685,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).toContain('Technical info: off');
     expect(wrapper.text()).not.toContain('stayed silent: noop');
@@ -526,10 +703,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const technicalInfoButton = wrapper
       .findAll('.toolbar-button')
@@ -543,6 +717,75 @@ describe('MultiAgentChat', () => {
 
     expect(wrapper.text()).toContain('Technical info: on');
     expect(wrapper.text()).toContain('[silent Alpha] stayed silent: noop');
+
+    wrapper.unmount();
+  });
+
+  it('shows cost for silent decisions after enabling technical info', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [{ id: 'model-a:free', name: 'Model A Free' }];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'priced noop' },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 0,
+            totalTokens: 10,
+            estimatedCost: 0.5,
+          },
+        };
+      },
+    };
+
+    const runtime = new MultiChatRuntime({
+      transport,
+      storage: {
+        load: () => null,
+        save: vi.fn(),
+        reset: vi.fn(),
+      },
+    });
+
+    runtime.updateSettings({ openRouterApiKey: 'key' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      pricing: {
+        prompt: '0.001',
+        completion: '0.01',
+      },
+      systemPrompt: 'prompt',
+      contextWindowSize: null,
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'hello',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+
+    const technicalInfoButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Technical info: off'));
+
+    expect(technicalInfoButton).toBeDefined();
+    await technicalInfoButton!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const silentCostTrigger = wrapper
+      .findAll('.runtime-line .message-cost-trigger')
+      .find((node) => node.text() === '$0.5000');
+
+    expect(silentCostTrigger).toBeDefined();
+    expect(wrapper.text()).toContain(
+      '[silent Alpha] $0.5000 stayed silent: priced noop',
+    );
 
     wrapper.unmount();
   });
@@ -585,10 +828,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const technicalInfoButton = wrapper
       .findAll('.toolbar-button')
@@ -598,7 +838,9 @@ describe('MultiAgentChat', () => {
     await technicalInfoButton!.trigger('click');
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain('[error Alpha] request failed: upstream 502');
+    expect(wrapper.text()).toContain(
+      '[error Alpha] request failed: upstream 502',
+    );
 
     wrapper.unmount();
   });
@@ -613,10 +855,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).toContain('Logs: off');
     expect(wrapper.find('.logs-panel').exists()).toBe(false);
@@ -635,10 +874,7 @@ describe('MultiAgentChat', () => {
       target: 'public',
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const logsButton = wrapper
       .findAll('.toolbar-button')
@@ -652,7 +888,9 @@ describe('MultiAgentChat', () => {
     expect(wrapper.find('.logs-panel').exists()).toBe(true);
     expect(wrapper.find('.logs-panel-text').text()).toContain('turn-requested');
     expect(wrapper.find('.logs-panel-text').text()).toContain('turn-result');
-    expect(wrapper.find('.logs-panel-text').text()).toContain('message-created');
+    expect(wrapper.find('.logs-panel-text').text()).toContain(
+      'message-created',
+    );
 
     wrapper.unmount();
   });
@@ -687,10 +925,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const contextBordersButton = wrapper
       .findAll('.toolbar-button')
@@ -721,10 +956,7 @@ describe('MultiAgentChat', () => {
       triggerSweep: false,
     });
 
-    const wrapper = mount(MultiAgentChat, {
-      props: { runtime },
-      attachTo: document.body,
-    });
+    const wrapper = mountChat(runtime);
 
     const deleteButton = wrapper.get('.participant-delete-button');
     await deleteButton.trigger('click');
@@ -743,6 +975,7 @@ describe('MultiAgentChat', () => {
     expect(confirmButton).toBeDefined();
 
     confirmButton?.click();
+    await wrapper.vm.$nextTick();
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).not.toContain('model-a:free');

@@ -23,6 +23,8 @@ function createState(): RuntimeState {
       sweepCount: 0,
       stopRequested: false,
     },
+    requestTraces: {},
+    messageInspectionIndex: {},
   };
 }
 

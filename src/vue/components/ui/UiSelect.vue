@@ -1,5 +1,10 @@
 <template>
-  <select :value="modelValue ?? ''" class="ui-input" v-bind="$attrs" @change="handleChange">
+  <select
+    :value="modelValue ?? ''"
+    class="ui-input"
+    v-bind="$attrs"
+    @change="handleChange"
+  >
     <slot />
   </select>
 </template>

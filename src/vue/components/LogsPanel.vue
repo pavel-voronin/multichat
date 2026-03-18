@@ -11,30 +11,27 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import { computed, nextTick, useTemplateRef, watch } from 'vue';
 import { usePinnedScroll } from '../composables/usePinnedScroll';
-import { useUiState } from '../useUiState';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import { formatDebugLogLine } from '../utils/chatFormatting';
 
 const logsPanelRef = useTemplateRef<HTMLDivElement>('logsPanel');
 const logsScroll = usePinnedScroll(logsPanelRef);
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
+const runtimeStore = useRuntimeStore();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
 const entriesCount = computed(() => state.value.debugLogs.length);
 const formattedLogs = computed(() =>
   state.value.debugLogs.map(formatDebugLogLine).join('\n'),
 );
 
-watch(
-  formattedLogs,
-  async () => {
-    await nextTick();
-    logsScroll.scrollToBottomIfPinned();
-  },
-);
+watch(formattedLogs, async () => {
+  await nextTick();
+  logsScroll.scrollToBottomIfPinned();
+});
 
 watch(
   () => ui.showLogsPanel,
@@ -77,6 +74,6 @@ function updatePinnedState() {
 }
 
 .logs-panel-text {
-  @apply m-0 whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-neutral-100;
+  @apply m-0 whitespace-pre-wrap wrap-break-word font-mono text-[11px] leading-5 text-neutral-100;
 }
 </style>

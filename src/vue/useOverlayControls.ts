@@ -1,4 +1,4 @@
-import { inject, provide } from 'vue';
+import { markRaw, shallowRef } from 'vue';
 
 export interface OverlayControls {
   openCostBubble: (messageId: string, event: MouseEvent) => void;
@@ -7,17 +7,34 @@ export interface OverlayControls {
   scheduleModelPriceBubbleClose: () => void;
 }
 
-const overlayControlsInjectionKey = Symbol('multi-chat-overlay-controls');
+type OverlayControllerHandle = {
+  openCostBubble: (messageId: string, event: MouseEvent) => void;
+  scheduleCostBubbleClose: () => void;
+  openModelPriceBubble: (participantId: string, event: MouseEvent) => void;
+  scheduleModelPriceBubbleClose: () => void;
+};
 
-export function provideOverlayControls(controls: OverlayControls): void {
-  provide(overlayControlsInjectionKey, controls);
+const overlays = shallowRef<OverlayControllerHandle | null>(null);
+
+export function setOverlayControls(
+  nextOverlays: OverlayControllerHandle | null,
+): void {
+  overlays.value = nextOverlays ? markRaw(nextOverlays) : null;
 }
 
 export function useOverlayControls(): OverlayControls {
-  const controls = inject<OverlayControls | null>(overlayControlsInjectionKey, null);
-  if (!controls) {
-    throw new Error('Overlay controls were not provided');
-  }
-
-  return controls;
+  return {
+    openCostBubble(messageId: string, event: MouseEvent): void {
+      overlays.value?.openCostBubble(messageId, event);
+    },
+    scheduleCostBubbleClose(): void {
+      overlays.value?.scheduleCostBubbleClose();
+    },
+    openModelPriceBubble(participantId: string, event: MouseEvent): void {
+      overlays.value?.openModelPriceBubble(participantId, event);
+    },
+    scheduleModelPriceBubbleClose(): void {
+      overlays.value?.scheduleModelPriceBubbleClose();
+    },
+  };
 }

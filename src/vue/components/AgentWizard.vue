@@ -10,7 +10,11 @@
           <p class="wizard-copy">
             OpenRouter key is required before creating agents.
           </p>
-          <UiButton class="wizard-primary-button" variant="primary" @click="openSettings">
+          <UiButton
+            class="wizard-primary-button"
+            variant="primary"
+            @click="openSettings"
+          >
             Open settings
           </UiButton>
         </div>
@@ -117,23 +121,25 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import { computed, onMounted, ref, watch } from 'vue';
 import type { AgentConfig, OpenRouterModel } from '../../core';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
-import { useUiState } from '../useUiState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiCheckbox from './ui/UiCheckbox.vue';
 import UiInput from './ui/UiInput.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
+const runtimeStore = useRuntimeStore();
+const runtime = runtimeStore.requireRuntime();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
 const agent = computed<AgentConfig | null>(
-  () => state.value.agents.find((item) => item.id === ui.editingAgentId) ?? null,
+  () =>
+    state.value.agents.find((item) => item.id === ui.editingAgentId) ?? null,
 );
 const isApiKeyPresent = computed(() =>
   Boolean(state.value.settings.openRouterApiKey),
@@ -190,11 +196,11 @@ const groupedModels = computed(() => {
 
 watch(
   agent,
-  (agent) => {
-    name.value = agent?.name ?? '';
-    modelId.value = agent?.modelId ?? '';
-    systemPrompt.value = agent?.systemPrompt ?? defaultPromptPreset.prompt;
-    contextWindowSize.value = agent?.contextWindowSize ?? null;
+  (nextAgent) => {
+    name.value = nextAgent?.name ?? '';
+    modelId.value = nextAgent?.modelId ?? '';
+    systemPrompt.value = nextAgent?.systemPrompt ?? defaultPromptPreset.prompt;
+    contextWindowSize.value = nextAgent?.contextWindowSize ?? null;
     selectedPresetId.value = defaultPromptPreset.id;
   },
   { immediate: true },
@@ -208,6 +214,24 @@ watch(
     }
   },
 );
+
+watch(
+  () => ui.showSettings,
+  (isOpen, wasOpen) => {
+    if (isOpen || !wasOpen || !ui.reopenAgentWizardAfterSettings) {
+      return;
+    }
+
+    ui.reopenAgentWizardAfterSettings = false;
+    ui.showAgentWizard = true;
+  },
+);
+
+onMounted(async () => {
+  if (ui.showAgentWizard && isApiKeyPresent.value) {
+    await loadModels();
+  }
+});
 
 async function loadModels() {
   isLoadingModels.value = true;
@@ -252,7 +276,9 @@ function close() {
 }
 
 function save() {
-  const selectedModel = models.value.find((model) => model.id === modelId.value);
+  const selectedModel = models.value.find(
+    (model) => model.id === modelId.value,
+  );
   const payload = {
     name: name.value.trim(),
     modelId: modelId.value,
@@ -284,24 +310,6 @@ function openSettings() {
   ui.showAgentWizard = false;
   ui.showSettings = true;
 }
-
-watch(
-  () => ui.showSettings,
-  (isOpen, wasOpen) => {
-    if (isOpen || !wasOpen || !ui.reopenAgentWizardAfterSettings) {
-      return;
-    }
-
-    ui.reopenAgentWizardAfterSettings = false;
-    ui.showAgentWizard = true;
-  },
-);
-
-onMounted(async () => {
-  if (ui.showAgentWizard && isApiKeyPresent.value) {
-    await loadModels();
-  }
-});
 </script>
 
 <style scoped>
@@ -354,5 +362,4 @@ onMounted(async () => {
 .wizard-actions {
   @apply mt-5 flex flex-wrap gap-2;
 }
-
 </style>

@@ -1,5 +1,14 @@
 import type { AgentConfig, ChatMessage, CostDisplayMode } from '../../core';
 
+export type CostTrackedItem = Pick<
+  ChatMessage,
+  | 'costUsd'
+  | 'requestCostUsd'
+  | 'ownPromptCostUsd'
+  | 'downstreamPromptCostUsd'
+  | 'downstreamPromptCostContributors'
+>;
+
 export function formatMessageCost(costUsd: number): string {
   const minimumFractionDigits = costUsd > 0 && costUsd < 0.0001 ? 6 : 4;
 
@@ -13,69 +22,71 @@ export function formatContributorCost(costUsd: number): string {
   return formatMessageCost(costUsd);
 }
 
-export function requestMessageCost(message: ChatMessage): number {
-  if (typeof message.requestCostUsd === 'number') {
-    return message.requestCostUsd;
+export function requestMessageCost(item: CostTrackedItem): number {
+  if (typeof item.requestCostUsd === 'number') {
+    return item.requestCostUsd;
   }
 
   if (
-    typeof message.ownPromptCostUsd !== 'number' &&
-    typeof message.downstreamPromptCostUsd !== 'number'
+    typeof item.ownPromptCostUsd !== 'number' &&
+    typeof item.downstreamPromptCostUsd !== 'number'
   ) {
-    return message.costUsd ?? 0;
+    return item.costUsd ?? 0;
   }
 
   return 0;
 }
 
-export function ownPromptMessageCost(message: ChatMessage): number {
-  return message.ownPromptCostUsd ?? 0;
+export function ownPromptMessageCost(item: CostTrackedItem): number {
+  return item.ownPromptCostUsd ?? 0;
 }
 
-export function downstreamMessageCost(message: ChatMessage): number {
-  return message.downstreamPromptCostUsd ?? 0;
+export function downstreamMessageCost(item: CostTrackedItem): number {
+  return item.downstreamPromptCostUsd ?? 0;
 }
 
 export function displayedMessageCost(
-  message: ChatMessage,
+  item: CostTrackedItem,
   mode: CostDisplayMode,
 ): number {
   if (mode === 'request') {
-    return requestMessageCost(message);
+    return requestMessageCost(item);
   }
 
   return (
-    requestMessageCost(message) -
-    ownPromptMessageCost(message) +
-    downstreamMessageCost(message)
+    requestMessageCost(item) -
+    ownPromptMessageCost(item) +
+    downstreamMessageCost(item)
   );
 }
 
 export function shouldShowMessageCost(
-  message: ChatMessage,
+  item: CostTrackedItem,
   mode: CostDisplayMode,
 ): boolean {
   if (mode === 'off') {
     return false;
   }
 
-  return displayedMessageCost(message, mode) > 0;
+  return displayedMessageCost(item, mode) > 0;
 }
 
 export function messageCostSummaryClass(
-  message: ChatMessage,
+  item: CostTrackedItem,
   mode: CostDisplayMode,
 ): string {
   if (mode === 'request') {
     return 'message-cost-request';
   }
 
-  return displayedMessageCost(message, mode) >= requestMessageCost(message)
+  return displayedMessageCost(item, mode) >= requestMessageCost(item)
     ? 'message-cost-total'
     : 'message-cost-net';
 }
 
-export function agentPromptPrice(agent: AgentConfig | null | undefined): number {
+export function agentPromptPrice(
+  agent: AgentConfig | null | undefined,
+): number {
   const promptPrice = Number(agent?.pricing?.prompt);
   return Number.isFinite(promptPrice) && promptPrice > 0 ? promptPrice : 0;
 }

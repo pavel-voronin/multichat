@@ -9,21 +9,21 @@
           ? 'Cost: off'
           : state.settings.costDisplayMode === 'request'
             ? 'Cost: request'
-          : 'Cost: net'
+            : 'Cost: net'
       }}
     </UiButton>
-    <UiButton
-      class="toolbar-button"
-      size="md"
-      @click="toggleSilentDecisions"
-    >
+    <UiButton class="toolbar-button" size="md" @click="toggleSilentDecisions">
       {{
         state.settings.showSilentDecisions
           ? 'Technical info: on'
           : 'Technical info: off'
       }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="ui.showLogsPanel = !ui.showLogsPanel">
+    <UiButton
+      class="toolbar-button"
+      size="md"
+      @click="ui.showLogsPanel = !ui.showLogsPanel"
+    >
       {{ ui.showLogsPanel ? 'Logs: on' : 'Logs: off' }}
     </UiButton>
     <div class="toolbar-actions">
@@ -56,15 +56,16 @@
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from 'pinia';
 import type { CostDisplayMode } from '../../core';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
-import { useUiState } from '../useUiState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const ui = useUiState();
+const runtimeStore = useRuntimeStore();
+const runtime = runtimeStore.requireRuntime();
+const { state } = storeToRefs(runtimeStore);
+const ui = useUiStore();
 
 function toggleContextCutoffs() {
   runtime.updateSettings({

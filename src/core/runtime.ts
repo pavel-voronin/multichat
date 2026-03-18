@@ -20,6 +20,8 @@ import type {
   TransportUsage,
   RuntimeState,
   SendMessageInput,
+  RequestTrace,
+  MessageInspectionIndex,
 } from './types';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
@@ -73,6 +75,8 @@ function initialState(config: RuntimeConfig): RuntimeState {
       sweepCount: 0,
       stopRequested: false,
     },
+    requestTraces: {},
+    messageInspectionIndex: {},
   };
 }
 
@@ -100,6 +104,8 @@ function mergePersistedState(
     debugLogs: persisted.debugLogs ?? [],
     errors: persisted.errors ?? [],
     execution: base.execution,
+    requestTraces: persisted.requestTraces ?? {},
+    messageInspectionIndex: persisted.messageInspectionIndex ?? {},
   };
 }
 
@@ -150,6 +156,112 @@ export class MultiChatRuntime {
     return deepClone(this.state.timeline);
   }
 
+  getRequestTrace(traceId: string): RequestTrace | null {
+    return deepClone(this.state.requestTraces[traceId] ?? null);
+  }
+
+  getRelatedRequestTraces(traceId: string): RequestTrace[] {
+    const trace = this.state.requestTraces[traceId];
+    if (!trace) {
+      return [];
+    }
+
+    const relatedTraceIds = new Set<string>();
+    if (trace.parentTraceId) {
+      relatedTraceIds.add(trace.parentTraceId);
+    }
+    for (const childTraceId of trace.childTraceIds) {
+      relatedTraceIds.add(childTraceId);
+    }
+    for (const messageId of [
+      ...trace.triggeringMessageIds,
+      ...trace.visibleMessageIds,
+      ...trace.downstreamMessageIds,
+    ]) {
+      const index = this.state.messageInspectionIndex[messageId];
+      for (const relatedTraceId of index?.downstreamTraceIds ?? []) {
+        if (relatedTraceId !== traceId) {
+          relatedTraceIds.add(relatedTraceId);
+        }
+      }
+      if (index?.sourceTraceId && index.sourceTraceId !== traceId) {
+        relatedTraceIds.add(index.sourceTraceId);
+      }
+    }
+
+    return Array.from(relatedTraceIds)
+      .map((relatedTraceId) => this.state.requestTraces[relatedTraceId])
+      .filter((item): item is RequestTrace => Boolean(item))
+      .map((item) => deepClone(item));
+  }
+
+  getInspectionSubjectForMessage(messageId: string): {
+    message: ChatMessage | null;
+    sourceTrace: RequestTrace | null;
+    triggeringTraces: RequestTrace[];
+    visibleOnlyTraces: RequestTrace[];
+    downstreamTraces: RequestTrace[];
+  } {
+    const message = this.getMessageById(messageId);
+    const index = this.getMessageInspectionIndexEntry(messageId);
+    const sourceTrace = index.sourceTraceId
+      ? (this.state.requestTraces[index.sourceTraceId] ?? null)
+      : null;
+    const triggeringTraceIds = new Set(index.triggeringTraceIds);
+    const visibleOnlyTraceIds = index.visibleTraceIds.filter(
+      (traceId) => !triggeringTraceIds.has(traceId),
+    );
+    const downstreamTraceIds = [
+      ...index.triggeringTraceIds,
+      ...visibleOnlyTraceIds,
+    ];
+
+    return {
+      message: deepClone(message ?? null),
+      sourceTrace: deepClone(sourceTrace),
+      triggeringTraces: this.cloneTraces(index.triggeringTraceIds),
+      visibleOnlyTraces: this.cloneTraces(visibleOnlyTraceIds),
+      downstreamTraces: this.cloneTraces(downstreamTraceIds),
+    };
+  }
+
+  getMessageInspectionGraph(messageId: string): {
+    message: ChatMessage | null;
+    sourceTrace: RequestTrace | null;
+    triggeringTraces: RequestTrace[];
+    visibleOnlyTraces: RequestTrace[];
+    downstreamTraces: RequestTrace[];
+    relatedMessages: ChatMessage[];
+  } {
+    const subject = this.getInspectionSubjectForMessage(messageId);
+    const relatedMessageIds = new Set<string>();
+
+    for (const trace of [
+      ...subject.triggeringTraces,
+      ...subject.visibleOnlyTraces,
+      ...(subject.sourceTrace ? [subject.sourceTrace] : []),
+    ]) {
+      for (const relatedMessageId of [
+        ...trace.triggeringMessageIds,
+        ...trace.visibleMessageIds,
+        ...trace.downstreamMessageIds,
+        ...(trace.producedMessageId ? [trace.producedMessageId] : []),
+      ]) {
+        relatedMessageIds.add(relatedMessageId);
+      }
+    }
+
+    relatedMessageIds.delete(messageId);
+
+    return {
+      ...subject,
+      relatedMessages: Array.from(relatedMessageIds)
+        .map((relatedMessageId) => this.getMessageById(relatedMessageId))
+        .filter((item): item is ChatMessage => Boolean(item))
+        .map((item) => deepClone(item)),
+    };
+  }
+
   getVisibleTimelineEntries(input: {
     participantId: string;
     filters?: Partial<TimelineFilterState>;
@@ -166,7 +278,10 @@ export class MultiChatRuntime {
     for (const [index, entry] of this.state.timeline.entries()) {
       if (entry.kind === 'message') {
         if (
-          !this.isMessageVisibleToParticipant(entry.message, input.participantId)
+          !this.isMessageVisibleToParticipant(
+            entry.message,
+            input.participantId,
+          )
         ) {
           continue;
         }
@@ -208,7 +323,10 @@ export class MultiChatRuntime {
 
     if (filters.showPreviewCutoffs) {
       for (const cutoff of this.getAgentContextCutoffs()) {
-        const sortAt = this.resolveCutoffSortTime(cutoff.anchor, visibleMessages);
+        const sortAt = this.resolveCutoffSortTime(
+          cutoff.anchor,
+          visibleMessages,
+        );
         visibleEntries.push({
           id: `preview-cutoff-${cutoff.anchor.kind}-${cutoff.anchor.messageId ?? 'none'}-${cutoff.agentIds.join(',')}`,
           createdAt: new Date(sortAt).toISOString(),
@@ -254,6 +372,7 @@ export class MultiChatRuntime {
         (input.requestCostUsd ?? input.costUsd ?? 0) +
           (input.downstreamPromptCostUsd ?? 0) || undefined,
       createdInSweep,
+      sourceTraceId: input.sourceTraceId,
     };
 
     this.state.timeline.push({
@@ -262,6 +381,7 @@ export class MultiChatRuntime {
       kind: 'message',
       message,
     });
+    this.updateMessageSourceTrace(message.id, input.sourceTraceId);
     this.pushDebugLog({
       kind: 'message-created',
       sweep: message.createdInSweep,
@@ -271,7 +391,9 @@ export class MultiChatRuntime {
       target: message.target,
       recipientId: message.recipientId,
       content: message.content,
-      details: triggersSweep ? 'message triggers sweep' : 'message does not trigger sweep',
+      details: triggersSweep
+        ? 'message triggers sweep'
+        : 'message does not trigger sweep',
     });
     this.persistAndNotify();
 
@@ -529,7 +651,8 @@ export class MultiChatRuntime {
         skipReason: 'no_new_input',
         visibleMessageIds: visibleMessages.map((message) => message.id),
         nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id),
-        contextKeyPrev: this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
+        contextKeyPrev:
+          this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
         contextKeyNext: this.getVisibleContextKey(agent.id),
       });
       return;
@@ -545,7 +668,8 @@ export class MultiChatRuntime {
         skipReason: 'no_api_key',
         visibleMessageIds: visibleMessages.map((message) => message.id),
         nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id),
-        contextKeyPrev: this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
+        contextKeyPrev:
+          this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
         contextKeyNext: this.getVisibleContextKey(agent.id),
       });
       this.pushRuntimeError({
@@ -565,6 +689,15 @@ export class MultiChatRuntime {
       previousContextKey,
       nonSelfVisibleMessageIds,
     );
+    const trace = this.createRequestTrace({
+      agent,
+      mode,
+      fallback: false,
+      parentTraceId: null,
+      triggeringMessageIds,
+      visibleMessageIds: visibleMessages.map((message) => message.id),
+      nonSelfVisibleMessageIds,
+    });
     this.pushDebugLog({
       kind: 'turn-requested',
       sweep: this.state.execution.sweepCount,
@@ -595,12 +728,23 @@ export class MultiChatRuntime {
       this.applyUsage(agent.id, result.usage);
       this.applyDownstreamPromptCost(agent, visibleMessages, result.usage);
       this.updateToolSupport(agent.id, result.mode);
+      this.completeRequestTrace(trace.id, {
+        status: 'succeeded',
+        usage: result.usage,
+        action: result.action,
+      });
 
       if (result.action.type === 'stay_silent') {
+        const requestCostUsd = result.usage?.estimatedCost;
+        const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
         this.pushRuntimeEvent({
           type: 'silent-decision',
           agentId: agent.id,
           details: result.action.reason,
+          sourceTraceId: trace.id,
+          requestCostUsd,
+          ownPromptCostUsd,
+          costUsd: requestCostUsd,
         });
         this.pushDebugLog({
           kind: 'turn-result',
@@ -624,8 +768,10 @@ export class MultiChatRuntime {
           requestCostUsd: result.usage?.estimatedCost,
           ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
           createdInSweep: this.state.execution.sweepCount,
+          sourceTraceId: trace.id,
           triggerSweep: false,
         });
+        this.attachProducedMessageToTrace(trace.id, sentMessage.id);
         this.pushDebugLog({
           kind: 'turn-result',
           sweep: this.state.execution.sweepCount,
@@ -650,8 +796,10 @@ export class MultiChatRuntime {
         requestCostUsd: result.usage?.estimatedCost,
         ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
         createdInSweep: this.state.execution.sweepCount,
+        sourceTraceId: trace.id,
         triggerSweep: false,
       });
+      this.attachProducedMessageToTrace(trace.id, sentMessage.id);
       this.pushDebugLog({
         kind: 'turn-result',
         sweep: this.state.execution.sweepCount,
@@ -668,6 +816,10 @@ export class MultiChatRuntime {
       this.state.execution.queuedSweep = true;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
+        this.completeRequestTrace(trace.id, {
+          status: 'aborted',
+          error: 'Agent request aborted',
+        });
         this.pushRuntimeEvent({
           type: 'sweep-stopped',
           agentId: agent.id,
@@ -686,10 +838,15 @@ export class MultiChatRuntime {
 
       const message =
         error instanceof Error ? error.message : 'Unknown agent runtime error';
+      this.completeRequestTrace(trace.id, {
+        status: 'failed',
+        error: message,
+      });
       this.pushRuntimeError({
         agentId: agent.id,
         message: 'Agent turn failed',
         details: message,
+        sourceTraceId: trace.id,
       });
 
       if (mode === 'tools') {
@@ -701,6 +858,15 @@ export class MultiChatRuntime {
         });
 
         try {
+          const fallbackTrace = this.createRequestTrace({
+            agent,
+            mode: 'json',
+            fallback: true,
+            parentTraceId: trace.id,
+            triggeringMessageIds,
+            visibleMessageIds: visibleMessages.map((message) => message.id),
+            nonSelfVisibleMessageIds,
+          });
           this.pushDebugLog({
             kind: 'turn-requested',
             sweep: this.state.execution.sweepCount,
@@ -739,11 +905,25 @@ export class MultiChatRuntime {
             visibleMessages,
             fallback.usage,
           );
+          this.completeRequestTrace(fallbackTrace.id, {
+            status: 'succeeded',
+            usage: fallback.usage,
+            action: fallback.action,
+          });
           if (fallback.action.type === 'stay_silent') {
+            const requestCostUsd = fallback.usage?.estimatedCost;
+            const ownPromptCostUsd = this.getPromptCostUsd(
+              agent,
+              fallback.usage,
+            );
             this.pushRuntimeEvent({
               type: 'silent-decision',
               agentId: agent.id,
               details: fallback.action.reason,
+              sourceTraceId: fallbackTrace.id,
+              requestCostUsd,
+              ownPromptCostUsd,
+              costUsd: requestCostUsd,
             });
             this.pushDebugLog({
               kind: 'turn-result',
@@ -771,8 +951,10 @@ export class MultiChatRuntime {
             requestCostUsd: fallback.usage?.estimatedCost,
             ownPromptCostUsd: this.getPromptCostUsd(agent, fallback.usage),
             createdInSweep: this.state.execution.sweepCount,
+            sourceTraceId: fallbackTrace.id,
             triggerSweep: false,
           });
+          this.attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id);
           this.pushDebugLog({
             kind: 'turn-result',
             sweep: this.state.execution.sweepCount,
@@ -792,10 +974,23 @@ export class MultiChatRuntime {
             fallbackError instanceof Error
               ? fallbackError.message
               : 'Unknown JSON fallback error';
+          const fallbackTraceId =
+            this.state.requestTraces[trace.id]?.childTraceIds.at(-1) ?? null;
+          if (fallbackTraceId) {
+            this.completeRequestTrace(fallbackTraceId, {
+              status:
+                fallbackError instanceof Error &&
+                fallbackError.name === 'AbortError'
+                  ? 'aborted'
+                  : 'failed',
+              error: fallbackMessage,
+            });
+          }
           this.pushRuntimeError({
             agentId: agent.id,
             message: 'JSON fallback failed',
             details: fallbackMessage,
+            sourceTraceId: fallbackTraceId ?? undefined,
           });
           this.persistAndNotify();
         }
@@ -1007,9 +1202,7 @@ export class MultiChatRuntime {
     });
   }
 
-  private hasNewVisibleInputForAgent(
-    agentId: string,
-  ): boolean {
+  private hasNewVisibleInputForAgent(agentId: string): boolean {
     const currentKey = this.getVisibleContextKey(agentId);
     return this.lastProcessedVisibleContextKeys.get(agentId) !== currentKey;
   }
@@ -1081,6 +1274,205 @@ export class MultiChatRuntime {
     this.state.metrics[agentId] = metrics;
   }
 
+  private createRequestTrace(input: {
+    agent: AgentConfig;
+    mode: AgentExecutionMode;
+    fallback: boolean;
+    parentTraceId: string | null;
+    triggeringMessageIds: string[];
+    visibleMessageIds: string[];
+    nonSelfVisibleMessageIds: string[];
+  }): RequestTrace {
+    const trace: RequestTrace = {
+      id: this.createId(),
+      sweep: this.state.execution.sweepCount,
+      agentId: input.agent.id,
+      agentName: input.agent.name,
+      mode: input.mode,
+      fallback: input.fallback,
+      status: 'running',
+      startedAt: this.now().toISOString(),
+      triggeringMessageIds: [...input.triggeringMessageIds],
+      visibleMessageIds: [...input.visibleMessageIds],
+      nonSelfVisibleMessageIds: [...input.nonSelfVisibleMessageIds],
+      parentTraceId: input.parentTraceId,
+      childTraceIds: [],
+      upstreamMessageIds: [...input.triggeringMessageIds],
+      downstreamMessageIds: [],
+      pricingSnapshot: input.agent.pricing
+        ? { ...input.agent.pricing }
+        : undefined,
+      transport: {
+        provider: 'openrouter',
+        modelId: input.agent.modelId,
+        executionMode: input.mode,
+      },
+      payloads: {},
+      links: [
+        ...input.triggeringMessageIds.map((messageId) => ({
+          kind: 'triggering-message' as const,
+          messageId,
+        })),
+        ...input.visibleMessageIds.map((messageId) => ({
+          kind: 'visible-message' as const,
+          messageId,
+        })),
+        ...(input.parentTraceId
+          ? [{ kind: 'parent' as const, traceId: input.parentTraceId }]
+          : []),
+      ],
+    };
+
+    this.state.requestTraces[trace.id] = trace;
+    if (input.parentTraceId) {
+      const parentTrace = this.state.requestTraces[input.parentTraceId];
+      if (parentTrace && !parentTrace.childTraceIds.includes(trace.id)) {
+        parentTrace.childTraceIds.push(trace.id);
+        parentTrace.links.push({
+          kind: 'child',
+          traceId: trace.id,
+        });
+      }
+    }
+    this.registerTraceForMessages(trace.id, input.triggeringMessageIds, true);
+    this.registerTraceForMessages(trace.id, input.visibleMessageIds, false);
+
+    return trace;
+  }
+
+  private completeRequestTrace(
+    traceId: string,
+    input: {
+      status: RequestTrace['status'];
+      usage?: TransportUsage;
+      action?: {
+        type: 'speak_public' | 'send_private' | 'stay_silent';
+        text?: string;
+        to?: string;
+        reason?: string;
+      };
+      error?: string;
+    },
+  ): void {
+    const trace = this.state.requestTraces[traceId];
+    if (!trace) {
+      return;
+    }
+
+    trace.status = input.status;
+    trace.finishedAt = this.now().toISOString();
+    if (input.usage) {
+      trace.usage = {
+        promptTokens: input.usage.promptTokens,
+        completionTokens: input.usage.completionTokens,
+        totalTokens: input.usage.totalTokens,
+        estimatedCost: input.usage.estimatedCost,
+        promptCostUsd: this.getPromptCostUsdByTrace(trace, input.usage),
+        requestCostUsd: input.usage.estimatedCost,
+      };
+      trace.payloads.requestInputJson = input.usage.requestPayloadJson;
+      trace.payloads.responseOutputJson = input.usage.responsePayloadJson;
+      trace.transport = {
+        ...trace.transport,
+        ...(input.usage.transportMeta ?? {}),
+      };
+    }
+    if (input.action) {
+      trace.payloads.normalizedActionJson = deepClone(input.action);
+    }
+    if (input.error) {
+      trace.transport = {
+        ...trace.transport,
+        error: input.error,
+        aborted: input.status === 'aborted',
+      };
+    }
+  }
+
+  private attachProducedMessageToTrace(
+    traceId: string,
+    messageId: string,
+  ): void {
+    const trace = this.state.requestTraces[traceId];
+    if (!trace) {
+      return;
+    }
+
+    trace.producedMessageId = messageId;
+    if (!trace.downstreamMessageIds.includes(messageId)) {
+      trace.downstreamMessageIds.push(messageId);
+    }
+    trace.links.push({
+      kind: 'produced-message',
+      messageId,
+    });
+    this.updateMessageSourceTrace(messageId, traceId);
+  }
+
+  private updateMessageSourceTrace(
+    messageId: string,
+    sourceTraceId?: string,
+  ): void {
+    const index = this.getMessageInspectionIndexEntry(messageId);
+    index.sourceTraceId = sourceTraceId;
+    this.state.messageInspectionIndex[messageId] = index;
+  }
+
+  private registerTraceForMessages(
+    traceId: string,
+    messageIds: string[],
+    isTriggering: boolean,
+  ): void {
+    for (const messageId of messageIds) {
+      const index = this.getMessageInspectionIndexEntry(messageId);
+      const targetIds = isTriggering
+        ? index.triggeringTraceIds
+        : index.visibleTraceIds;
+      if (!targetIds.includes(traceId)) {
+        targetIds.push(traceId);
+      }
+      if (!index.downstreamTraceIds.includes(traceId)) {
+        index.downstreamTraceIds.push(traceId);
+      }
+      this.state.messageInspectionIndex[messageId] = index;
+    }
+  }
+
+  private getMessageInspectionIndexEntry(
+    messageId: string,
+  ): MessageInspectionIndex {
+    return (
+      this.state.messageInspectionIndex[messageId] ?? {
+        downstreamTraceIds: [],
+        triggeringTraceIds: [],
+        visibleTraceIds: [],
+      }
+    );
+  }
+
+  private cloneTraces(traceIds: string[]): RequestTrace[] {
+    return traceIds
+      .map((traceId) => this.state.requestTraces[traceId])
+      .filter((item): item is RequestTrace => Boolean(item))
+      .map((item) => deepClone(item));
+  }
+
+  private getMessageById(messageId: string): ChatMessage | null {
+    return this.findMessageEntryById(messageId)?.message ?? null;
+  }
+
+  private getPromptCostUsdByTrace(
+    trace: RequestTrace,
+    usage?: TransportUsage,
+  ): number {
+    const agent = this.state.agents.find((item) => item.id === trace.agentId);
+    if (!agent) {
+      return 0;
+    }
+
+    return this.getPromptCostUsd(agent, usage);
+  }
+
   private getActiveAgents(): AgentConfig[] {
     return this.state.agents.filter(
       (agent) => agent.isEnabled !== false && agent.isHidden !== true,
@@ -1105,7 +1497,18 @@ export class MultiChatRuntime {
   }
 
   private pushRuntimeEvent(
-    input: Pick<RuntimeEvent, 'type' | 'agentId' | 'details'>,
+    input: Pick<
+      RuntimeEvent,
+      | 'type'
+      | 'agentId'
+      | 'details'
+      | 'sourceTraceId'
+      | 'costUsd'
+      | 'requestCostUsd'
+      | 'ownPromptCostUsd'
+      | 'downstreamPromptCostUsd'
+      | 'downstreamPromptCostContributors'
+    >,
   ): void {
     const event: RuntimeEvent = {
       id: this.createId(),
@@ -1121,7 +1524,10 @@ export class MultiChatRuntime {
   }
 
   private pushRuntimeError(
-    input: Pick<RuntimeError, 'agentId' | 'message' | 'details'>,
+    input: Pick<
+      RuntimeError,
+      'agentId' | 'message' | 'details' | 'sourceTraceId'
+    >,
   ): void {
     this.state.errors.push({
       id: this.createId(),
@@ -1132,19 +1538,20 @@ export class MultiChatRuntime {
       type: 'runtime-error',
       agentId: input.agentId,
       details: input.details ?? input.message,
+      sourceTraceId: input.sourceTraceId,
     });
     this.pushDebugLog({
       kind: 'runtime-error',
       sweep: this.state.execution.sweepCount,
       agentId: input.agentId,
-      agentName: input.agentId ? this.participantName(input.agentId) : undefined,
+      agentName: input.agentId
+        ? this.participantName(input.agentId)
+        : undefined,
       details: `${input.message}${input.details ? `: ${input.details}` : ''}`,
     });
   }
 
-  private pushDebugLog(
-    input: Omit<DebugLogEntry, 'id' | 'createdAt'>,
-  ): void {
+  private pushDebugLog(input: Omit<DebugLogEntry, 'id' | 'createdAt'>): void {
     this.state.debugLogs.push({
       id: `debug-${this.state.debugLogs.length + 1}`,
       createdAt: this.now().toISOString(),
@@ -1154,7 +1561,9 @@ export class MultiChatRuntime {
 
   private getTimelineMessages(): ChatMessage[] {
     return this.state.timeline
-      .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
+      .filter(
+        (entry): entry is TimelineMessageEntry => entry.kind === 'message',
+      )
       .map((entry) => entry.message);
   }
 
@@ -1170,10 +1579,7 @@ export class MultiChatRuntime {
   private getActiveManualCutoffIndex(): number | null {
     for (let index = this.state.timeline.length - 1; index >= 0; index -= 1) {
       const entry = this.state.timeline[index];
-      if (
-        entry.kind === 'history-cutoff' &&
-        entry.cutoff.source === 'manual'
-      ) {
+      if (entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual') {
         return index;
       }
     }
@@ -1232,9 +1638,13 @@ export class MultiChatRuntime {
     }
 
     const previousMessage =
-      anchor.kind === 'after-message' ? messages[messageIndex] : messages[messageIndex - 1];
+      anchor.kind === 'after-message'
+        ? messages[messageIndex]
+        : messages[messageIndex - 1];
     const nextMessage =
-      anchor.kind === 'after-message' ? messages[messageIndex + 1] : messages[messageIndex];
+      anchor.kind === 'after-message'
+        ? messages[messageIndex + 1]
+        : messages[messageIndex];
     const previousTime = previousMessage
       ? Date.parse(previousMessage.createdAt)
       : null;

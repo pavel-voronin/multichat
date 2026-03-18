@@ -14,7 +14,9 @@
       </span>
       <span class="message-cost-row">
         <span class="message-cost-label">Prompt</span>
-        <span class="message-cost-request">{{ formatMessageCost(promptPrice) }}</span>
+        <span class="message-cost-request">{{
+          formatMessageCost(promptPrice)
+        }}</span>
       </span>
       <span class="message-cost-row">
         <span class="message-cost-label">Completion</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentConfig, ChatMessage } from '../src/core';
+import type { AgentConfig, ChatMessage, RuntimeEvent } from '../src/core';
 import {
   agentCompletionPrice,
   agentPromptPrice,
@@ -21,6 +21,15 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   };
 }
 
+function createEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
+  return {
+    id: 'e-1',
+    createdAt: '2026-01-01T10:00:00.000Z',
+    type: 'silent-decision',
+    ...overrides,
+  };
+}
+
 describe('costing utils', () => {
   it('formats message cost with 4 decimals by default', () => {
     expect(formatMessageCost(1.2)).toBe('$1.2000');
@@ -38,6 +47,14 @@ describe('costing utils', () => {
       downstreamPromptCostUsd: 0.04,
     });
     expect(displayedMessageCost(message, 'net')).toBeCloseTo(0.44);
+  });
+
+  it('calculates net display mode for silent events by the same rules', () => {
+    const event = createEvent({
+      requestCostUsd: 0.5,
+      ownPromptCostUsd: 0.1,
+    });
+    expect(displayedMessageCost(event, 'net')).toBeCloseTo(0.4);
   });
 
   it('hides costs when mode is off', () => {

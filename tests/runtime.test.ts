@@ -56,7 +56,10 @@ function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
 function timelineEvents(runtime: MultiChatRuntime): RuntimeEvent[] {
   return runtime
     .getTimelineEntries()
-    .filter((entry): entry is TimelineTechnicalEventEntry => entry.kind === 'technical-event')
+    .filter(
+      (entry): entry is TimelineTechnicalEventEntry =>
+        entry.kind === 'technical-event',
+    )
     .map((entry) => entry.event);
 }
 
@@ -241,12 +244,14 @@ describe('MultiChatRuntime', () => {
       target: 'public',
     });
 
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      'start debate',
-      'reply from alpha',
-      'reply from beta',
-      'follow-up from alpha',
-    ]);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      [
+        'start debate',
+        'reply from alpha',
+        'reply from beta',
+        'follow-up from alpha',
+      ],
+    );
     expect(turns).toEqual({
       'id-1': 2,
       'id-2': 2,
@@ -290,10 +295,9 @@ describe('MultiChatRuntime', () => {
       target: 'public',
     });
 
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      '1',
-      'need more detail',
-    ]);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['1', 'need more detail'],
+    );
   });
 
   it('does not rerun a speaking agent when its own reply displaces the prompt from a tiny window', async () => {
@@ -337,10 +341,9 @@ describe('MultiChatRuntime', () => {
       target: 'public',
     });
 
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      'question',
-      'answer once',
-    ]);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['question', 'answer once'],
+    );
     expect(turns).toEqual(['id-1', 'id-2']);
   });
 
@@ -477,6 +480,44 @@ describe('MultiChatRuntime', () => {
 
     expect(timelineMessages(runtime)[0]).toMatchObject({
       content: 'priced reply',
+      costUsd: 0.00042,
+    });
+  });
+
+  it('stores request and own prompt cost on silent decisions', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async () => ({
+        mode: 'tools',
+        action: { type: 'stay_silent', reason: 'priced noop' },
+        usage: {
+          promptTokens: 5,
+          completionTokens: 0,
+          totalTokens: 5,
+          estimatedCost: 0.00042,
+        },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Priced',
+      modelId: 'm',
+      systemPrompt: 'prompt',
+      pricing: { prompt: '0.01', completion: '0.08' },
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.runAgentSweep('manual');
+
+    const silentDecision = timelineEvents(runtime).find(
+      (event) => event.type === 'silent-decision',
+    );
+
+    expect(silentDecision).toMatchObject({
+      type: 'silent-decision',
+      details: 'priced noop',
+      requestCostUsd: 0.00042,
+      ownPromptCostUsd: 0.05,
       costUsd: 0.00042,
     });
   });
@@ -809,9 +850,9 @@ describe('MultiChatRuntime', () => {
 
     runtime.clearHistoryBeforeAgentCutoff();
 
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      'after reset',
-    ]);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['after reset'],
+    );
     expect(
       runtime
         .getTimelineEntries()
@@ -874,13 +915,19 @@ describe('MultiChatRuntime', () => {
     const betaVisibleMessages = runtime.getVisibleMessagesForAgent('id-2');
     expect(runtime.getAgentContextCutoffs()).toEqual([
       {
-        anchor: { kind: 'before-message', messageId: alphaVisibleMessages[0].id },
+        anchor: {
+          kind: 'before-message',
+          messageId: alphaVisibleMessages[0].id,
+        },
         agentIds: ['id-1'],
         agentNames: ['Alpha'],
         usesGlobalWindow: true,
       },
       {
-        anchor: { kind: 'before-message', messageId: betaVisibleMessages[0].id },
+        anchor: {
+          kind: 'before-message',
+          messageId: betaVisibleMessages[0].id,
+        },
         agentIds: ['id-2'],
         agentNames: ['Beta'],
         usesGlobalWindow: false,
@@ -1138,6 +1185,169 @@ describe('MultiChatRuntime', () => {
     expect(abortSignal?.aborted).toBe(true);
     expect(runtime.getState().execution.isSweepRunning).toBe(false);
     expect(runtime.getState().execution.queuedSweep).toBe(false);
-    expect(timelineEvents(runtime).some((event) => event.type === 'sweep-stopped')).toBe(true);
+    expect(
+      timelineEvents(runtime).some((event) => event.type === 'sweep-stopped'),
+    ).toBe(true);
+  });
+
+  it('records request traces and links produced agent messages back to the trace', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async () => ({
+        mode: 'tools',
+        action: { type: 'speak_public', text: 'trace hello' },
+        usage: {
+          promptTokens: 12,
+          completionTokens: 4,
+          totalTokens: 16,
+          estimatedCost: 0.25,
+          requestPayloadJson: { request: true },
+          responsePayloadJson: { response: true },
+          transportMeta: {
+            provider: 'openrouter',
+            modelId: 'model-a',
+            executionMode: 'tools',
+          },
+        },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'TraceAgent',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      pricing: {
+        prompt: '0.01',
+      },
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'start tracing',
+      target: 'public',
+    });
+
+    const messages = timelineMessages(runtime);
+    const agentMessage = messages.at(-1)!;
+    const trace = runtime.getRequestTrace(agentMessage.sourceTraceId!);
+
+    expect(trace).toEqual(
+      expect.objectContaining({
+        status: 'succeeded',
+        producedMessageId: agentMessage.id,
+        payloads: expect.objectContaining({
+          requestInputJson: { request: true },
+          responseOutputJson: { response: true },
+          normalizedActionJson: { type: 'speak_public', text: 'trace hello' },
+        }),
+      }),
+    );
+    expect(agentMessage.sourceTraceId).toBe(trace?.id);
+  });
+
+  it('indexes human messages by triggering traces before passive visible traces', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => ({
+        mode: 'tools',
+        action:
+          agentId === 'id-1'
+            ? { type: 'speak_public', text: 'alpha reply' }
+            : { type: 'stay_silent', reason: 'observed' },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-b',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const humanMessage = await runtime.sendMessage({
+      senderId: 'human',
+      content: 'fan out',
+      target: 'public',
+    });
+
+    const inspection = runtime.getInspectionSubjectForMessage(humanMessage.id);
+
+    expect(inspection.triggeringTraces).toHaveLength(2);
+    expect(inspection.visibleOnlyTraces).toHaveLength(0);
+    expect(inspection.downstreamTraces.map((trace) => trace.agentName)).toEqual(
+      ['Alpha', 'Beta'],
+    );
+  });
+
+  it('creates a linked fallback trace when tools fail', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async (_agentId, mode) => {
+        if (mode === 'tools') {
+          throw new Error('tool unsupported');
+        }
+
+        return {
+          mode: 'json',
+          action: { type: 'stay_silent', reason: 'fallback ok' },
+        };
+      }),
+    });
+
+    runtime.createAgent({
+      name: 'Fallback',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'force fallback',
+      target: 'public',
+    });
+
+    const traces = Object.values(runtime.getState().requestTraces);
+    const toolsTrace = traces.find((trace) => trace.mode === 'tools');
+    const fallbackTrace = traces.find((trace) => trace.mode === 'json');
+
+    expect(toolsTrace?.status).toBe('failed');
+    expect(fallbackTrace?.parentTraceId).toBe(toolsTrace?.id);
+    expect(toolsTrace?.childTraceIds).toContain(fallbackTrace?.id);
+  });
+
+  it('links silent technical events back to the request trace', async () => {
+    const runtime = createRuntime();
+    runtime.createAgent({
+      name: 'Silent',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'stay quiet',
+      target: 'public',
+    });
+
+    const silentEvent = timelineEvents(runtime).find(
+      (event) => event.type === 'silent-decision',
+    );
+
+    expect(silentEvent?.sourceTraceId).toBeTruthy();
+    expect(runtime.getRequestTrace(silentEvent!.sourceTraceId!)).toEqual(
+      expect.objectContaining({
+        status: 'succeeded',
+      }),
+    );
   });
 });

@@ -1,100 +1,238 @@
 <template>
   <template v-for="entry in chatTimelineEntries" :key="entry.id">
-      <article v-if="entry.kind === 'message'" :class="messageClasses(entry)">
-        <span class="message-time"
-          >[{{ formatMessageTime(entry.message.createdAt) }}]</span
-        ><span class="message-separator">{{ messageSeparator }}</span
-        ><span
-          class="message-sender"
-          @dblclick="composerState.mentionMessageSender(entry.message)"
-          >{{ formatMessageAuthor(entry.message) }}</span
-        ><template v-if="shouldShowMessageCost(entry.message)">
-          <span class="message-separator">{{ messageSeparator }}</span
-          ><span class="message-cost">
-            <span
-              class="message-cost-trigger"
-              :class="messageCostSummaryClass(entry.message)"
-              @mouseenter="
-                overlayControls.openCostBubble(entry.message.id, $event)
-              "
-              @mouseleave="overlayControls.scheduleCostBubbleClose()"
-              >{{ formatMessageCost(displayedMessageCost(entry.message)) }}</span
-            >
-          </span>
-        </template
-        ><span class="message-separator">{{ messageSeparator }}</span
-        ><span class="message-text">{{ entry.message.content }}</span>
-      </article>
-      <article
-        v-else-if="entry.kind === 'technical-event'"
-        :class="technicalEventClasses(entry.event)"
+    <article v-if="entry.kind === 'message'" :class="messageClasses(entry)">
+      <button
+        type="button"
+        class="message-time message-time-trigger"
+        :class="{
+          'message-time-trigger-active': canInspectMessage(entry.message),
+        }"
+        :disabled="!canInspectMessage(entry.message)"
+        @click="openInspection(entry.message)"
       >
-        <span class="message-time"
-          >[{{ formatMessageTime(entry.event.createdAt) }}]</span
-        ><span class="message-separator">{{ messageSeparator }}</span
-        ><span class="runtime-label">{{
-          formatTechnicalEventLabel(entry.event)
-        }}</span
-        ><span class="message-separator">{{ messageSeparator }}</span
-        ><span class="runtime-text">{{ formatTechnicalEventText(entry.event) }}</span>
-      </article>
+        [{{ formatMessageTime(entry.message.createdAt) }}]</button
+      ><span class="message-separator">{{ messageSeparator }}</span
+      ><span
+        class="message-sender"
+        @dblclick="messageInputState.mentionMessageSender(entry.message)"
+        >{{ formatMessageAuthorForTemplate(entry.message) }}</span
+      ><template v-if="shouldShowCost(entry.message)">
+        <span class="message-separator">{{ messageSeparator }}</span
+        ><span class="message-cost">
+          <span
+            class="message-cost-trigger"
+            :class="costSummaryClass(entry.message)"
+            @mouseenter="
+              overlayControls.openCostBubble(entry.message.id, $event)
+            "
+            @mouseleave="overlayControls.scheduleCostBubbleClose()"
+            >{{ formatMessageCost(displayedCost(entry.message)) }}</span
+          >
+        </span> </template
+      ><span class="message-separator">{{ messageSeparator }}</span
+      ><span class="message-text">{{ entry.message.content }}</span>
+    </article>
+    <article
+      v-else-if="entry.kind === 'technical-event'"
+      :class="technicalEventClasses(entry.event)"
+    >
+      <button
+        type="button"
+        class="message-time message-time-trigger"
+        :class="{
+          'message-time-trigger-active': canInspectEvent(entry.event),
+        }"
+        :disabled="!canInspectEvent(entry.event)"
+        @click="openEventInspection(entry.event)"
+      >
+        [{{ formatMessageTime(entry.event.createdAt) }}]</button
+      ><span class="message-separator">{{ messageSeparator }}</span
+      ><span class="runtime-label">{{
+        formatTechnicalEventLabelForTemplate(entry.event)
+      }}</span
+      ><template v-if="shouldShowCost(entry.event)">
+        <span class="message-separator">{{ messageSeparator }}</span
+        ><span class="message-cost">
+          <span
+            class="message-cost-trigger"
+            :class="costSummaryClass(entry.event)"
+            @mouseenter="overlayControls.openCostBubble(entry.event.id, $event)"
+            @mouseleave="overlayControls.scheduleCostBubbleClose()"
+            >{{ formatMessageCost(displayedCost(entry.event)) }}</span
+          >
+        </span> </template
+      ><span class="message-separator">{{ messageSeparator }}</span
+      ><span class="runtime-text">{{
+        formatTechnicalEventText(entry.event)
+      }}</span>
+    </article>
 
-      <div v-else class="cutoff-stack">
-        <div
-          v-if="entry.cutoff.source === 'manual'"
-          class="cutoff-banner cutoff-banner-manual"
-        >
-          <span class="cutoff-copy">
-            <span class="cutoff-title">History cleared for agents</span>
-            <span class="cutoff-manual-copy">
-              Messages above stay visible but are excluded from agent context.
-            </span>
-            <button
-              type="button"
-              class="cutoff-link"
-              @click="runtime.clearHistoryBeforeAgentCutoff()"
-            >
-              Clear chat history
-            </button>
+    <div v-else class="cutoff-stack">
+      <div
+        v-if="entry.cutoff.source === 'manual'"
+        class="cutoff-banner cutoff-banner-manual"
+      >
+        <span class="cutoff-copy">
+          <span class="cutoff-title">History cleared for agents</span>
+          <span class="cutoff-manual-copy">
+            Messages above stay visible but are excluded from agent context.
           </span>
-        </div>
-
-        <div v-else class="cutoff-banner cutoff-banner-preview">
-          <span class="cutoff-copy">{{ entry.cutoff.label }}</span>
-        </div>
+          <button
+            type="button"
+            class="cutoff-link"
+            @click="runtime.clearHistoryBeforeAgentCutoff()"
+          >
+            Clear chat history
+          </button>
+        </span>
       </div>
+
+      <div v-else class="cutoff-banner cutoff-banner-preview">
+        <span class="cutoff-copy">{{ entry.cutoff.label }}</span>
+      </div>
+    </div>
   </template>
 </template>
 
 <script setup lang="ts">
-import { useChatViewModel } from '../composables/useChatViewModel';
-import { useComposerState } from '../useComposerState';
+import { storeToRefs } from 'pinia';
+import { computed } from 'vue';
+import type {
+  ChatMessage,
+  RuntimeEvent,
+  VisibleTimelineEntry,
+} from '../../core';
+import { useRequestInspection } from '../composables/useRequestInspection';
+import { useMessageInputStore } from '../stores/messageInput';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import { useOverlayControls } from '../useOverlayControls';
-import { useRuntime } from '../useRuntime';
-import { useRuntimeState } from '../useRuntimeState';
 import {
+  formatMessageAuthor,
   formatMessageTime,
+  formatTechnicalEventLabel,
   formatTechnicalEventText,
   technicalEventClasses,
 } from '../utils/chatFormatting';
-import { formatMessageCost } from '../utils/costing';
+import {
+  displayedMessageCost,
+  formatMessageCost,
+  messageCostSummaryClass,
+  shouldShowMessageCost,
+} from '../utils/costing';
 
-const runtime = useRuntime();
-const state = useRuntimeState(runtime);
-const composerState = useComposerState();
+const runtimeStore = useRuntimeStore();
+const runtime = runtimeStore.requireRuntime();
+const { state } = storeToRefs(runtimeStore);
+const messageInputState = useMessageInputStore();
 const overlayControls = useOverlayControls();
-const chatViewModel = useChatViewModel({
-  state,
+const ui = useUiStore();
+const inspection = useRequestInspection({
   runtime,
+  state,
+  ui,
 });
 const messageSeparator = ' ';
-const chatTimelineEntries = chatViewModel.chatTimelineEntries;
-const formatMessageAuthor = chatViewModel.formatMessageAuthorForView;
-const formatTechnicalEventLabel = chatViewModel.formatTechnicalEventLabelForView;
-const displayedMessageCost = chatViewModel.displayedMessageCost;
-const shouldShowMessageCost = chatViewModel.shouldShowMessageCost;
-const messageCostSummaryClass = chatViewModel.messageCostSummaryClass;
-const messageClasses = chatViewModel.messageClasses;
+const formatMessageAuthorForTemplate = formatMessageAuthorForView;
+const formatTechnicalEventLabelForTemplate = formatTechnicalEventLabelForView;
+const human = computed(() =>
+  state.value.participants.find((participant) => participant.role === 'human'),
+);
+const chatTimelineEntries = computed(() =>
+  runtime.getVisibleTimelineEntries({
+    participantId: human.value?.id ?? 'human',
+    filters: {
+      showTechnicalEvents: state.value.settings.showSilentDecisions,
+      showPreviewCutoffs: state.value.settings.showContextCutoffs,
+    },
+  }),
+);
+
+function canInspectMessage(message: ChatMessage) {
+  return inspection.canInspectMessage(message);
+}
+
+function displayedCost(
+  item: Parameters<typeof displayedMessageCost>[0],
+): number {
+  return displayedMessageCost(item, state.value.settings.costDisplayMode);
+}
+
+function shouldShowCost(
+  item: Parameters<typeof shouldShowMessageCost>[0],
+): boolean {
+  return shouldShowMessageCost(item, state.value.settings.costDisplayMode);
+}
+
+function costSummaryClass(
+  item: Parameters<typeof messageCostSummaryClass>[0],
+): string {
+  return messageCostSummaryClass(item, state.value.settings.costDisplayMode);
+}
+
+function openInspection(message: ChatMessage) {
+  if (!canInspectMessage(message)) {
+    return;
+  }
+
+  if (message.senderId === 'human') {
+    const subject = inspection.getInspectionSubjectForMessage(message.id);
+    if (subject.downstreamTraces.length === 1) {
+      inspection.openForTrace(subject.downstreamTraces[0]!.id, message.id);
+      return;
+    }
+
+    inspection.openForMessage(message.id);
+    return;
+  }
+
+  if (message.sourceTraceId) {
+    inspection.openForTrace(message.sourceTraceId, message.id);
+  }
+}
+
+function canInspectEvent(event: RuntimeEvent) {
+  return Boolean(event.sourceTraceId);
+}
+
+function openEventInspection(event: RuntimeEvent) {
+  if (!event.sourceTraceId) {
+    return;
+  }
+
+  inspection.openForTrace(event.sourceTraceId);
+}
+
+function formatMessageAuthorForView(message: ChatMessage) {
+  return formatMessageAuthor(message, {
+    byId: participantNameById,
+  });
+}
+
+function formatTechnicalEventLabelForView(event: RuntimeEvent) {
+  return formatTechnicalEventLabel(event, {
+    byId: participantNameById,
+  });
+}
+
+function messageClasses(
+  entry: Extract<VisibleTimelineEntry, { kind: 'message' }>,
+): string {
+  const baseClass =
+    entry.message.target === 'private'
+      ? 'message-line-private'
+      : 'message-line';
+
+  return entry.isMuted ? `${baseClass} message-line-muted` : baseClass;
+}
+
+function participantNameById(participantId: string): string | null {
+  return (
+    state.value.participants.find(
+      (participant) => participant.id === participantId,
+    )?.name ?? null
+  );
+}
 </script>
 
 <style scoped>
@@ -109,7 +247,7 @@ const messageClasses = chatViewModel.messageClasses;
 }
 
 .runtime-line {
-  @apply block whitespace-pre-wrap break-words text-[12px] leading-5;
+  @apply block whitespace-pre-wrap break-words text-[13px] leading-6;
 }
 
 .runtime-line-silent {
@@ -126,6 +264,14 @@ const messageClasses = chatViewModel.messageClasses;
 
 .message-time {
   @apply text-neutral-500;
+}
+
+.message-time-trigger {
+  @apply cursor-default border-0 bg-transparent p-0 text-current;
+}
+
+.message-time-trigger-active {
+  @apply cursor-pointer rounded transition-colors hover:bg-neutral-200/80;
 }
 
 .message-sender {

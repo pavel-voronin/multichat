@@ -20,7 +20,9 @@ describe('OpenRouterHttpTransport', () => {
                     {
                       function: {
                         name: 'stay_silent',
-                        arguments: JSON.stringify({ reason: 'prompt inspected' }),
+                        arguments: JSON.stringify({
+                          reason: 'prompt inspected',
+                        }),
                       },
                     },
                   ],
@@ -82,9 +84,7 @@ describe('OpenRouterHttpTransport', () => {
       messages: Array<{ role: string; content: string }>;
     };
 
-    const prompt = body.messages
-      .map((message) => message.content)
-      .join('\n');
+    const prompt = body.messages.map((message) => message.content).join('\n');
 
     expect(prompt).toContain(
       'If another participant privately asks you to coordinate, choose, confirm, or align on an answer, prefer send_private back to that same participant instead of speaking publicly.',

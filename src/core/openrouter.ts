@@ -241,22 +241,35 @@ async function callChatCompletion(
   mode: AgentExecutionMode,
   signal?: AbortSignal,
 ): Promise<AgentTurnResult> {
-  const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    signal,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: context.agent.modelId,
-      messages: buildMessages(context, mode),
-      tools: mode === 'tools' ? buildTools() : undefined,
-      tool_choice: mode === 'tools' ? 'required' : undefined,
-      parallel_tool_calls: mode === 'tools' ? false : undefined,
-      response_format: undefined,
-    }),
-  });
+  const requestPayload = {
+    model: context.agent.modelId,
+    messages: buildMessages(context, mode),
+    tools: mode === 'tools' ? buildTools() : undefined,
+    tool_choice: mode === 'tools' ? 'required' : undefined,
+    parallel_tool_calls: mode === 'tools' ? false : undefined,
+    response_format: undefined,
+  };
+  let response: Response;
+
+  try {
+    response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestPayload),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown transport error';
+    throw new Error(errorMessage);
+  }
 
   if (!response.ok) {
     const body = await response.text();
@@ -301,6 +314,13 @@ async function callChatCompletion(
       completionTokens: payload.usage?.completion_tokens,
       totalTokens: payload.usage?.total_tokens,
       estimatedCost: payload.usage?.cost,
+      requestPayloadJson: requestPayload,
+      responsePayloadJson: payload,
+      transportMeta: {
+        provider: 'openrouter',
+        modelId: context.agent.modelId,
+        executionMode: mode,
+      },
     },
   };
 }

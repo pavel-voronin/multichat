@@ -18,10 +18,7 @@
           >
             Hide and disable
           </UiButton>
-          <UiButton
-            class="delete-agent-modal-secondary-button"
-            @click="close"
-          >
+          <UiButton class="delete-agent-modal-secondary-button" @click="close">
             Cancel
           </UiButton>
         </div>
@@ -32,12 +29,12 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRuntime } from '../useRuntime';
-import { useUiState } from '../useUiState';
+import { useRuntimeStore } from '../stores/runtime';
+import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const runtime = useRuntime();
-const ui = useUiState();
+const runtime = useRuntimeStore().requireRuntime();
+const ui = useUiStore();
 const modalCopy = computed(() =>
   ui.pendingDeleteAgentName
     ? `Agent "${ui.pendingDeleteAgentName}" will disappear from the sidebar and stop participating in sweeps, but its name will remain in chat history.`

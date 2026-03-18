@@ -12,7 +12,8 @@ export function usePinnedScroll(
 
   function isNearBottom(element: HTMLDivElement): boolean {
     return (
-      element.scrollHeight - element.scrollTop - element.clientHeight <= threshold
+      element.scrollHeight - element.scrollTop - element.clientHeight <=
+      threshold
     );
   }
 

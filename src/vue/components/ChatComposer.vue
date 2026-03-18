@@ -2,7 +2,7 @@
   <div class="composer-panel">
     <div class="composer-row">
       <UiTextarea
-        ref="composer"
+        ref="messageInput"
         v-model="draft"
         class="composer-input"
         rows="1"
@@ -39,7 +39,7 @@ const emit = defineEmits<{
   send: [];
 }>();
 
-const composer = useTemplateRef<{ focus: () => void }>('composer');
+const messageInput = useTemplateRef<{ focus: () => void }>('messageInput');
 
 const draft = computed({
   get: () => props.modelValue,
@@ -54,7 +54,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 defineExpose({
-  focus: () => composer.value?.focus(),
+  focus: () => messageInput.value?.focus(),
 });
 </script>
 
@@ -70,7 +70,7 @@ defineExpose({
 }
 
 .composer-input {
-  @apply field-sizing-content min-h-[30px] max-h-40 flex-1 resize-none overflow-auto px-3 py-1 text-[13px] leading-5;
+  @apply field-sizing-content min-h-7.5 max-h-40 flex-1 resize-none overflow-auto px-3 py-1 text-[13px] leading-5;
 }
 
 .composer-actions {

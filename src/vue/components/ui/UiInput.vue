@@ -31,9 +31,8 @@ const [modelValue, modifiers] = defineModel<string | number | null>({
 const displayValue = computed(() => modelValue.value ?? '');
 
 function handleInput(event: Event) {
-  let nextValue: string | number | null = (
-    event.target as HTMLInputElement
-  ).value;
+  let nextValue: string | number | null = (event.target as HTMLInputElement)
+    .value;
 
   if (modifiers.trim && typeof nextValue === 'string') {
     nextValue = nextValue.trim();

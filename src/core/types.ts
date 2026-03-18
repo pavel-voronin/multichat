@@ -26,6 +26,13 @@ export type DebugLogKind =
 export type AgentExecutionMode = 'tools' | 'json';
 export type ToolSupport = 'unknown' | 'supported' | 'unsupported';
 export type CostDisplayMode = 'off' | 'request' | 'net';
+export type RequestTraceStatus = 'running' | 'succeeded' | 'failed' | 'aborted';
+export type RequestTraceLinkKind =
+  | 'parent'
+  | 'child'
+  | 'triggering-message'
+  | 'visible-message'
+  | 'produced-message';
 
 export interface Participant {
   id: string;
@@ -71,6 +78,73 @@ export interface ChatMessage {
     listenCount: number;
   }>;
   createdInSweep?: number;
+  sourceTraceId?: string;
+}
+
+export interface RequestTraceUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  estimatedCost?: number;
+  promptCostUsd?: number;
+  requestCostUsd?: number;
+}
+
+export interface RequestTracePayloads {
+  requestInputJson?: unknown;
+  responseOutputJson?: unknown;
+  normalizedActionJson?: unknown;
+  sanitizedJson?: unknown;
+}
+
+export interface RequestTraceTransportMeta {
+  provider?: string;
+  modelId?: string;
+  executionMode?: AgentExecutionMode;
+  aborted?: boolean;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface RequestTraceLink {
+  kind: RequestTraceLinkKind;
+  traceId?: string;
+  messageId?: string;
+}
+
+export interface RequestTrace {
+  id: string;
+  sweep: number;
+  agentId: string;
+  agentName: string;
+  mode: AgentExecutionMode;
+  fallback: boolean;
+  status: RequestTraceStatus;
+  startedAt: string;
+  finishedAt?: string;
+  triggeringMessageIds: string[];
+  visibleMessageIds: string[];
+  nonSelfVisibleMessageIds: string[];
+  producedMessageId?: string;
+  parentTraceId?: string | null;
+  childTraceIds: string[];
+  upstreamMessageIds: string[];
+  downstreamMessageIds: string[];
+  usage?: RequestTraceUsage;
+  pricingSnapshot?: {
+    prompt?: string;
+    completion?: string;
+  };
+  transport?: RequestTraceTransportMeta;
+  payloads: RequestTracePayloads;
+  links: RequestTraceLink[];
+}
+
+export interface MessageInspectionIndex {
+  sourceTraceId?: string;
+  downstreamTraceIds: string[];
+  triggeringTraceIds: string[];
+  visibleTraceIds: string[];
 }
 
 export interface AgentMetrics {
@@ -107,6 +181,7 @@ export interface RuntimeError {
   agentId?: string;
   message: string;
   details?: string;
+  sourceTraceId?: string;
 }
 
 export interface RuntimeEvent {
@@ -115,6 +190,16 @@ export interface RuntimeEvent {
   type: RuntimeEventType;
   agentId?: string;
   details?: string;
+  sourceTraceId?: string;
+  costUsd?: number;
+  requestCostUsd?: number;
+  ownPromptCostUsd?: number;
+  downstreamPromptCostUsd?: number;
+  downstreamPromptCostContributors?: Array<{
+    agentId: string;
+    promptCostUsd: number;
+    listenCount: number;
+  }>;
 }
 
 export interface TimelineEntryBase {
@@ -206,6 +291,8 @@ export interface RuntimeState {
   debugLogs: DebugLogEntry[];
   errors: RuntimeError[];
   execution: ExecutionState;
+  requestTraces: Record<string, RequestTrace>;
+  messageInspectionIndex: Record<string, MessageInspectionIndex>;
 }
 
 export interface SendMessageInput {
@@ -223,6 +310,7 @@ export interface SendMessageInput {
     listenCount: number;
   }>;
   createdInSweep?: number;
+  sourceTraceId?: string;
   triggerSweep?: boolean;
 }
 
@@ -240,6 +328,9 @@ export interface TransportUsage {
   completionTokens?: number;
   totalTokens?: number;
   estimatedCost?: number;
+  requestPayloadJson?: unknown;
+  responsePayloadJson?: unknown;
+  transportMeta?: Record<string, unknown>;
 }
 
 export type AgentToolCall =

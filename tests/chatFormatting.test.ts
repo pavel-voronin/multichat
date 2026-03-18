@@ -63,7 +63,9 @@ describe('chatFormatting utils', () => {
       details: 'not relevant',
     };
     expect(formatTechnicalEventText(event)).toBe('stayed silent: not relevant');
-    expect(technicalEventClasses(event)).toBe('runtime-line runtime-line-silent');
+    expect(technicalEventClasses(event)).toBe(
+      'runtime-line runtime-line-silent',
+    );
   });
 
   it('formats debug logs with key metadata', () => {
