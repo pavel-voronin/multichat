@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OpenRouterHttpTransport } from '../src/core/openrouter';
-import type { AgentTurnContext } from '../src/core/types';
+import { OpenRouterHttpTransport } from '../../src/core/openrouter';
+import type { AgentTurnContext } from '../../src/core/types';
 
 describe('OpenRouterHttpTransport', () => {
   afterEach(() => {

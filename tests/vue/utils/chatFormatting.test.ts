@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage, DebugLogEntry, RuntimeEvent } from '../src/core';
+import type { ChatMessage, DebugLogEntry, RuntimeEvent } from '../../../src/core';
 import {
   formatDebugLogLine,
   formatMessageAuthor,
   formatTechnicalEventLabel,
   formatTechnicalEventText,
   technicalEventClasses,
-} from '../src/vue/utils/chatFormatting';
+} from '../../../src/vue/utils/chatFormatting';
 
 const lookup = {
   byId(participantId: string) {

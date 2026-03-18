@@ -239,15 +239,15 @@ function participantNameById(participantId: string): string | null {
 @reference "../../styles.css";
 
 .message-line {
-  @apply block whitespace-pre-wrap break-words text-[13px] leading-6 text-neutral-800;
+  @apply block break-words text-[13px] leading-6 text-neutral-800;
 }
 
 .message-line-private {
-  @apply block whitespace-pre-wrap break-words text-[13px] leading-6 text-orange-700 italic;
+  @apply block break-words text-[13px] leading-6 text-orange-700 italic;
 }
 
 .runtime-line {
-  @apply block whitespace-pre-wrap break-words text-[13px] leading-6;
+  @apply block break-words text-[13px] leading-6;
 }
 
 .runtime-line-silent {
@@ -311,11 +311,11 @@ function participantNameById(participantId: string): string | null {
 }
 
 .message-text {
-  @apply text-current;
+  @apply whitespace-pre-wrap text-current;
 }
 
 .runtime-text {
-  @apply text-current;
+  @apply whitespace-pre-wrap text-current;
 }
 
 .cutoff-stack {

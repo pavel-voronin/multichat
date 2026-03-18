@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentConfig, ChatMessage, RuntimeEvent } from '../src/core';
+import type { AgentConfig, ChatMessage, RuntimeEvent } from '../../../src/core';
 import {
   agentCompletionPrice,
   agentPromptPrice,
@@ -8,7 +8,7 @@ import {
   messageCostSummaryClass,
   requestMessageCost,
   shouldShowMessageCost,
-} from '../src/vue/utils/costing';
+} from '../../../src/vue/utils/costing';
 
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {

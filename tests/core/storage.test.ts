@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LocalStoragePersistenceAdapter } from '../src/core/storage';
-import type { RuntimeState } from '../src/core';
+import { LocalStoragePersistenceAdapter } from '../../src/core/storage';
+import type { RuntimeState } from '../../src/core';
 
 function createState(): RuntimeState {
   return {
