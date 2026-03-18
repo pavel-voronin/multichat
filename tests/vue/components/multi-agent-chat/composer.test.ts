@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { OpenRouterTransport } from '../../../../src/core';
 import { mountChat, createRuntime, timelineMessages } from './helpers';
 
 afterEach(() => {
@@ -70,5 +71,29 @@ describe('MultiAgentChat composer', () => {
     expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe(
       'Human: ',
     );
+  });
+
+  it('renders an agent reply after sending a human message', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [{ id: 'model-a:free', name: 'Model A Free' }];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'speak_public', text: 'Agent reply' },
+        };
+      },
+    };
+    const runtime = createRuntime({ transport });
+    const wrapper = mountChat(runtime);
+
+    const textarea = wrapper.get('textarea');
+    await textarea.setValue('Hello');
+    await textarea.trigger('keydown', { key: 'Enter' });
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('Hello');
+    expect(wrapper.text()).toContain('Agent reply');
   });
 });

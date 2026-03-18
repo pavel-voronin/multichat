@@ -1,12 +1,12 @@
-import type { PersistenceAdapter, RuntimeState } from './types';
+import type { PersistenceAdapter, WorkspaceState } from './types';
 import { deepClone } from './utils';
 
-const STORAGE_VERSION = 6;
+const STORAGE_VERSION = 7;
 const STORAGE_KEY = 'multichat.runtime';
 
 interface StoredPayload {
   version: number;
-  state: RuntimeState;
+  state: WorkspaceState;
 }
 
 export class LocalStoragePersistenceAdapter implements PersistenceAdapter {
@@ -18,7 +18,7 @@ export class LocalStoragePersistenceAdapter implements PersistenceAdapter {
       : localStorage,
   ) {}
 
-  load(): Partial<RuntimeState> | null {
+  load(): Partial<WorkspaceState> | null {
     if (!this.storage) {
       return null;
     }
@@ -41,7 +41,7 @@ export class LocalStoragePersistenceAdapter implements PersistenceAdapter {
     }
   }
 
-  save(state: RuntimeState): void {
+  save(state: WorkspaceState): void {
     if (!this.storage) {
       return;
     }

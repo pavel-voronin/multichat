@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia';
 import { markRaw, ref, shallowRef } from 'vue';
-import type { MultiChatRuntime, RuntimeState } from '../../core';
+import type { MultiChatRuntime, RuntimeState, WorkspaceState } from '../../core';
 
 export const useRuntimeStore = defineStore('runtime', () => {
   const runtime = shallowRef<MultiChatRuntime | null>(null);
   const state = ref<RuntimeState>(undefined as unknown as RuntimeState);
+  const workspace = ref<WorkspaceState>(undefined as unknown as WorkspaceState);
   let unsubscribe: (() => void) | null = null;
 
   function initialize(nextRuntime: MultiChatRuntime): void {
@@ -15,8 +16,10 @@ export const useRuntimeStore = defineStore('runtime', () => {
     unsubscribe?.();
     runtime.value = markRaw(nextRuntime);
     state.value = nextRuntime.getState();
+    workspace.value = nextRuntime.getWorkspaceState();
     unsubscribe = nextRuntime.subscribe((nextState) => {
       state.value = nextState;
+      workspace.value = nextRuntime.getWorkspaceState();
     });
   }
 
@@ -25,6 +28,7 @@ export const useRuntimeStore = defineStore('runtime', () => {
     unsubscribe = null;
     runtime.value = null;
     state.value = undefined as unknown as RuntimeState;
+    workspace.value = undefined as unknown as WorkspaceState;
   }
 
   function requireRuntime(): MultiChatRuntime {
@@ -43,12 +47,13 @@ export const useRuntimeStore = defineStore('runtime', () => {
     return state.value;
   }
 
-  return {
-    runtime,
-    state,
-    initialize,
-    dispose,
-    requireRuntime,
-    requireState,
-  };
+    return {
+      runtime,
+      state,
+      workspace,
+      initialize,
+      dispose,
+      requireRuntime,
+      requireState,
+    };
 });

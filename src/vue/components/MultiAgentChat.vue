@@ -5,6 +5,10 @@
         <ChatToolbar />
       </div>
 
+      <div class="playground-tabs-row">
+        <ChatTabs />
+      </div>
+
       <ConversationPanel />
 
       <aside class="sidebar-column">
@@ -27,6 +31,7 @@
 import AgentWizard from './AgentWizard.vue';
 import ChatOverlays from './ChatOverlays.vue';
 import ChatToolbar from './ChatToolbar.vue';
+import ChatTabs from './ChatTabs.vue';
 import ConversationPanel from './ConversationPanel.vue';
 import DeleteAgentModal from './DeleteAgentModal.vue';
 import HumanNameModal from './HumanNameModal.vue';
@@ -44,15 +49,23 @@ import SettingsModal from './SettingsModal.vue';
 }
 
 .playground-layout {
-  @apply grid min-h-0 grid-cols-[1fr_17rem] grid-rows-[auto_1fr_auto] gap-2;
+  @apply grid min-h-0 grid-cols-[1fr_17rem] grid-rows-[auto_auto_1fr_auto] gap-x-0 gap-y-0;
   height: 100%;
 }
 
 .playground-toolbar-row {
+  @apply col-span-2 mb-2 w-full;
+}
+
+.playground-tabs-row {
   @apply col-span-2 w-full;
 }
 
 .sidebar-column {
   @apply grid h-full min-h-0;
+}
+
+.layout-logs-panel {
+  @apply mt-2;
 }
 </style>

@@ -7,9 +7,15 @@ type MessageInputElement = { focus: () => void } | null;
 
 export const useMessageInputStore = defineStore('messageInput', () => {
   const runtimeStore = useRuntimeStore();
+  const runtime = computed(() => runtimeStore.requireRuntime());
   const { state } = storeToRefs(runtimeStore);
-  const draftMessage = ref('');
   const messageInputElement = ref<MessageInputElement>(null);
+  const draftMessage = computed({
+    get: () => state.value?.draftMessage ?? '',
+    set: (value: string) => {
+      runtime.value.updateDraftMessage(value);
+    },
+  });
 
   const human = computed(
     () =>
@@ -49,9 +55,8 @@ export const useMessageInputStore = defineStore('messageInput', () => {
       return;
     }
 
-    draftMessage.value = addParticipantMentionPrefix(
-      draftMessage.value,
-      participant.name,
+    runtime.value.updateDraftMessage(
+      addParticipantMentionPrefix(draftMessage.value, participant.name),
     );
     void nextTick().then(() => messageInputElement.value?.focus());
   }
@@ -66,12 +71,12 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     }
 
     const content = draftMessage.value;
-    draftMessage.value = '';
+    runtime.value.updateDraftMessage('');
 
     await nextTick();
     messageInputElement.value?.focus();
 
-    await runtimeStore.requireRuntime().sendMessage({
+    await runtime.value.sendMessage({
       senderId: human.value.id,
       content,
       target: 'public',
@@ -83,7 +88,6 @@ export const useMessageInputStore = defineStore('messageInput', () => {
   }
 
   function reset(): void {
-    draftMessage.value = '';
     messageInputElement.value = null;
   }
 

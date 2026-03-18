@@ -1,13 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LocalStoragePersistenceAdapter } from '../../src/core/storage';
-import type { RuntimeState } from '../../src/core';
+import type { WorkspaceState } from '../../src/core';
 
-function createState(): RuntimeState {
+function createState(): WorkspaceState {
   return {
-    participants: [{ id: 'human', name: 'You', role: 'human' }],
-    agents: [],
-    timeline: [],
-    metrics: {},
     settings: {
       openRouterApiKey: 'abc',
       defaultContextWindowSize: 40,
@@ -15,16 +11,32 @@ function createState(): RuntimeState {
       showSilentDecisions: false,
       costDisplayMode: 'request',
     },
-    debugLogs: [],
-    errors: [],
-    execution: {
-      isSweepRunning: false,
-      queuedSweep: false,
-      sweepCount: 0,
-      stopRequested: false,
-    },
-    requestTraces: {},
-    messageInspectionIndex: {},
+    activeTabId: 'tab-1',
+    tabs: [
+      {
+        id: 'tab-1',
+        title: '#default',
+        participants: [{ id: 'human', name: 'You', role: 'human' }],
+        agents: [],
+        timeline: [],
+        metrics: {},
+        debugLogs: [],
+        errors: [],
+        execution: {
+          isSweepRunning: false,
+          queuedSweep: false,
+          sweepCount: 0,
+          stopRequested: false,
+        },
+        requestTraces: {},
+        messageInspectionIndex: {},
+        draftMessage: '',
+        uiMeta: {
+          unreadCount: 0,
+          headerBadge: null,
+        },
+      },
+    ],
   };
 }
 

@@ -161,28 +161,6 @@ describe('MultiChatRuntime history cutoffs', () => {
       })),
       storage: {
         load: () => ({
-          timeline: [
-            {
-              id: 'm-1',
-              kind: 'message',
-              createdAt: '2026-03-16T10:00:00.000Z',
-              message: {
-                id: 'm-1',
-                senderId: 'human',
-                target: 'public',
-                content: 'persisted',
-                createdAt: '2026-03-16T10:00:00.000Z',
-              },
-            },
-            {
-              id: 'cutoff-1',
-              kind: 'history-cutoff',
-              createdAt: '2026-03-16T10:01:00.000Z',
-              cutoff: {
-                source: 'manual',
-              },
-            },
-          ],
           settings: {
             openRouterApiKey: 'persisted-key',
             defaultContextWindowSize: 5,
@@ -190,6 +168,53 @@ describe('MultiChatRuntime history cutoffs', () => {
             showSilentDecisions: false,
             costDisplayMode: 'request',
           },
+          activeTabId: 'tab-1',
+          tabs: [
+            {
+              id: 'tab-1',
+              title: '#default',
+              participants: [{ id: 'human', name: 'Human', role: 'human' }],
+              agents: [],
+              timeline: [
+                {
+                  id: 'm-1',
+                  kind: 'message',
+                  createdAt: '2026-03-16T10:00:00.000Z',
+                  message: {
+                    id: 'm-1',
+                    senderId: 'human',
+                    target: 'public',
+                    content: 'persisted',
+                    createdAt: '2026-03-16T10:00:00.000Z',
+                  },
+                },
+                {
+                  id: 'cutoff-1',
+                  kind: 'history-cutoff',
+                  createdAt: '2026-03-16T10:01:00.000Z',
+                  cutoff: {
+                    source: 'manual',
+                  },
+                },
+              ],
+              metrics: {},
+              debugLogs: [],
+              errors: [],
+              execution: {
+                isSweepRunning: false,
+                queuedSweep: false,
+                sweepCount: 0,
+                stopRequested: false,
+              },
+              requestTraces: {},
+              messageInspectionIndex: {},
+              draftMessage: '',
+              uiMeta: {
+                unreadCount: 0,
+                headerBadge: null,
+              },
+            },
+          ],
         }),
         save,
         reset: vi.fn(),

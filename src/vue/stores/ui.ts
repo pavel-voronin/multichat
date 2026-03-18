@@ -27,6 +27,21 @@ export interface UiStateSnapshot {
   activeInspectionTab: InspectionTab;
 }
 
+export interface ChatScopedUiStateSnapshot {
+  showAgentWizard: boolean;
+  showHumanNameModal: boolean;
+  showDeleteAgentConfirm: boolean;
+  editingAgentId: string | null;
+  pendingDeleteAgentId: string | null;
+  pendingDeleteAgentName: string;
+  reopenAgentWizardAfterSettings: boolean;
+  showRequestInspection: boolean;
+  inspectionTargetType: InspectionTargetType;
+  selectedMessageId: string | null;
+  selectedTraceId: string | null;
+  activeInspectionTab: InspectionTab;
+}
+
 function defaultUiState(): UiStateSnapshot {
   return {
     showSettings: false,
@@ -81,6 +96,23 @@ export const useUiStore = defineStore('ui', () => {
     activeInspectionTab.value = defaults.activeInspectionTab;
   }
 
+  function resetChatScopedState(): void {
+    const defaults = defaultUiState();
+    showAgentWizard.value = defaults.showAgentWizard;
+    showHumanNameModal.value = defaults.showHumanNameModal;
+    showDeleteAgentConfirm.value = defaults.showDeleteAgentConfirm;
+    editingAgentId.value = defaults.editingAgentId;
+    pendingDeleteAgentId.value = defaults.pendingDeleteAgentId;
+    pendingDeleteAgentName.value = defaults.pendingDeleteAgentName;
+    reopenAgentWizardAfterSettings.value =
+      defaults.reopenAgentWizardAfterSettings;
+    showRequestInspection.value = defaults.showRequestInspection;
+    inspectionTargetType.value = defaults.inspectionTargetType;
+    selectedMessageId.value = defaults.selectedMessageId;
+    selectedTraceId.value = defaults.selectedTraceId;
+    activeInspectionTab.value = defaults.activeInspectionTab;
+  }
+
   return {
     showSettings,
     showAgentWizard,
@@ -97,5 +129,6 @@ export const useUiStore = defineStore('ui', () => {
     selectedTraceId,
     activeInspectionTab,
     reset,
+    resetChatScopedState,
   };
 });

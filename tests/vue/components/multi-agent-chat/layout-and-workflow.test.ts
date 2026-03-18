@@ -49,7 +49,7 @@ describe('MultiAgentChat layout and workflow', () => {
     expect(document.body.querySelector('.modal-backdrop')).not.toBeNull();
 
     const closeButton = Array.from(
-      document.body.querySelectorAll('button'),
+      document.body.querySelectorAll('.modal-backdrop button'),
     ).find((button) => button.textContent?.trim() === 'Close') as
       | HTMLButtonElement
       | undefined;

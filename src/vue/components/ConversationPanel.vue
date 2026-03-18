@@ -5,6 +5,7 @@
     </div>
 
     <ChatComposer
+      :key="state.activeTabId"
       ref="messageInput"
       v-model="draftMessageModel"
       :can-send="canSend"
@@ -59,7 +60,7 @@ function updatePinnedState() {
 @reference "../../styles.css";
 
 .chat-column {
-  @apply h-full grid min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-md border border-neutral-300 bg-white;
+  @apply h-full grid min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-b-md border border-neutral-300 bg-white;
 }
 
 .chat-log {

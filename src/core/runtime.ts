@@ -5,23 +5,27 @@ import type {
   AgentExecutionMode,
   AgentMetrics,
   ChatMessage,
+  ChatTabState,
+  ChatTabSummary,
   ContextCutoffAnchor,
   DebugLogEntry,
+  MessageInspectionIndex,
   OpenRouterModel,
+  RequestTrace,
   RuntimeConfig,
   RuntimeError,
   RuntimeEvent,
+  RuntimeState,
+  SendMessageInput,
+  SettingsState,
+  TabMutationSource,
   TimelineEntry,
   TimelineFilterState,
   TimelineHistoryCutoffEntry,
   TimelineMessageEntry,
-  TimelineTechnicalEventEntry,
   VisibleTimelineEntry,
+  WorkspaceState,
   TransportUsage,
-  RuntimeState,
-  SendMessageInput,
-  RequestTrace,
-  MessageInspectionIndex,
 } from './types';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
@@ -33,6 +37,8 @@ const DEFAULT_HUMAN = {
   name: 'Human',
   role: 'human',
 } as const;
+
+const DEFAULT_TAB_TITLE = '#default';
 
 function emptyMetrics(): AgentMetrics {
   return {
@@ -53,60 +59,137 @@ function normalizeAgentConfig(agent: AgentConfig): AgentConfig {
   };
 }
 
-function initialState(config: RuntimeConfig): RuntimeState {
-  const human = config.humanParticipant ?? DEFAULT_HUMAN;
+function initialSettings(config: RuntimeConfig): SettingsState {
   return {
-    participants: [human],
-    agents: [],
-    timeline: [],
-    metrics: {},
-    settings: {
-      openRouterApiKey: '',
-      defaultContextWindowSize: config.maxContextMessages ?? 40,
-      showContextCutoffs: false,
-      showSilentDecisions: false,
-      costDisplayMode: 'request',
-    },
-    debugLogs: [],
-    errors: [],
-    execution: {
-      isSweepRunning: false,
-      queuedSweep: false,
-      sweepCount: 0,
-      stopRequested: false,
-    },
-    requestTraces: {},
-    messageInspectionIndex: {},
+    openRouterApiKey: '',
+    defaultContextWindowSize: config.maxContextMessages ?? 40,
+    showContextCutoffs: false,
+    showSilentDecisions: false,
+    costDisplayMode: 'request',
   };
 }
 
-function mergePersistedState(
-  base: RuntimeState,
-  persisted: Partial<RuntimeState> | null,
-): RuntimeState {
+function initialExecutionState(): ChatTabState['execution'] {
+  return {
+    isSweepRunning: false,
+    queuedSweep: false,
+    sweepCount: 0,
+    stopRequested: false,
+  };
+}
+
+function createEmptyTabState(input: {
+  id: string;
+  title?: string;
+  human: ChatTabState['participants'][number];
+}): ChatTabState {
+  return {
+    id: input.id,
+    title: input.title ?? DEFAULT_TAB_TITLE,
+    participants: [deepClone(input.human)],
+    agents: [],
+    timeline: [],
+    metrics: {},
+    debugLogs: [],
+    errors: [],
+    execution: initialExecutionState(),
+    requestTraces: {},
+    messageInspectionIndex: {},
+    draftMessage: '',
+    uiMeta: {
+      unreadCount: 0,
+      headerBadge: null,
+    },
+  };
+}
+
+function initialWorkspace(config: RuntimeConfig): WorkspaceState {
+  const human = config.humanParticipant ?? DEFAULT_HUMAN;
+  const tabId = 'tab-default';
+  return {
+    settings: initialSettings(config),
+    tabs: [
+      createEmptyTabState({
+        id: tabId,
+        human,
+      }),
+    ],
+    activeTabId: tabId,
+  };
+}
+
+function mergePersistedWorkspace(
+  base: WorkspaceState,
+  persisted: Partial<WorkspaceState> | null,
+): WorkspaceState {
   if (!persisted) {
     return base;
   }
 
+  const tabs = (persisted.tabs ?? [])
+    .map((tab) => normalizeTabState(tab, base.settings.defaultContextWindowSize))
+    .filter(Boolean) as ChatTabState[];
+
+  if (!tabs.length) {
+    return base;
+  }
+
+  const activeTabId = tabs.some((tab) => tab.id === persisted.activeTabId)
+    ? persisted.activeTabId!
+    : tabs[0]!.id;
+
   return {
-    ...base,
-    ...persisted,
-    participants: persisted.participants?.length
-      ? persisted.participants
-      : base.participants,
-    agents: (persisted.agents ?? []).map(normalizeAgentConfig),
-    timeline: persisted.timeline ?? [],
-    metrics: persisted.metrics ?? {},
     settings: {
       ...base.settings,
       ...persisted.settings,
     },
-    debugLogs: persisted.debugLogs ?? [],
-    errors: persisted.errors ?? [],
-    execution: base.execution,
-    requestTraces: persisted.requestTraces ?? {},
-    messageInspectionIndex: persisted.messageInspectionIndex ?? {},
+    tabs,
+    activeTabId,
   };
+}
+
+function normalizeTabState(
+  tab: Partial<ChatTabState>,
+  _defaultContextWindowSize: number,
+): ChatTabState | null {
+  if (!tab.id) {
+    return null;
+  }
+
+  const participants = tab.participants?.length
+    ? tab.participants
+    : [deepClone(DEFAULT_HUMAN)];
+
+  return {
+    id: tab.id,
+    title: typeof tab.title === 'string' && tab.title.trim()
+      ? tab.title
+      : DEFAULT_TAB_TITLE,
+    participants,
+    agents: (tab.agents ?? []).map(normalizeAgentConfig),
+    timeline: tab.timeline ?? [],
+    metrics: tab.metrics ?? {},
+    debugLogs: tab.debugLogs ?? [],
+    errors: tab.errors ?? [],
+    execution: {
+      ...initialExecutionState(),
+      ...tab.execution,
+      isSweepRunning: false,
+      queuedSweep: false,
+      stopRequested: false,
+    },
+    requestTraces: tab.requestTraces ?? {},
+    messageInspectionIndex: tab.messageInspectionIndex ?? {},
+    draftMessage: tab.draftMessage ?? '',
+    uiMeta: {
+      unreadCount: tab.uiMeta?.unreadCount ?? 0,
+      headerBadge: tab.uiMeta?.headerBadge ?? null,
+    },
+  };
+}
+
+function normalizeTabTitle(title: string | undefined | null): string {
+  return title?.trim() ?? '';
 }
 
 export class MultiChatRuntime {
@@ -116,9 +199,12 @@ export class MultiChatRuntime {
   private readonly maxAutoSweeps: number;
   private readonly maxContextMessages: number;
   private readonly storage;
-  private readonly lastProcessedVisibleContextKeys = new Map<string, string>();
-  private currentAbortController: AbortController | null = null;
-  private state: RuntimeState;
+  private readonly lastProcessedVisibleContextKeys = new Map<
+    string,
+    Map<string, string>
+  >();
+  private readonly abortControllers = new Map<string, AbortController>();
+  private workspace: WorkspaceState;
 
   constructor(private readonly config: RuntimeConfig) {
     this.now = config.now ?? (() => new Date());
@@ -126,13 +212,32 @@ export class MultiChatRuntime {
     this.maxAutoSweeps = config.maxAutoSweeps ?? 12;
     this.maxContextMessages = config.maxContextMessages ?? 40;
     this.storage = config.storage ?? new LocalStoragePersistenceAdapter();
-    this.state = mergePersistedState(initialState(config), this.storage.load());
-    this.syncParticipants();
+    this.workspace = mergePersistedWorkspace(
+      initialWorkspace(config),
+      this.storage.load(),
+    );
+    for (const tab of this.workspace.tabs) {
+      this.syncParticipants(tab);
+    }
     this.persist();
   }
 
   getState(): RuntimeState {
-    return deepClone(this.state);
+    return this.buildRuntimeState(this.requireActiveTab());
+  }
+
+  getWorkspaceState(): WorkspaceState {
+    return deepClone(this.workspace);
+  }
+
+  getTabSummaries(): ChatTabSummary[] {
+    return this.workspace.tabs.map((tab) => ({
+      id: tab.id,
+      title: tab.title,
+      isActive: tab.id === this.workspace.activeTabId,
+      unreadCount: tab.uiMeta.unreadCount ?? 0,
+      headerBadge: tab.uiMeta.headerBadge ?? null,
+    }));
   }
 
   subscribe(listener: RuntimeListener): () => void {
@@ -144,7 +249,7 @@ export class MultiChatRuntime {
   }
 
   async listModels(): Promise<OpenRouterModel[]> {
-    const apiKey = this.state.settings.openRouterApiKey;
+    const apiKey = this.workspace.settings.openRouterApiKey;
     if (!apiKey) {
       throw new Error('OpenRouter API key is missing');
     }
@@ -152,16 +257,20 @@ export class MultiChatRuntime {
     return this.config.transport.listModels(apiKey);
   }
 
-  getTimelineEntries(): TimelineEntry[] {
-    return deepClone(this.state.timeline);
+  getTimelineEntries(tabId = this.workspace.activeTabId): TimelineEntry[] {
+    return deepClone(this.requireTab(tabId).timeline);
   }
 
-  getRequestTrace(traceId: string): RequestTrace | null {
-    return deepClone(this.state.requestTraces[traceId] ?? null);
+  getRequestTrace(traceId: string, tabId = this.workspace.activeTabId): RequestTrace | null {
+    return deepClone(this.requireTab(tabId).requestTraces[traceId] ?? null);
   }
 
-  getRelatedRequestTraces(traceId: string): RequestTrace[] {
-    const trace = this.state.requestTraces[traceId];
+  getRelatedRequestTraces(
+    traceId: string,
+    tabId = this.workspace.activeTabId,
+  ): RequestTrace[] {
+    const tab = this.requireTab(tabId);
+    const trace = tab.requestTraces[traceId];
     if (!trace) {
       return [];
     }
@@ -178,7 +287,7 @@ export class MultiChatRuntime {
       ...trace.visibleMessageIds,
       ...trace.downstreamMessageIds,
     ]) {
-      const index = this.state.messageInspectionIndex[messageId];
+      const index = tab.messageInspectionIndex[messageId];
       for (const relatedTraceId of index?.downstreamTraceIds ?? []) {
         if (relatedTraceId !== traceId) {
           relatedTraceIds.add(relatedTraceId);
@@ -190,22 +299,26 @@ export class MultiChatRuntime {
     }
 
     return Array.from(relatedTraceIds)
-      .map((relatedTraceId) => this.state.requestTraces[relatedTraceId])
+      .map((relatedTraceId) => tab.requestTraces[relatedTraceId])
       .filter((item): item is RequestTrace => Boolean(item))
       .map((item) => deepClone(item));
   }
 
-  getInspectionSubjectForMessage(messageId: string): {
+  getInspectionSubjectForMessage(
+    messageId: string,
+    tabId = this.workspace.activeTabId,
+  ): {
     message: ChatMessage | null;
     sourceTrace: RequestTrace | null;
     triggeringTraces: RequestTrace[];
     visibleOnlyTraces: RequestTrace[];
     downstreamTraces: RequestTrace[];
   } {
-    const message = this.getMessageById(messageId);
-    const index = this.getMessageInspectionIndexEntry(messageId);
+    const tab = this.requireTab(tabId);
+    const message = this.getMessageById(messageId, tab);
+    const index = this.getMessageInspectionIndexEntry(messageId, tab);
     const sourceTrace = index.sourceTraceId
-      ? (this.state.requestTraces[index.sourceTraceId] ?? null)
+      ? (tab.requestTraces[index.sourceTraceId] ?? null)
       : null;
     const triggeringTraceIds = new Set(index.triggeringTraceIds);
     const visibleOnlyTraceIds = index.visibleTraceIds.filter(
@@ -219,13 +332,16 @@ export class MultiChatRuntime {
     return {
       message: deepClone(message ?? null),
       sourceTrace: deepClone(sourceTrace),
-      triggeringTraces: this.cloneTraces(index.triggeringTraceIds),
-      visibleOnlyTraces: this.cloneTraces(visibleOnlyTraceIds),
-      downstreamTraces: this.cloneTraces(downstreamTraceIds),
+      triggeringTraces: this.cloneTraces(index.triggeringTraceIds, tab),
+      visibleOnlyTraces: this.cloneTraces(visibleOnlyTraceIds, tab),
+      downstreamTraces: this.cloneTraces(downstreamTraceIds, tab),
     };
   }
 
-  getMessageInspectionGraph(messageId: string): {
+  getMessageInspectionGraph(
+    messageId: string,
+    tabId = this.workspace.activeTabId,
+  ): {
     message: ChatMessage | null;
     sourceTrace: RequestTrace | null;
     triggeringTraces: RequestTrace[];
@@ -233,7 +349,8 @@ export class MultiChatRuntime {
     downstreamTraces: RequestTrace[];
     relatedMessages: ChatMessage[];
   } {
-    const subject = this.getInspectionSubjectForMessage(messageId);
+    const tab = this.requireTab(tabId);
+    const subject = this.getInspectionSubjectForMessage(messageId, tabId);
     const relatedMessageIds = new Set<string>();
 
     for (const trace of [
@@ -256,7 +373,7 @@ export class MultiChatRuntime {
     return {
       ...subject,
       relatedMessages: Array.from(relatedMessageIds)
-        .map((relatedMessageId) => this.getMessageById(relatedMessageId))
+        .map((relatedMessageId) => this.getMessageById(relatedMessageId, tab))
         .filter((item): item is ChatMessage => Boolean(item))
         .map((item) => deepClone(item)),
     };
@@ -265,17 +382,19 @@ export class MultiChatRuntime {
   getVisibleTimelineEntries(input: {
     participantId: string;
     filters?: Partial<TimelineFilterState>;
+    tabId?: string;
   }): VisibleTimelineEntry[] {
+    const tab = this.requireTab(input.tabId ?? this.workspace.activeTabId);
     const filters: TimelineFilterState = {
       showTechnicalEvents: false,
       showPreviewCutoffs: false,
       ...input.filters,
     };
-    const activeManualCutoffIndex = this.getActiveManualCutoffIndex();
+    const activeManualCutoffIndex = this.getActiveManualCutoffIndex(tab);
     const visibleEntries: VisibleTimelineEntry[] = [];
     const visibleMessages: ChatMessage[] = [];
 
-    for (const [index, entry] of this.state.timeline.entries()) {
+    for (const [index, entry] of tab.timeline.entries()) {
       if (entry.kind === 'message') {
         if (
           !this.isMessageVisibleToParticipant(
@@ -322,18 +441,18 @@ export class MultiChatRuntime {
     }
 
     if (filters.showPreviewCutoffs) {
-      for (const cutoff of this.getAgentContextCutoffs()) {
+      for (const cutoff of this.getAgentContextCutoffs(tab.id)) {
         const sortAt = this.resolveCutoffSortTime(
           cutoff.anchor,
           visibleMessages,
         );
         visibleEntries.push({
-          id: `preview-cutoff-${cutoff.anchor.kind}-${cutoff.anchor.messageId ?? 'none'}-${cutoff.agentIds.join(',')}`,
+          id: `preview-cutoff-${tab.id}-${cutoff.anchor.kind}-${cutoff.anchor.messageId ?? 'none'}-${cutoff.agentIds.join(',')}`,
           createdAt: new Date(sortAt).toISOString(),
           kind: 'history-cutoff',
           cutoff: {
             source: 'preview',
-            label: this.formatPreviewCutoffLabel(cutoff),
+            label: this.formatPreviewCutoffLabel(cutoff, tab),
             anchor: cutoff.anchor,
             agentIds: cutoff.agentIds,
             agentNames: cutoff.agentNames,
@@ -347,7 +466,11 @@ export class MultiChatRuntime {
     return visibleEntries.sort(compareVisibleTimelineEntries);
   }
 
-  async sendMessage(input: SendMessageInput): Promise<ChatMessage> {
+  async sendMessage(
+    input: SendMessageInput,
+    tabId = this.workspace.activeTabId,
+  ): Promise<ChatMessage> {
+    const tab = this.requireTab(tabId);
     if (input.target === 'private' && !input.recipientId) {
       throw new Error('Private message requires recipientId');
     }
@@ -355,7 +478,7 @@ export class MultiChatRuntime {
     const triggersSweep = input.triggerSweep ?? true;
     const createdInSweep =
       input.createdInSweep ??
-      (triggersSweep ? this.state.execution.sweepCount + 1 : undefined);
+      (triggersSweep ? tab.execution.sweepCount + 1 : undefined);
 
     const message: ChatMessage = {
       id: this.createId(),
@@ -375,36 +498,43 @@ export class MultiChatRuntime {
       sourceTraceId: input.sourceTraceId,
     };
 
-    this.state.timeline.push({
+    tab.timeline.push({
       id: message.id,
       createdAt: message.createdAt,
       kind: 'message',
       message,
     });
-    this.updateMessageSourceTrace(message.id, input.sourceTraceId);
-    this.pushDebugLog({
-      kind: 'message-created',
-      sweep: message.createdInSweep,
-      messageId: message.id,
-      agentId: input.senderId,
-      agentName: this.participantName(input.senderId),
-      target: message.target,
-      recipientId: message.recipientId,
-      content: message.content,
-      details: triggersSweep
-        ? 'message triggers sweep'
-        : 'message does not trigger sweep',
-    });
+    this.updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
+    this.pushDebugLog(
+      {
+        kind: 'message-created',
+        sweep: message.createdInSweep,
+        messageId: message.id,
+        agentId: input.senderId,
+        agentName: this.participantName(input.senderId, tab),
+        target: message.target,
+        recipientId: message.recipientId,
+        content: message.content,
+        details: triggersSweep
+          ? 'message triggers sweep'
+          : 'message does not trigger sweep',
+      },
+      tab,
+    );
     this.persistAndNotify();
 
     if (triggersSweep) {
-      await this.runAgentSweep('message');
+      await this.runAgentSweep('message', tabId);
     }
 
     return message;
   }
 
-  createAgent(input: Omit<AgentConfig, 'id'> & { id?: string }): AgentConfig {
+  createAgent(
+    input: Omit<AgentConfig, 'id'> & { id?: string },
+    tabId = this.workspace.activeTabId,
+  ): AgentConfig {
+    const tab = this.requireTab(tabId);
     const agent: AgentConfig = {
       ...input,
       id: input.id ?? this.createId(),
@@ -413,16 +543,18 @@ export class MultiChatRuntime {
       archivedAt: input.archivedAt ?? null,
     };
 
-    this.state.agents.push(agent);
-    this.state.metrics[agent.id] =
-      this.state.metrics[agent.id] ?? emptyMetrics();
-    this.syncParticipants();
-    this.pushDebugLog({
-      kind: 'agent-created',
-      agentId: agent.id,
-      agentName: agent.name,
-      details: `model=${agent.modelId}`,
-    });
+    tab.agents.push(agent);
+    tab.metrics[agent.id] = tab.metrics[agent.id] ?? emptyMetrics();
+    this.syncParticipants(tab);
+    this.pushDebugLog(
+      {
+        kind: 'agent-created',
+        agentId: agent.id,
+        agentName: agent.name,
+        details: `model=${agent.modelId}`,
+      },
+      tab,
+    );
     this.persistAndNotify();
     return deepClone(agent);
   }
@@ -430,26 +562,32 @@ export class MultiChatRuntime {
   updateAgent(
     agentId: string,
     patch: Partial<Omit<AgentConfig, 'id'>>,
+    tabId = this.workspace.activeTabId,
   ): AgentConfig {
-    const agent = this.state.agents.find((item) => item.id === agentId);
+    const tab = this.requireTab(tabId);
+    const agent = tab.agents.find((item) => item.id === agentId);
     if (!agent) {
       throw new Error(`Agent not found: ${agentId}`);
     }
 
     Object.assign(agent, patch);
-    this.syncParticipants();
-    this.pushDebugLog({
-      kind: 'agent-updated',
-      agentId: agent.id,
-      agentName: agent.name,
-      details: Object.keys(patch).join(', ') || 'no fields changed',
-    });
+    this.syncParticipants(tab);
+    this.pushDebugLog(
+      {
+        kind: 'agent-updated',
+        agentId: agent.id,
+        agentName: agent.name,
+        details: Object.keys(patch).join(', ') || 'no fields changed',
+      },
+      tab,
+    );
     this.persistAndNotify();
     return deepClone(agent);
   }
 
-  removeAgent(agentId: string): void {
-    const agent = this.state.agents.find((item) => item.id === agentId);
+  removeAgent(agentId: string, tabId = this.workspace.activeTabId): void {
+    const tab = this.requireTab(tabId);
+    const agent = tab.agents.find((item) => item.id === agentId);
     if (!agent) {
       return;
     }
@@ -457,76 +595,113 @@ export class MultiChatRuntime {
     agent.isEnabled = false;
     agent.isHidden = true;
     agent.archivedAt = this.now().toISOString();
-    this.lastProcessedVisibleContextKeys.delete(agentId);
-    this.syncParticipants();
-    this.pushDebugLog({
-      kind: 'agent-removed',
-      agentId: agent.id,
-      agentName: agent.name,
-      details: 'agent hidden and disabled',
-    });
+    this.lastProcessedKeysForTab(tab.id).delete(agentId);
+    this.syncParticipants(tab);
+    this.pushDebugLog(
+      {
+        kind: 'agent-removed',
+        agentId: agent.id,
+        agentName: agent.name,
+        details: 'agent hidden and disabled',
+      },
+      tab,
+    );
     this.persistAndNotify();
   }
 
   updateSettings(patch: Partial<RuntimeState['settings']>): void {
-    this.state.settings = {
-      ...this.state.settings,
+    this.workspace.settings = {
+      ...this.workspace.settings,
       ...patch,
     };
-    this.pushDebugLog({
-      kind: 'settings-updated',
-      details: JSON.stringify(patch),
-    });
+    this.pushDebugLog(
+      {
+        kind: 'settings-updated',
+        details: JSON.stringify(patch),
+      },
+      this.requireActiveTab(),
+    );
     this.persistAndNotify();
   }
 
-  resetAgentHistoryContext(): void {
+  updateDraftMessage(
+    draftMessage: string,
+    tabId = this.workspace.activeTabId,
+  ): void {
+    const tab = this.requireTab(tabId);
+    if (tab.draftMessage === draftMessage) {
+      return;
+    }
+
+    tab.draftMessage = draftMessage;
+    this.persistAndNotify();
+  }
+
+  resetAgentHistoryContext(tabId = this.workspace.activeTabId): void {
+    const tab = this.requireTab(tabId);
     const cutoff = this.createManualCutoffEntry();
-    this.state.timeline.push(cutoff);
-    this.pushDebugLog({
-      kind: 'history-cutoff-set',
-      messageId: this.getTimelineMessages().at(-1)?.id,
-      details: `cutoff=${cutoff.id}`,
-    });
+    tab.timeline.push(cutoff);
+    this.pushDebugLog(
+      {
+        kind: 'history-cutoff-set',
+        messageId: this.getTimelineMessages(tab).at(-1)?.id,
+        details: `cutoff=${cutoff.id}`,
+      },
+      tab,
+    );
     this.persistAndNotify();
   }
 
-  clearHistoryBeforeAgentCutoff(): void {
-    const cutoffIndex = this.getActiveManualCutoffIndex();
+  clearHistoryBeforeAgentCutoff(tabId = this.workspace.activeTabId): void {
+    const tab = this.requireTab(tabId);
+    const cutoffIndex = this.getActiveManualCutoffIndex(tab);
     if (cutoffIndex === null) {
       return;
     }
 
-    const cutoff = this.state.timeline[cutoffIndex];
+    const cutoff = tab.timeline[cutoffIndex];
     if (!cutoff) {
       return;
     }
 
-    this.state.timeline = this.state.timeline.slice(cutoffIndex + 1);
-    this.pushDebugLog({
-      kind: 'history-cleared',
-      messageId: cutoff.id,
-      details: `cleared through ${cutoff.id}`,
-    });
+    tab.timeline = tab.timeline.slice(cutoffIndex + 1);
+    this.pushDebugLog(
+      {
+        kind: 'history-cleared',
+        messageId: cutoff.id,
+        details: `cleared through ${cutoff.id}`,
+      },
+      tab,
+    );
     this.persistAndNotify();
   }
 
   reset(): void {
-    this.stop();
+    for (const tabId of this.workspace.tabs.map((tab) => tab.id)) {
+      this.stop(tabId);
+    }
     this.storage.reset();
-    this.state = initialState(this.config);
-    this.lastProcessedVisibleContextKeys.clear();
-    this.pushDebugLog({
-      kind: 'runtime-reset',
-      details: 'runtime state reset',
+    this.workspace = initialWorkspace({
+      ...this.config,
+      idGenerator: this.createId,
     });
+    this.lastProcessedVisibleContextKeys.clear();
+    this.pushDebugLog(
+      {
+        kind: 'runtime-reset',
+        details: 'runtime state reset',
+      },
+      this.requireActiveTab(),
+    );
     this.persistAndNotify();
   }
 
   updateHumanParticipant(
     patch: Partial<Pick<RuntimeState['participants'][number], 'name'>>,
+    tabId = this.workspace.activeTabId,
   ): void {
-    const human = this.state.participants.find(
+    const tab = this.requireTab(tabId);
+    const human = tab.participants.find(
       (participant) => participant.role === 'human',
     );
     if (!human) {
@@ -537,244 +712,424 @@ export class MultiChatRuntime {
       human.name = patch.name.trim();
     }
 
-    this.syncParticipants();
-    this.pushDebugLog({
-      kind: 'human-updated',
-      agentId: human.id,
-      agentName: human.name,
-      details: 'human participant updated',
-    });
+    this.syncParticipants(tab);
+    this.pushDebugLog(
+      {
+        kind: 'human-updated',
+        agentId: human.id,
+        agentName: human.name,
+        details: 'human participant updated',
+      },
+      tab,
+    );
     this.persistAndNotify();
   }
 
-  stop(): void {
-    this.state.execution.stopRequested = true;
-    this.state.execution.queuedSweep = false;
-    this.currentAbortController?.abort();
-    this.pushRuntimeEvent({
-      type: 'sweep-stopped',
-      details: 'User requested stop',
+  createTab(input?: {
+    title?: string;
+    activate?: boolean;
+    source?: TabMutationSource;
+  }): ChatTabState {
+    const human = this.config.humanParticipant ?? DEFAULT_HUMAN;
+    const tab = createEmptyTabState({
+      id: this.createId(),
+      title: this.resolveAutoTabTitle(input?.title),
+      human,
     });
-    this.pushDebugLog({
-      kind: 'sweep-stopped',
-      sweep: this.state.execution.sweepCount,
-      details: 'User requested stop',
-    });
+    this.workspace.tabs.push(tab);
+    if (input?.activate ?? true) {
+      this.workspace.activeTabId = tab.id;
+    }
+    this.persistAndNotify();
+    return deepClone(tab);
+  }
+
+  renameTab(
+    tabId: string,
+    title: string,
+    _source: TabMutationSource = 'user',
+  ): void {
+    const tab = this.requireTab(tabId);
+    const nextTitle =
+      normalizeTabTitle(title) || this.resolveAutoTabTitle(undefined, tabId);
+    if (nextTitle === tab.title) {
+      return;
+    }
+
+    tab.title = nextTitle;
     this.persistAndNotify();
   }
 
-  async runAgentSweep(trigger: string): Promise<void> {
-    if (this.state.execution.isSweepRunning) {
-      if (!this.state.execution.stopRequested) {
-        this.state.execution.queuedSweep = true;
+  activateTab(tabId: string): void {
+    this.requireTab(tabId);
+    if (this.workspace.activeTabId === tabId) {
+      return;
+    }
+
+    this.workspace.activeTabId = tabId;
+    this.persistAndNotify();
+  }
+
+  moveTab(tabId: string, toIndex: number): void {
+    const fromIndex = this.workspace.tabs.findIndex((tab) => tab.id === tabId);
+    if (fromIndex === -1) {
+      return;
+    }
+
+    const clampedIndex = Math.max(
+      0,
+      Math.min(toIndex, this.workspace.tabs.length - 1),
+    );
+    if (fromIndex === clampedIndex) {
+      return;
+    }
+
+    const [tab] = this.workspace.tabs.splice(fromIndex, 1);
+    this.workspace.tabs.splice(clampedIndex, 0, tab!);
+    this.persistAndNotify();
+  }
+
+  closeTab(tabId: string, _source: TabMutationSource = 'user'): void {
+    const tab = this.requireTab(tabId);
+    this.stop(tab.id);
+    const index = this.workspace.tabs.findIndex((item) => item.id === tabId);
+    if (index === -1) {
+      return;
+    }
+
+    this.workspace.tabs.splice(index, 1);
+    this.abortControllers.delete(tab.id);
+    this.lastProcessedVisibleContextKeys.delete(tab.id);
+
+    if (!this.workspace.tabs.length) {
+      const replacement = this.createTab({ activate: true });
+      this.workspace.activeTabId = replacement.id;
+      return;
+    }
+
+    if (this.workspace.activeTabId === tabId) {
+      const nextTab =
+        this.workspace.tabs[index] ?? this.workspace.tabs[index - 1]!;
+      this.workspace.activeTabId = nextTab.id;
+    }
+
+    this.persistAndNotify();
+  }
+
+  stop(tabId = this.workspace.activeTabId): void {
+    const maybeTab = this.getTab(tabId);
+    if (!maybeTab) {
+      return;
+    }
+    if (!maybeTab.execution.isSweepRunning && !this.abortControllers.has(tabId)) {
+      return;
+    }
+    const tab = maybeTab;
+
+    tab.execution.stopRequested = true;
+    tab.execution.queuedSweep = false;
+    this.abortControllers.get(tabId)?.abort();
+    this.pushRuntimeEvent(
+      {
+        type: 'sweep-stopped',
+        details: 'User requested stop',
+      },
+      tab,
+    );
+    this.pushDebugLog(
+      {
+        kind: 'sweep-stopped',
+        sweep: tab.execution.sweepCount,
+        details: 'User requested stop',
+      },
+      tab,
+    );
+    this.persistAndNotify();
+  }
+
+  async runAgentSweep(
+    trigger: string,
+    tabId = this.workspace.activeTabId,
+  ): Promise<void> {
+    const tab = this.getTab(tabId);
+    if (!tab) {
+      return;
+    }
+
+    if (tab.execution.isSweepRunning) {
+      if (!tab.execution.stopRequested) {
+        tab.execution.queuedSweep = true;
       }
       this.persistAndNotify();
       return;
     }
 
     if (trigger === 'manual') {
-      this.lastProcessedVisibleContextKeys.clear();
+      this.lastProcessedKeysForTab(tab.id).clear();
     }
 
     let loops = 0;
-    this.state.execution.stopRequested = false;
+    tab.execution.stopRequested = false;
 
     do {
-      if (this.state.execution.stopRequested) {
+      const currentTab = this.getTab(tabId);
+      if (!currentTab || currentTab.execution.stopRequested) {
         break;
       }
 
-      this.state.execution.isSweepRunning = true;
-      this.state.execution.queuedSweep = false;
-      this.state.execution.sweepCount += 1;
-      this.pushRuntimeEvent({
-        type: 'sweep-started',
-        details: trigger,
-      });
-      this.pushDebugLog({
-        kind: 'sweep-started',
-        sweep: this.state.execution.sweepCount,
-        trigger,
-      });
+      currentTab.execution.isSweepRunning = true;
+      currentTab.execution.queuedSweep = false;
+      currentTab.execution.sweepCount += 1;
+      this.pushRuntimeEvent(
+        {
+          type: 'sweep-started',
+          details: trigger,
+        },
+        currentTab,
+      );
+      this.pushDebugLog(
+        {
+          kind: 'sweep-started',
+          sweep: currentTab.execution.sweepCount,
+          trigger,
+        },
+        currentTab,
+      );
       this.persistAndNotify();
 
-      for (const agent of this.getActiveAgents()) {
-        if (this.state.execution.stopRequested) {
+      for (const agent of this.getActiveAgents(currentTab)) {
+        const latestTab = this.getTab(tabId);
+        if (!latestTab || latestTab.execution.stopRequested) {
           break;
         }
-        await this.runAgentTurn(agent);
+        await this.runAgentTurn(agent, tabId);
       }
 
-      this.state.execution.isSweepRunning = false;
-      this.pushRuntimeEvent({
-        type: 'sweep-finished',
-        details: trigger,
-      });
-      this.pushDebugLog({
-        kind: 'sweep-finished',
-        sweep: this.state.execution.sweepCount,
-        trigger,
-      });
+      const latestTab = this.getTab(tabId);
+      if (!latestTab) {
+        break;
+      }
+
+      latestTab.execution.isSweepRunning = false;
+      this.pushRuntimeEvent(
+        {
+          type: 'sweep-finished',
+          details: trigger,
+        },
+        latestTab,
+      );
+      this.pushDebugLog(
+        {
+          kind: 'sweep-finished',
+          sweep: latestTab.execution.sweepCount,
+          trigger,
+        },
+        latestTab,
+      );
       this.persistAndNotify();
       loops += 1;
     } while (
-      this.state.execution.queuedSweep &&
+      this.getTab(tabId)?.execution.queuedSweep &&
       loops < this.maxAutoSweeps &&
-      !this.state.execution.stopRequested
+      !this.getTab(tabId)?.execution.stopRequested
     );
 
-    this.state.execution.isSweepRunning = false;
-    this.state.execution.queuedSweep = false;
-    this.currentAbortController = null;
+    const finalTab = this.getTab(tabId);
+    if (finalTab) {
+      finalTab.execution.isSweepRunning = false;
+      finalTab.execution.queuedSweep = false;
+    }
+    this.abortControllers.delete(tabId);
     this.persistAndNotify();
   }
 
-  private async runAgentTurn(agent: AgentConfig): Promise<void> {
-    if (this.state.execution.stopRequested) {
-      this.pushDebugLog({
-        kind: 'turn-skipped',
-        sweep: this.state.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        skipReason: 'stop_requested',
-      });
+  private async runAgentTurn(agent: AgentConfig, tabId: string): Promise<void> {
+    const tab = this.getTab(tabId);
+    if (!tab) {
       return;
     }
 
-    const visibleMessages = this.getVisibleMessagesForAgent(agent.id);
-    if (!this.hasNewVisibleInputForAgent(agent.id)) {
-      this.pushDebugLog({
-        kind: 'turn-skipped',
-        sweep: this.state.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        skipReason: 'no_new_input',
-        visibleMessageIds: visibleMessages.map((message) => message.id),
-        nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id),
-        contextKeyPrev:
-          this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
-        contextKeyNext: this.getVisibleContextKey(agent.id),
-      });
+    if (tab.execution.stopRequested) {
+      this.pushDebugLog(
+        {
+          kind: 'turn-skipped',
+          sweep: tab.execution.sweepCount,
+          agentId: agent.id,
+          agentName: agent.name,
+          skipReason: 'stop_requested',
+        },
+        tab,
+      );
       return;
     }
 
-    const apiKey = this.state.settings.openRouterApiKey;
+    const visibleMessages = this.getVisibleMessagesForAgent(agent.id, tabId);
+    if (!this.hasNewVisibleInputForAgent(agent.id, tab)) {
+      this.pushDebugLog(
+        {
+          kind: 'turn-skipped',
+          sweep: tab.execution.sweepCount,
+          agentId: agent.id,
+          agentName: agent.name,
+          skipReason: 'no_new_input',
+          visibleMessageIds: visibleMessages.map((message) => message.id),
+          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id, tab),
+          contextKeyPrev:
+            this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
+          contextKeyNext: this.getVisibleContextKey(agent.id, tab),
+        },
+        tab,
+      );
+      return;
+    }
+
+    const apiKey = this.workspace.settings.openRouterApiKey;
     if (!apiKey) {
-      this.pushDebugLog({
-        kind: 'turn-skipped',
-        sweep: this.state.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        skipReason: 'no_api_key',
-        visibleMessageIds: visibleMessages.map((message) => message.id),
-        nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id),
-        contextKeyPrev:
-          this.lastProcessedVisibleContextKeys.get(agent.id) ?? '',
-        contextKeyNext: this.getVisibleContextKey(agent.id),
-      });
-      this.pushRuntimeError({
-        agentId: agent.id,
-        message: 'OpenRouter API key is missing',
-      });
+      this.pushDebugLog(
+        {
+          kind: 'turn-skipped',
+          sweep: tab.execution.sweepCount,
+          agentId: agent.id,
+          agentName: agent.name,
+          skipReason: 'no_api_key',
+          visibleMessageIds: visibleMessages.map((message) => message.id),
+          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id, tab),
+          contextKeyPrev:
+            this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
+          contextKeyNext: this.getVisibleContextKey(agent.id, tab),
+        },
+        tab,
+      );
+      this.pushRuntimeError(
+        {
+          agentId: agent.id,
+          message: 'OpenRouter API key is missing',
+        },
+        tab,
+      );
       return;
     }
 
     const mode = this.chooseAgentMode(agent);
-    this.currentAbortController = new AbortController();
+    const abortController = new AbortController();
+    this.abortControllers.set(tab.id, abortController);
     const previousContextKey =
-      this.lastProcessedVisibleContextKeys.get(agent.id) ?? '';
-    const nextContextKey = this.getVisibleContextKey(agent.id);
-    const nonSelfVisibleMessageIds = this.getNonSelfVisibleMessageIds(agent.id);
+      this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '';
+    const nextContextKey = this.getVisibleContextKey(agent.id, tab);
+    const nonSelfVisibleMessageIds = this.getNonSelfVisibleMessageIds(agent.id, tab);
     const triggeringMessageIds = this.getTriggeringMessageIds(
       previousContextKey,
       nonSelfVisibleMessageIds,
     );
-    const trace = this.createRequestTrace({
-      agent,
-      mode,
-      fallback: false,
-      parentTraceId: null,
-      triggeringMessageIds,
-      visibleMessageIds: visibleMessages.map((message) => message.id),
-      nonSelfVisibleMessageIds,
-    });
-    this.pushDebugLog({
-      kind: 'turn-requested',
-      sweep: this.state.execution.sweepCount,
-      agentId: agent.id,
-      agentName: agent.name,
-      mode,
-      fallback: false,
-      visibleMessageIds: visibleMessages.map((message) => message.id),
-      nonSelfVisibleMessageIds,
-      triggeringMessageIds,
-      contextKeyPrev: previousContextKey,
-      contextKeyNext: nextContextKey,
-    });
+    const trace = this.createRequestTrace(
+      {
+        agent,
+        mode,
+        fallback: false,
+        parentTraceId: null,
+        triggeringMessageIds,
+        visibleMessageIds: visibleMessages.map((message) => message.id),
+        nonSelfVisibleMessageIds,
+      },
+      tab,
+    );
+    this.pushDebugLog(
+      {
+        kind: 'turn-requested',
+        sweep: tab.execution.sweepCount,
+        agentId: agent.id,
+        agentName: agent.name,
+        mode,
+        fallback: false,
+        visibleMessageIds: visibleMessages.map((message) => message.id),
+        nonSelfVisibleMessageIds,
+        triggeringMessageIds,
+        contextKeyPrev: previousContextKey,
+        contextKeyNext: nextContextKey,
+      },
+      tab,
+    );
 
     try {
       const result = await this.config.transport.runAgentTurn({
         apiKey,
         context: {
           agent,
-          participants: deepClone(this.state.participants),
+          participants: deepClone(tab.participants),
           visibleMessages,
         },
         mode,
-        signal: this.currentAbortController.signal,
+        signal: abortController.signal,
       });
 
-      this.markVisibleContextProcessed(agent.id);
-      this.applyUsage(agent.id, result.usage);
-      this.applyDownstreamPromptCost(agent, visibleMessages, result.usage);
-      this.updateToolSupport(agent.id, result.mode);
-      this.completeRequestTrace(trace.id, {
-        status: 'succeeded',
-        usage: result.usage,
-        action: result.action,
-      });
+      this.markVisibleContextProcessed(agent.id, tab);
+      this.applyUsage(agent.id, result.usage, tab);
+      this.applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
+      this.updateToolSupport(agent.id, result.mode, tab);
+      this.completeRequestTrace(
+        trace.id,
+        {
+          status: 'succeeded',
+          usage: result.usage,
+          action: result.action,
+        },
+        tab,
+      );
 
       if (result.action.type === 'stay_silent') {
         const requestCostUsd = result.usage?.estimatedCost;
         const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
-        this.pushRuntimeEvent({
-          type: 'silent-decision',
-          agentId: agent.id,
-          details: result.action.reason,
-          sourceTraceId: trace.id,
-          requestCostUsd,
-          ownPromptCostUsd,
-          costUsd: requestCostUsd,
-        });
-        this.pushDebugLog({
-          kind: 'turn-result',
-          sweep: this.state.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          mode: result.mode,
-          fallback: false,
-          actionType: result.action.type,
-          details: result.action.reason,
-        });
+        this.pushRuntimeEvent(
+          {
+            type: 'silent-decision',
+            agentId: agent.id,
+            details: result.action.reason,
+            sourceTraceId: trace.id,
+            requestCostUsd,
+            ownPromptCostUsd,
+            costUsd: requestCostUsd,
+          },
+          tab,
+        );
+        this.pushDebugLog(
+          {
+            kind: 'turn-result',
+            sweep: tab.execution.sweepCount,
+            agentId: agent.id,
+            agentName: agent.name,
+            mode: result.mode,
+            fallback: false,
+            actionType: result.action.type,
+            details: result.action.reason,
+          },
+          tab,
+        );
         this.persistAndNotify();
         return;
       }
 
-      if (result.action.type === 'speak_public') {
-        const sentMessage = await this.sendMessage({
+      const sentMessage = await this.sendMessage(
+        {
           senderId: agent.id,
           content: result.action.text,
-          target: 'public',
+          target: result.action.type === 'speak_public' ? 'public' : 'private',
+          recipientId:
+            result.action.type === 'send_private'
+              ? result.action.to
+              : undefined,
           requestCostUsd: result.usage?.estimatedCost,
           ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
-          createdInSweep: this.state.execution.sweepCount,
+          createdInSweep: tab.execution.sweepCount,
           sourceTraceId: trace.id,
           triggerSweep: false,
-        });
-        this.attachProducedMessageToTrace(trace.id, sentMessage.id);
-        this.pushDebugLog({
+        },
+        tabId,
+      );
+      this.attachProducedMessageToTrace(trace.id, sentMessage.id, tab);
+      this.pushDebugLog(
+        {
           kind: 'turn-result',
-          sweep: this.state.execution.sweepCount,
+          sweep: tab.execution.sweepCount,
           agentId: agent.id,
           agentName: agent.name,
           mode: result.mode,
@@ -782,105 +1137,106 @@ export class MultiChatRuntime {
           actionType: result.action.type,
           messageId: sentMessage.id,
           target: sentMessage.target,
+          recipientId: sentMessage.recipientId,
           content: result.action.text,
-        });
-        this.state.execution.queuedSweep = true;
-        return;
-      }
-
-      const sentMessage = await this.sendMessage({
-        senderId: agent.id,
-        content: result.action.text,
-        target: 'private',
-        recipientId: result.action.to,
-        requestCostUsd: result.usage?.estimatedCost,
-        ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
-        createdInSweep: this.state.execution.sweepCount,
-        sourceTraceId: trace.id,
-        triggerSweep: false,
-      });
-      this.attachProducedMessageToTrace(trace.id, sentMessage.id);
-      this.pushDebugLog({
-        kind: 'turn-result',
-        sweep: this.state.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        mode: result.mode,
-        fallback: false,
-        actionType: result.action.type,
-        messageId: sentMessage.id,
-        target: sentMessage.target,
-        recipientId: sentMessage.recipientId,
-        content: result.action.text,
-      });
-      this.state.execution.queuedSweep = true;
+        },
+        tab,
+      );
+      tab.execution.queuedSweep = true;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        this.completeRequestTrace(trace.id, {
-          status: 'aborted',
-          error: 'Agent request aborted',
-        });
-        this.pushRuntimeEvent({
-          type: 'sweep-stopped',
-          agentId: agent.id,
-          details: 'Agent request aborted',
-        });
-        this.pushDebugLog({
-          kind: 'sweep-stopped',
-          sweep: this.state.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          details: 'Agent request aborted',
-        });
+        this.completeRequestTrace(
+          trace.id,
+          {
+            status: 'aborted',
+            error: 'Agent request aborted',
+          },
+          tab,
+        );
+        this.pushRuntimeEvent(
+          {
+            type: 'sweep-stopped',
+            agentId: agent.id,
+            details: 'Agent request aborted',
+          },
+          tab,
+        );
+        this.pushDebugLog(
+          {
+            kind: 'sweep-stopped',
+            sweep: tab.execution.sweepCount,
+            agentId: agent.id,
+            agentName: agent.name,
+            details: 'Agent request aborted',
+          },
+          tab,
+        );
         this.persistAndNotify();
         return;
       }
 
       const message =
         error instanceof Error ? error.message : 'Unknown agent runtime error';
-      this.completeRequestTrace(trace.id, {
-        status: 'failed',
-        error: message,
-      });
-      this.pushRuntimeError({
-        agentId: agent.id,
-        message: 'Agent turn failed',
-        details: message,
-        sourceTraceId: trace.id,
-      });
+      this.completeRequestTrace(
+        trace.id,
+        {
+          status: 'failed',
+          error: message,
+        },
+        tab,
+      );
+      this.pushRuntimeError(
+        {
+          agentId: agent.id,
+          message: 'Agent turn failed',
+          details: message,
+          sourceTraceId: trace.id,
+        },
+        tab,
+      );
 
       if (mode === 'tools') {
-        this.updateAgent(agent.id, {
-          capabilities: {
-            ...agent.capabilities,
-            supportsToolUse: 'unsupported',
+        this.updateAgent(
+          agent.id,
+          {
+            capabilities: {
+              ...agent.capabilities,
+              supportsToolUse: 'unsupported',
+            },
           },
-        });
+          tabId,
+        );
 
         try {
-          const fallbackTrace = this.createRequestTrace({
-            agent,
-            mode: 'json',
-            fallback: true,
-            parentTraceId: trace.id,
-            triggeringMessageIds,
-            visibleMessageIds: visibleMessages.map((message) => message.id),
-            nonSelfVisibleMessageIds,
-          });
-          this.pushDebugLog({
-            kind: 'turn-requested',
-            sweep: this.state.execution.sweepCount,
-            agentId: agent.id,
-            agentName: agent.name,
-            mode: 'json',
-            fallback: true,
-            visibleMessageIds: visibleMessages.map((message) => message.id),
-            nonSelfVisibleMessageIds,
-            triggeringMessageIds,
-            contextKeyPrev: previousContextKey,
-            contextKeyNext: nextContextKey,
-            details: 'JSON fallback after tool failure',
-          });
+          const fallbackTrace = this.createRequestTrace(
+            {
+              agent,
+              mode: 'json',
+              fallback: true,
+              parentTraceId: trace.id,
+              triggeringMessageIds,
+              visibleMessageIds: visibleMessages.map((message) => message.id),
+              nonSelfVisibleMessageIds,
+            },
+            tab,
+          );
+          this.pushDebugLog(
+            {
+              kind: 'turn-requested',
+              sweep: tab.execution.sweepCount,
+              agentId: agent.id,
+              agentName: agent.name,
+              mode: 'json',
+              fallback: true,
+              visibleMessageIds: visibleMessages.map((message) => message.id),
+              nonSelfVisibleMessageIds,
+              triggeringMessageIds,
+              contextKeyPrev: previousContextKey,
+              contextKeyNext: nextContextKey,
+              details: 'JSON fallback after tool failure',
+            },
+            tab,
+          );
           const fallback = await this.config.transport.runAgentTurn({
             apiKey,
             context: {
@@ -891,114 +1247,132 @@ export class MultiChatRuntime {
                   supportsToolUse: 'unsupported',
                 },
               },
-              participants: deepClone(this.state.participants),
+              participants: deepClone(tab.participants),
               visibleMessages,
             },
             mode: 'json',
-            signal: this.currentAbortController.signal,
+            signal: abortController.signal,
           });
 
-          this.markVisibleContextProcessed(agent.id);
-          this.applyUsage(agent.id, fallback.usage);
-          this.applyDownstreamPromptCost(
-            agent,
-            visibleMessages,
-            fallback.usage,
+          this.markVisibleContextProcessed(agent.id, tab);
+          this.applyUsage(agent.id, fallback.usage, tab);
+          this.applyDownstreamPromptCost(agent, visibleMessages, fallback.usage, tab);
+          this.completeRequestTrace(
+            fallbackTrace.id,
+            {
+              status: 'succeeded',
+              usage: fallback.usage,
+              action: fallback.action,
+            },
+            tab,
           );
-          this.completeRequestTrace(fallbackTrace.id, {
-            status: 'succeeded',
-            usage: fallback.usage,
-            action: fallback.action,
-          });
           if (fallback.action.type === 'stay_silent') {
             const requestCostUsd = fallback.usage?.estimatedCost;
-            const ownPromptCostUsd = this.getPromptCostUsd(
-              agent,
-              fallback.usage,
+            const ownPromptCostUsd = this.getPromptCostUsd(agent, fallback.usage);
+            this.pushRuntimeEvent(
+              {
+                type: 'silent-decision',
+                agentId: agent.id,
+                details: fallback.action.reason,
+                sourceTraceId: fallbackTrace.id,
+                requestCostUsd,
+                ownPromptCostUsd,
+                costUsd: requestCostUsd,
+              },
+              tab,
             );
-            this.pushRuntimeEvent({
-              type: 'silent-decision',
-              agentId: agent.id,
-              details: fallback.action.reason,
+            this.pushDebugLog(
+              {
+                kind: 'turn-result',
+                sweep: tab.execution.sweepCount,
+                agentId: agent.id,
+                agentName: agent.name,
+                mode: 'json',
+                fallback: true,
+                actionType: fallback.action.type,
+                details: fallback.action.reason,
+              },
+              tab,
+            );
+            this.persistAndNotify();
+            return;
+          }
+
+          const sentMessage = await this.sendMessage(
+            {
+              senderId: agent.id,
+              target:
+                fallback.action.type === 'speak_public' ? 'public' : 'private',
+              recipientId:
+                fallback.action.type === 'send_private'
+                  ? fallback.action.to
+                  : undefined,
+              content: fallback.action.text,
+              requestCostUsd: fallback.usage?.estimatedCost,
+              ownPromptCostUsd: this.getPromptCostUsd(agent, fallback.usage),
+              createdInSweep: tab.execution.sweepCount,
               sourceTraceId: fallbackTrace.id,
-              requestCostUsd,
-              ownPromptCostUsd,
-              costUsd: requestCostUsd,
-            });
-            this.pushDebugLog({
+              triggerSweep: false,
+            },
+            tabId,
+          );
+          this.attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id, tab);
+          this.pushDebugLog(
+            {
               kind: 'turn-result',
-              sweep: this.state.execution.sweepCount,
+              sweep: tab.execution.sweepCount,
               agentId: agent.id,
               agentName: agent.name,
               mode: 'json',
               fallback: true,
               actionType: fallback.action.type,
-              details: fallback.action.reason,
-            });
-            this.persistAndNotify();
-            return;
-          }
-
-          const sentMessage = await this.sendMessage({
-            senderId: agent.id,
-            target:
-              fallback.action.type === 'speak_public' ? 'public' : 'private',
-            recipientId:
-              fallback.action.type === 'send_private'
-                ? fallback.action.to
-                : undefined,
-            content: fallback.action.text,
-            requestCostUsd: fallback.usage?.estimatedCost,
-            ownPromptCostUsd: this.getPromptCostUsd(agent, fallback.usage),
-            createdInSweep: this.state.execution.sweepCount,
-            sourceTraceId: fallbackTrace.id,
-            triggerSweep: false,
-          });
-          this.attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id);
-          this.pushDebugLog({
-            kind: 'turn-result',
-            sweep: this.state.execution.sweepCount,
-            agentId: agent.id,
-            agentName: agent.name,
-            mode: 'json',
-            fallback: true,
-            actionType: fallback.action.type,
-            messageId: sentMessage.id,
-            target: sentMessage.target,
-            recipientId: sentMessage.recipientId,
-            content: fallback.action.text,
-          });
-          this.state.execution.queuedSweep = true;
+              messageId: sentMessage.id,
+              target: sentMessage.target,
+              recipientId: sentMessage.recipientId,
+              content: fallback.action.text,
+            },
+            tab,
+          );
+          tab.execution.queuedSweep = true;
         } catch (fallbackError) {
           const fallbackMessage =
             fallbackError instanceof Error
               ? fallbackError.message
               : 'Unknown JSON fallback error';
           const fallbackTraceId =
-            this.state.requestTraces[trace.id]?.childTraceIds.at(-1) ?? null;
+            tab.requestTraces[trace.id]?.childTraceIds.at(-1) ?? null;
           if (fallbackTraceId) {
-            this.completeRequestTrace(fallbackTraceId, {
-              status:
-                fallbackError instanceof Error &&
-                fallbackError.name === 'AbortError'
-                  ? 'aborted'
-                  : 'failed',
-              error: fallbackMessage,
-            });
+            this.completeRequestTrace(
+              fallbackTraceId,
+              {
+                status:
+                  fallbackError instanceof Error &&
+                  fallbackError.name === 'AbortError'
+                    ? 'aborted'
+                    : 'failed',
+                error: fallbackMessage,
+              },
+              tab,
+            );
           }
-          this.pushRuntimeError({
-            agentId: agent.id,
-            message: 'JSON fallback failed',
-            details: fallbackMessage,
-            sourceTraceId: fallbackTraceId ?? undefined,
-          });
+          this.pushRuntimeError(
+            {
+              agentId: agent.id,
+              message: 'JSON fallback failed',
+              details: fallbackMessage,
+              sourceTraceId: fallbackTraceId ?? undefined,
+            },
+            tab,
+          );
           this.persistAndNotify();
         }
       } else {
         this.persistAndNotify();
       }
     } finally {
-      this.currentAbortController = null;
+      if (this.abortControllers.get(tab.id) === abortController) {
+        this.abortControllers.delete(tab.id);
+      }
     }
   }
 
@@ -1013,12 +1387,16 @@ export class MultiChatRuntime {
     return 'json';
   }
 
-  private updateToolSupport(agentId: string, mode: AgentExecutionMode): void {
+  private updateToolSupport(
+    agentId: string,
+    mode: AgentExecutionMode,
+    tab: ChatTabState,
+  ): void {
     if (mode !== 'tools') {
       return;
     }
 
-    const agent = this.state.agents.find((item) => item.id === agentId);
+    const agent = tab.agents.find((item) => item.id === agentId);
     if (!agent) {
       return;
     }
@@ -1029,7 +1407,8 @@ export class MultiChatRuntime {
   private applyDownstreamPromptCost(
     receivingAgent: AgentConfig,
     visibleMessages: AgentContextMessage[],
-    usage?: TransportUsage,
+    usage: TransportUsage | undefined,
+    tab: ChatTabState,
   ): void {
     const promptCostUsd = this.getPromptCostUsd(receivingAgent, usage);
     if (promptCostUsd <= 0) {
@@ -1045,7 +1424,7 @@ export class MultiChatRuntime {
 
     const promptCostPerMessage = promptCostUsd / listenedMessages.length;
     for (const visibleMessage of listenedMessages) {
-      const entry = this.findMessageEntryById(visibleMessage.id);
+      const entry = this.findMessageEntryById(visibleMessage.id, tab);
       if (!entry) {
         continue;
       }
@@ -1088,19 +1467,23 @@ export class MultiChatRuntime {
     return promptTokens * promptPrice;
   }
 
-  getVisibleMessagesForAgent(agentId: string): AgentContextMessage[] {
-    const agent = this.state.agents.find((item) => item.id === agentId);
+  getVisibleMessagesForAgent(
+    agentId: string,
+    tabId = this.workspace.activeTabId,
+  ): AgentContextMessage[] {
+    const tab = this.requireTab(tabId);
+    const agent = tab.agents.find((item) => item.id === agentId);
     const contextWindowSize =
       agent?.contextWindowSize ??
-      this.state.settings.defaultContextWindowSize ??
+      this.workspace.settings.defaultContextWindowSize ??
       this.maxContextMessages;
-    const visibleMessages = this.getContextEligibleMessagesForAgent(agentId);
+    const visibleMessages = this.getContextEligibleMessagesForAgent(agentId, tab);
 
     return visibleMessages.slice(-contextWindowSize).map((message) => {
-      const sender = this.state.participants.find(
+      const sender = tab.participants.find(
         (participant) => participant.id === message.senderId,
       );
-      const recipient = this.state.participants.find(
+      const recipient = tab.participants.find(
         (participant) => participant.id === message.recipientId,
       );
 
@@ -1117,7 +1500,8 @@ export class MultiChatRuntime {
     });
   }
 
-  getAgentContextCutoffs(): AgentContextCutoff[] {
+  getAgentContextCutoffs(tabId = this.workspace.activeTabId): AgentContextCutoff[] {
+    const tab = this.requireTab(tabId);
     type GroupedCutoff = {
       anchor: ContextCutoffAnchor;
       agentIds: string[];
@@ -1127,13 +1511,14 @@ export class MultiChatRuntime {
 
     const groupedCutoffs = new Map<string, GroupedCutoff>();
 
-    for (const agent of this.getActiveAgents()) {
+    for (const agent of this.getActiveAgents(tab)) {
       const eligibleMessages = this.getContextEligibleMessagesForAgent(
         agent.id,
+        tab,
       );
       const contextWindowSize =
         agent.contextWindowSize ??
-        this.state.settings.defaultContextWindowSize ??
+        this.workspace.settings.defaultContextWindowSize ??
         this.maxContextMessages;
       const contextMessages = eligibleMessages.slice(-contextWindowSize);
       const anchor = contextMessages[0]
@@ -1142,7 +1527,7 @@ export class MultiChatRuntime {
             messageId: contextMessages[0].id,
           }
         : ({
-            kind: this.getTimelineMessages().length ? 'end' : 'start',
+            kind: this.getTimelineMessages(tab).length ? 'end' : 'start',
           } as const);
       const key = `${anchor.kind}:${anchor.messageId ?? ''}`;
       const current: GroupedCutoff = groupedCutoffs.get(key) ?? {
@@ -1192,151 +1577,144 @@ export class MultiChatRuntime {
     );
   }
 
-  private getContextEligibleMessagesForAgent(agentId: string): ChatMessage[] {
-    return this.getTimelineMessages().filter((message) => {
+  private getContextEligibleMessagesForAgent(
+    agentId: string,
+    tab: ChatTabState,
+  ): ChatMessage[] {
+    return this.getTimelineMessages(tab).filter((message) => {
       if (!this.isMessageVisibleToAgent(message, agentId)) {
         return false;
       }
 
-      return this.isMessageAfterCutoff(message);
+      const cutoffIndex = this.getActiveManualCutoffIndex(tab);
+      if (cutoffIndex === null) {
+        return true;
+      }
+
+      const entryIndex = tab.timeline.findIndex((entry) => entry.id === message.id);
+      return entryIndex > cutoffIndex;
     });
   }
 
-  private hasNewVisibleInputForAgent(agentId: string): boolean {
-    const currentKey = this.getVisibleContextKey(agentId);
-    return this.lastProcessedVisibleContextKeys.get(agentId) !== currentKey;
-  }
-
-  private markVisibleContextProcessed(agentId: string): void {
-    this.lastProcessedVisibleContextKeys.set(
-      agentId,
-      this.getVisibleContextKey(agentId),
-    );
-  }
-
-  private getVisibleContextKey(agentId: string): string {
-    return this.getNonSelfVisibleMessageIds(agentId).join('|');
-  }
-
-  private getNonSelfVisibleMessageIds(agentId: string): string[] {
-    const agent = this.state.agents.find((item) => item.id === agentId);
-    const contextWindowSize =
-      agent?.contextWindowSize ??
-      this.state.settings.defaultContextWindowSize ??
-      this.maxContextMessages;
-
-    return this.getContextEligibleMessagesForAgent(agentId)
+  private getNonSelfVisibleMessageIds(
+    agentId: string,
+    tab: ChatTabState,
+  ): string[] {
+    return this.getVisibleMessagesForAgent(agentId, tab.id)
       .filter((message) => message.senderId !== agentId)
-      .slice(-contextWindowSize)
       .map((message) => message.id);
+  }
+
+  private getVisibleContextKey(agentId: string, tab: ChatTabState): string {
+    return this.getNonSelfVisibleMessageIds(agentId, tab).join('|');
+  }
+
+  private hasNewVisibleInputForAgent(
+    agentId: string,
+    tab: ChatTabState,
+  ): boolean {
+    const keys = this.lastProcessedKeysForTab(tab.id);
+    if (!keys.has(agentId)) {
+      return true;
+    }
+
+    const previousIds = new Set((keys.get(agentId) ?? '').split('|').filter(Boolean));
+    const nextIds = this.getNonSelfVisibleMessageIds(agentId, tab);
+    return nextIds.some((messageId) => !previousIds.has(messageId));
+  }
+
+  private markVisibleContextProcessed(agentId: string, tab: ChatTabState): void {
+    this.lastProcessedKeysForTab(tab.id).set(
+      agentId,
+      this.getVisibleContextKey(agentId, tab),
+    );
   }
 
   private getTriggeringMessageIds(
     previousContextKey: string,
-    nonSelfVisibleMessageIds: string[],
+    nextVisibleMessageIds: string[],
   ): string[] {
-    const previousIds = new Set(
+    const previousMessageIds = new Set(
       previousContextKey ? previousContextKey.split('|').filter(Boolean) : [],
     );
-    return nonSelfVisibleMessageIds.filter((id) => !previousIds.has(id));
+    return nextVisibleMessageIds.filter((messageId) => !previousMessageIds.has(messageId));
   }
 
-  private isMessageAfterCutoff(message: ChatMessage): boolean {
-    const cutoffIndex = this.getActiveManualCutoffIndex();
-    if (cutoffIndex === null) {
-      return true;
-    }
-    const messageIndex = this.state.timeline.findIndex(
-      (item) => item.kind === 'message' && item.message.id === message.id,
+  private getActiveAgents(tab: ChatTabState): AgentConfig[] {
+    return tab.agents.filter(
+      (agent) => agent.isEnabled !== false && agent.isHidden !== true,
     );
-    if (messageIndex === -1) {
-      return true;
-    }
-
-    return messageIndex > cutoffIndex;
   }
 
   private applyUsage(
     agentId: string,
-    usage?: {
-      promptTokens?: number;
-      completionTokens?: number;
-      totalTokens?: number;
-      estimatedCost?: number;
-    },
+    usage: TransportUsage | undefined,
+    tab: ChatTabState,
   ): void {
-    const metrics = this.state.metrics[agentId] ?? emptyMetrics();
+    if (!usage) {
+      return;
+    }
+
+    const metrics = tab.metrics[agentId] ?? emptyMetrics();
     metrics.requestCount += 1;
-    metrics.promptTokens += usage?.promptTokens ?? 0;
-    metrics.completionTokens += usage?.completionTokens ?? 0;
-    metrics.totalTokens += usage?.totalTokens ?? 0;
-    metrics.estimatedCost += usage?.estimatedCost ?? 0;
-    this.state.metrics[agentId] = metrics;
+    metrics.promptTokens += usage.promptTokens ?? 0;
+    metrics.completionTokens += usage.completionTokens ?? 0;
+    metrics.totalTokens += usage.totalTokens ?? 0;
+    metrics.estimatedCost += usage.estimatedCost ?? 0;
+    tab.metrics[agentId] = metrics;
   }
 
-  private createRequestTrace(input: {
-    agent: AgentConfig;
-    mode: AgentExecutionMode;
-    fallback: boolean;
-    parentTraceId: string | null;
-    triggeringMessageIds: string[];
-    visibleMessageIds: string[];
-    nonSelfVisibleMessageIds: string[];
-  }): RequestTrace {
+  private createRequestTrace(
+    input: {
+      agent: AgentConfig;
+      mode: AgentExecutionMode;
+      fallback: boolean;
+      parentTraceId: string | null;
+      triggeringMessageIds: string[];
+      visibleMessageIds: string[];
+      nonSelfVisibleMessageIds: string[];
+    },
+    tab: ChatTabState,
+  ): RequestTrace {
     const trace: RequestTrace = {
       id: this.createId(),
-      sweep: this.state.execution.sweepCount,
+      sweep: tab.execution.sweepCount,
       agentId: input.agent.id,
       agentName: input.agent.name,
       mode: input.mode,
       fallback: input.fallback,
       status: 'running',
       startedAt: this.now().toISOString(),
-      triggeringMessageIds: [...input.triggeringMessageIds],
-      visibleMessageIds: [...input.visibleMessageIds],
-      nonSelfVisibleMessageIds: [...input.nonSelfVisibleMessageIds],
+      triggeringMessageIds: input.triggeringMessageIds,
+      visibleMessageIds: input.visibleMessageIds,
+      nonSelfVisibleMessageIds: input.nonSelfVisibleMessageIds,
+      producedMessageId: undefined,
       parentTraceId: input.parentTraceId,
       childTraceIds: [],
-      upstreamMessageIds: [...input.triggeringMessageIds],
+      upstreamMessageIds: input.triggeringMessageIds,
       downstreamMessageIds: [],
-      pricingSnapshot: input.agent.pricing
-        ? { ...input.agent.pricing }
-        : undefined,
-      transport: {
-        provider: 'openrouter',
-        modelId: input.agent.modelId,
-        executionMode: input.mode,
+      usage: undefined,
+      pricingSnapshot: {
+        prompt: input.agent.pricing?.prompt,
+        completion: input.agent.pricing?.completion,
       },
+      transport: undefined,
       payloads: {},
-      links: [
-        ...input.triggeringMessageIds.map((messageId) => ({
-          kind: 'triggering-message' as const,
-          messageId,
-        })),
-        ...input.visibleMessageIds.map((messageId) => ({
-          kind: 'visible-message' as const,
-          messageId,
-        })),
-        ...(input.parentTraceId
-          ? [{ kind: 'parent' as const, traceId: input.parentTraceId }]
-          : []),
-      ],
+      links: [],
     };
-
-    this.state.requestTraces[trace.id] = trace;
-    if (input.parentTraceId) {
-      const parentTrace = this.state.requestTraces[input.parentTraceId];
-      if (parentTrace && !parentTrace.childTraceIds.includes(trace.id)) {
-        parentTrace.childTraceIds.push(trace.id);
-        parentTrace.links.push({
-          kind: 'child',
-          traceId: trace.id,
-        });
-      }
+    tab.requestTraces[trace.id] = trace;
+    if (trace.parentTraceId) {
+      tab.requestTraces[trace.parentTraceId]?.childTraceIds.push(trace.id);
+      trace.links.push({ kind: 'parent', traceId: trace.parentTraceId });
     }
-    this.registerTraceForMessages(trace.id, input.triggeringMessageIds, true);
-    this.registerTraceForMessages(trace.id, input.visibleMessageIds, false);
-
+    for (const messageId of trace.triggeringMessageIds) {
+      this.linkTraceToMessage(messageId, trace.id, 'triggering', tab);
+      trace.links.push({ kind: 'triggering-message', messageId });
+    }
+    for (const messageId of trace.visibleMessageIds) {
+      this.linkTraceToMessage(messageId, trace.id, 'visible', tab);
+      trace.links.push({ kind: 'visible-message', messageId });
+    }
     return trace;
   }
 
@@ -1345,16 +1723,12 @@ export class MultiChatRuntime {
     input: {
       status: RequestTrace['status'];
       usage?: TransportUsage;
-      action?: {
-        type: 'speak_public' | 'send_private' | 'stay_silent';
-        text?: string;
-        to?: string;
-        reason?: string;
-      };
+      action?: unknown;
       error?: string;
     },
+    tab: ChatTabState,
   ): void {
-    const trace = this.state.requestTraces[traceId];
+    const trace = tab.requestTraces[traceId];
     if (!trace) {
       return;
     }
@@ -1367,24 +1741,35 @@ export class MultiChatRuntime {
         completionTokens: input.usage.completionTokens,
         totalTokens: input.usage.totalTokens,
         estimatedCost: input.usage.estimatedCost,
-        promptCostUsd: this.getPromptCostUsdByTrace(trace, input.usage),
+        promptCostUsd: this.getPromptCostUsd(
+          tab.agents.find((agent) => agent.id === trace.agentId) ?? {
+            id: trace.agentId,
+            name: trace.agentName,
+            modelId: '',
+            systemPrompt: '',
+            capabilities: {
+              prefersTools: false,
+              supportsToolUse: 'unknown',
+            },
+          },
+          input.usage,
+        ),
         requestCostUsd: input.usage.estimatedCost,
       };
       trace.payloads.requestInputJson = input.usage.requestPayloadJson;
       trace.payloads.responseOutputJson = input.usage.responsePayloadJson;
       trace.transport = {
         ...trace.transport,
-        ...(input.usage.transportMeta ?? {}),
+        ...input.usage.transportMeta,
       };
     }
     if (input.action) {
-      trace.payloads.normalizedActionJson = deepClone(input.action);
+      trace.payloads.normalizedActionJson = input.action;
     }
     if (input.error) {
       trace.transport = {
         ...trace.transport,
         error: input.error,
-        aborted: input.status === 'aborted',
       };
     }
   }
@@ -1392,103 +1777,81 @@ export class MultiChatRuntime {
   private attachProducedMessageToTrace(
     traceId: string,
     messageId: string,
+    tab: ChatTabState,
   ): void {
-    const trace = this.state.requestTraces[traceId];
+    const trace = tab.requestTraces[traceId];
     if (!trace) {
       return;
     }
 
     trace.producedMessageId = messageId;
-    if (!trace.downstreamMessageIds.includes(messageId)) {
-      trace.downstreamMessageIds.push(messageId);
-    }
-    trace.links.push({
-      kind: 'produced-message',
-      messageId,
-    });
-    this.updateMessageSourceTrace(messageId, traceId);
+    trace.downstreamMessageIds.push(messageId);
+    trace.links.push({ kind: 'produced-message', messageId });
+    const index = this.getMessageInspectionIndexEntry(messageId, tab);
+    index.sourceTraceId = traceId;
   }
 
   private updateMessageSourceTrace(
     messageId: string,
-    sourceTraceId?: string,
+    traceId: string | undefined,
+    tab: ChatTabState,
   ): void {
-    const index = this.getMessageInspectionIndexEntry(messageId);
-    index.sourceTraceId = sourceTraceId;
-    this.state.messageInspectionIndex[messageId] = index;
-  }
-
-  private registerTraceForMessages(
-    traceId: string,
-    messageIds: string[],
-    isTriggering: boolean,
-  ): void {
-    for (const messageId of messageIds) {
-      const index = this.getMessageInspectionIndexEntry(messageId);
-      const targetIds = isTriggering
-        ? index.triggeringTraceIds
-        : index.visibleTraceIds;
-      if (!targetIds.includes(traceId)) {
-        targetIds.push(traceId);
-      }
-      if (!index.downstreamTraceIds.includes(traceId)) {
-        index.downstreamTraceIds.push(traceId);
-      }
-      this.state.messageInspectionIndex[messageId] = index;
+    if (!traceId) {
+      return;
     }
+
+    const index = this.getMessageInspectionIndexEntry(messageId, tab);
+    index.sourceTraceId = traceId;
   }
 
   private getMessageInspectionIndexEntry(
     messageId: string,
+    tab: ChatTabState,
   ): MessageInspectionIndex {
-    return (
-      this.state.messageInspectionIndex[messageId] ?? {
-        downstreamTraceIds: [],
-        triggeringTraceIds: [],
-        visibleTraceIds: [],
-      }
-    );
+    tab.messageInspectionIndex[messageId] ??= {
+      sourceTraceId: undefined,
+      downstreamTraceIds: [],
+      triggeringTraceIds: [],
+      visibleTraceIds: [],
+    };
+    return tab.messageInspectionIndex[messageId]!;
   }
 
-  private cloneTraces(traceIds: string[]): RequestTrace[] {
+  private linkTraceToMessage(
+    messageId: string,
+    traceId: string,
+    kind: 'triggering' | 'visible',
+    tab: ChatTabState,
+  ): void {
+    const index = this.getMessageInspectionIndexEntry(messageId, tab);
+    const target =
+      kind === 'triggering' ? index.triggeringTraceIds : index.visibleTraceIds;
+    if (!target.includes(traceId)) {
+      target.push(traceId);
+    }
+    if (!index.downstreamTraceIds.includes(traceId)) {
+      index.downstreamTraceIds.push(traceId);
+    }
+  }
+
+  private cloneTraces(traceIds: string[], tab: ChatTabState): RequestTrace[] {
     return traceIds
-      .map((traceId) => this.state.requestTraces[traceId])
+      .map((traceId) => tab.requestTraces[traceId])
       .filter((item): item is RequestTrace => Boolean(item))
       .map((item) => deepClone(item));
   }
 
-  private getMessageById(messageId: string): ChatMessage | null {
-    return this.findMessageEntryById(messageId)?.message ?? null;
+  private getMessageById(messageId: string, tab: ChatTabState): ChatMessage | null {
+    return this.findMessageEntryById(messageId, tab)?.message ?? null;
   }
 
-  private getPromptCostUsdByTrace(
-    trace: RequestTrace,
-    usage?: TransportUsage,
-  ): number {
-    const agent = this.state.agents.find((item) => item.id === trace.agentId);
-    if (!agent) {
-      return 0;
-    }
-
-    return this.getPromptCostUsd(agent, usage);
-  }
-
-  private getActiveAgents(): AgentConfig[] {
-    return this.state.agents.filter(
-      (agent) => agent.isEnabled !== false && agent.isHidden !== true,
-    );
-  }
-
-  private syncParticipants(): void {
+  private syncParticipants(tab: ChatTabState): void {
     const human =
-      this.state.participants.find(
-        (participant) => participant.role === 'human',
-      ) ??
-      this.config.humanParticipant ??
-      DEFAULT_HUMAN;
-    this.state.participants = [
+      tab.participants.find((participant) => participant.role === 'human') ??
+      deepClone(this.config.humanParticipant ?? DEFAULT_HUMAN);
+    tab.participants = [
       human,
-      ...this.state.agents.map((agent) => ({
+      ...tab.agents.map((agent) => ({
         id: agent.id,
         name: agent.name,
         role: 'agent' as const,
@@ -1509,13 +1872,14 @@ export class MultiChatRuntime {
       | 'downstreamPromptCostUsd'
       | 'downstreamPromptCostContributors'
     >,
+    tab: ChatTabState,
   ): void {
     const event: RuntimeEvent = {
       id: this.createId(),
       createdAt: this.now().toISOString(),
       ...input,
     };
-    this.state.timeline.push({
+    tab.timeline.push({
       id: event.id,
       createdAt: event.createdAt,
       kind: 'technical-event',
@@ -1528,39 +1892,49 @@ export class MultiChatRuntime {
       RuntimeError,
       'agentId' | 'message' | 'details' | 'sourceTraceId'
     >,
+    tab: ChatTabState,
   ): void {
-    this.state.errors.push({
+    tab.errors.push({
       id: this.createId(),
       createdAt: this.now().toISOString(),
       ...input,
     });
-    this.pushRuntimeEvent({
-      type: 'runtime-error',
-      agentId: input.agentId,
-      details: input.details ?? input.message,
-      sourceTraceId: input.sourceTraceId,
-    });
-    this.pushDebugLog({
-      kind: 'runtime-error',
-      sweep: this.state.execution.sweepCount,
-      agentId: input.agentId,
-      agentName: input.agentId
-        ? this.participantName(input.agentId)
-        : undefined,
-      details: `${input.message}${input.details ? `: ${input.details}` : ''}`,
-    });
+    this.pushRuntimeEvent(
+      {
+        type: 'runtime-error',
+        agentId: input.agentId,
+        details: input.details ?? input.message,
+        sourceTraceId: input.sourceTraceId,
+      },
+      tab,
+    );
+    this.pushDebugLog(
+      {
+        kind: 'runtime-error',
+        sweep: tab.execution.sweepCount,
+        agentId: input.agentId,
+        agentName: input.agentId
+          ? this.participantName(input.agentId, tab)
+          : undefined,
+        details: `${input.message}${input.details ? `: ${input.details}` : ''}`,
+      },
+      tab,
+    );
   }
 
-  private pushDebugLog(input: Omit<DebugLogEntry, 'id' | 'createdAt'>): void {
-    this.state.debugLogs.push({
-      id: `debug-${this.state.debugLogs.length + 1}`,
+  private pushDebugLog(
+    input: Omit<DebugLogEntry, 'id' | 'createdAt'>,
+    tab: ChatTabState,
+  ): void {
+    tab.debugLogs.push({
+      id: `debug-${tab.debugLogs.length + 1}`,
       createdAt: this.now().toISOString(),
       ...input,
     });
   }
 
-  private getTimelineMessages(): ChatMessage[] {
-    return this.state.timeline
+  private getTimelineMessages(tab: ChatTabState): ChatMessage[] {
+    return tab.timeline
       .filter(
         (entry): entry is TimelineMessageEntry => entry.kind === 'message',
       )
@@ -1569,16 +1943,17 @@ export class MultiChatRuntime {
 
   private findMessageEntryById(
     messageId: string,
+    tab: ChatTabState,
   ): TimelineMessageEntry | undefined {
-    return this.state.timeline.find(
+    return tab.timeline.find(
       (entry): entry is TimelineMessageEntry =>
         entry.kind === 'message' && entry.message.id === messageId,
     );
   }
 
-  private getActiveManualCutoffIndex(): number | null {
-    for (let index = this.state.timeline.length - 1; index >= 0; index -= 1) {
-      const entry = this.state.timeline[index];
+  private getActiveManualCutoffIndex(tab: ChatTabState): number | null {
+    for (let index = tab.timeline.length - 1; index >= 0; index -= 1) {
+      const entry = tab.timeline[index];
       if (entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual') {
         return index;
       }
@@ -1603,8 +1978,11 @@ export class MultiChatRuntime {
     return event.type === 'silent-decision' || event.type === 'runtime-error';
   }
 
-  private formatPreviewCutoffLabel(cutoff: AgentContextCutoff): string {
-    const activeAgentCount = this.getActiveAgents().length;
+  private formatPreviewCutoffLabel(
+    cutoff: AgentContextCutoff,
+    tab: ChatTabState,
+  ): string {
+    const activeAgentCount = this.getActiveAgents(tab).length;
     if (activeAgentCount > 0 && cutoff.agentIds.length === activeAgentCount) {
       return 'context for: all agents';
     }
@@ -1663,16 +2041,83 @@ export class MultiChatRuntime {
     return (nextTime ?? 0) - 0.5;
   }
 
-  private participantName(participantId: string): string {
+  private participantName(participantId: string, tab: ChatTabState): string {
     return (
-      this.state.participants.find(
-        (participant) => participant.id === participantId,
-      )?.name ?? participantId
+      tab.participants.find((participant) => participant.id === participantId)
+        ?.name ?? participantId
     );
   }
 
+  private lastProcessedKeysForTab(tabId: string): Map<string, string> {
+    let keys = this.lastProcessedVisibleContextKeys.get(tabId);
+    if (!keys) {
+      keys = new Map<string, string>();
+      this.lastProcessedVisibleContextKeys.set(tabId, keys);
+    }
+    return keys;
+  }
+
+  private getTab(tabId: string): ChatTabState | undefined {
+    return this.workspace.tabs.find((tab) => tab.id === tabId);
+  }
+
+  private requireTab(tabId: string): ChatTabState {
+    const tab = this.getTab(tabId);
+    if (!tab) {
+      throw new Error(`Tab not found: ${tabId}`);
+    }
+    return tab;
+  }
+
+  private requireActiveTab(): ChatTabState {
+    return this.requireTab(this.workspace.activeTabId);
+  }
+
+  private resolveAutoTabTitle(
+    preferredTitle?: string,
+    excludeTabId?: string,
+  ): string {
+    const normalizedPreferred = normalizeTabTitle(preferredTitle);
+    if (normalizedPreferred) {
+      return normalizedPreferred;
+    }
+
+    const titles = new Set(
+      this.workspace.tabs
+        .filter((tab) => tab.id !== excludeTabId)
+        .map((tab) => tab.title),
+    );
+    if (!titles.has(DEFAULT_TAB_TITLE)) {
+      return DEFAULT_TAB_TITLE;
+    }
+
+    let index = 2;
+    while (titles.has(`${DEFAULT_TAB_TITLE}${index}`)) {
+      index += 1;
+    }
+
+    return `${DEFAULT_TAB_TITLE}${index}`;
+  }
+
+  private buildRuntimeState(tab: ChatTabState): RuntimeState {
+    return deepClone({
+      activeTabId: this.workspace.activeTabId,
+      draftMessage: tab.draftMessage,
+      participants: tab.participants,
+      agents: tab.agents,
+      timeline: tab.timeline,
+      metrics: tab.metrics,
+      settings: this.workspace.settings,
+      debugLogs: tab.debugLogs,
+      errors: tab.errors,
+      execution: tab.execution,
+      requestTraces: tab.requestTraces,
+      messageInspectionIndex: tab.messageInspectionIndex,
+    });
+  }
+
   private persist(): void {
-    this.storage.save(this.getState());
+    this.storage.save(deepClone(this.workspace));
   }
 
   private persistAndNotify(): void {

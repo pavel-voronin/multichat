@@ -282,7 +282,46 @@ export interface ExecutionState {
   stopRequested: boolean;
 }
 
+export interface ChatTabUiMeta {
+  unreadCount?: number;
+  headerBadge?: string | number | null;
+}
+
+export type TabMutationSource = 'user' | 'system' | 'future-event';
+
+export interface ChatTabState {
+  id: string;
+  title: string;
+  participants: Participant[];
+  agents: AgentConfig[];
+  timeline: TimelineEntry[];
+  metrics: Record<string, AgentMetrics>;
+  debugLogs: DebugLogEntry[];
+  errors: RuntimeError[];
+  execution: ExecutionState;
+  requestTraces: Record<string, RequestTrace>;
+  messageInspectionIndex: Record<string, MessageInspectionIndex>;
+  draftMessage: string;
+  uiMeta: ChatTabUiMeta;
+}
+
+export interface ChatTabSummary {
+  id: string;
+  title: string;
+  isActive: boolean;
+  unreadCount: number;
+  headerBadge: string | number | null;
+}
+
+export interface WorkspaceState {
+  settings: SettingsState;
+  tabs: ChatTabState[];
+  activeTabId: string;
+}
+
 export interface RuntimeState {
+  activeTabId: string;
+  draftMessage: string;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];
@@ -372,8 +411,8 @@ export interface OpenRouterTransport {
 }
 
 export interface PersistenceAdapter {
-  load(): Partial<RuntimeState> | null;
-  save(state: RuntimeState): void;
+  load(): Partial<WorkspaceState> | null;
+  save(state: WorkspaceState): void;
   reset(): void;
 }
 
