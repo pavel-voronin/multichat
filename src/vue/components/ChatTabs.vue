@@ -380,7 +380,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-main {
-  @apply flex min-w-0 flex-1 items-center gap-2 self-stretch pl-3 pr-2 text-left;
+  @apply flex min-w-0 flex-1 items-center gap-2 self-stretch pl-3 pr-1 text-left;
 }
 
 .chat-tab-title {
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-close {
-  @apply relative z-10 h-full px-2 text-base leading-none text-neutral-900 opacity-55 transition hover:opacity-100;
+  @apply relative z-10 h-full px-1 text-base leading-none text-neutral-900 opacity-55 transition hover:opacity-100;
 }
 
 .chat-tab-edit {

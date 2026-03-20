@@ -1,5 +1,13 @@
 <template>
   <header class="playground-toolbar">
+    <UiButton
+      class="toolbar-button"
+      variant="danger"
+      size="md"
+      @click="session.resetAgentHistoryContext()"
+    >
+      Add context cut-off
+    </UiButton>
     <UiButton class="toolbar-button" size="md" @click="session.toggleContextCutoffs">
       {{ preferences.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
     </UiButton>
@@ -27,14 +35,6 @@
       {{ ui.showLogsPanel ? 'Logs: on' : 'Logs: off' }}
     </UiButton>
     <div class="toolbar-actions">
-      <UiButton
-        class="toolbar-button"
-        variant="danger"
-        size="md"
-        @click="session.resetAgentHistoryContext()"
-      >
-        Reset agents
-      </UiButton>
       <UiButton
         class="toolbar-button"
         variant="danger"

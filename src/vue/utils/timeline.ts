@@ -20,9 +20,11 @@ export function buildVisibleTimelineEntries(input: {
 }): VisibleTimelineEntry[] {
   const activeManualCutoffIndex = getActiveManualCutoffIndex(input.state.timeline);
   const visibleEntries: VisibleTimelineEntry[] = [];
-  const visibleMessages: ChatMessage[] = [];
+  const visibleMessages: Array<{ message: ChatMessage; sortAt: number }> = [];
 
   for (const [index, entry] of input.state.timeline.entries()) {
+    const sortAt = index * 2;
+
     if (entry.kind === 'message') {
       if (
         !input.runtime.isMessageVisibleToParticipant(
@@ -33,10 +35,10 @@ export function buildVisibleTimelineEntries(input: {
         continue;
       }
 
-      visibleMessages.push(entry.message);
+      visibleMessages.push({ message: entry.message, sortAt });
       visibleEntries.push({
         ...entry,
-        sortAt: Date.parse(entry.createdAt),
+        sortAt,
         isMuted:
           activeManualCutoffIndex !== null && index < activeManualCutoffIndex,
       });
@@ -53,14 +55,14 @@ export function buildVisibleTimelineEntries(input: {
 
       visibleEntries.push({
         ...entry,
-        sortAt: Date.parse(entry.createdAt),
+        sortAt,
       });
       continue;
     }
 
     visibleEntries.push({
       ...entry,
-      sortAt: Date.parse(entry.createdAt),
+      sortAt,
     });
   }
 
@@ -118,27 +120,27 @@ function formatPreviewCutoffLabel(
 
 function resolveCutoffSortTime(
   anchor: ContextCutoffAnchor,
-  messages: ChatMessage[],
+  messages: Array<{ message: ChatMessage; sortAt: number }>,
 ): number {
   if (!messages.length) {
     return 0;
   }
 
   if (anchor.kind === 'start') {
-    return Date.parse(messages[0].createdAt) - 0.5;
+    return messages[0]!.sortAt - 1;
   }
 
   if (anchor.kind === 'end') {
-    return Date.parse(messages.at(-1)!.createdAt) + 0.5;
+    return messages.at(-1)!.sortAt + 1;
   }
 
   const messageIndex = messages.findIndex(
-    (message) => message.id === anchor.messageId,
+    (entry) => entry.message.id === anchor.messageId,
   );
   if (messageIndex === -1) {
     return anchor.kind === 'after-message'
-      ? Date.parse(messages.at(-1)!.createdAt) + 0.5
-      : Date.parse(messages[0].createdAt) - 0.5;
+      ? messages.at(-1)!.sortAt + 1
+      : messages[0]!.sortAt - 1;
   }
 
   const previousMessage =
@@ -149,10 +151,8 @@ function resolveCutoffSortTime(
     anchor.kind === 'after-message'
       ? messages[messageIndex + 1]
       : messages[messageIndex];
-  const previousTime = previousMessage
-    ? Date.parse(previousMessage.createdAt)
-    : null;
-  const nextTime = nextMessage ? Date.parse(nextMessage.createdAt) : null;
+  const previousTime = previousMessage?.sortAt ?? null;
+  const nextTime = nextMessage?.sortAt ?? null;
 
   if (previousTime !== null && nextTime !== null) {
     return previousTime === nextTime

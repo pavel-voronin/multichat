@@ -14,18 +14,17 @@
 import { storeToRefs } from 'pinia';
 import { computed, nextTick, useTemplateRef, watch } from 'vue';
 import { usePinnedScroll } from '../composables/usePinnedScroll';
-import { useRuntimeStore } from '../stores/runtime';
+import { useDiagnosticsStore } from '../stores/diagnostics';
 import { useUiStore } from '../stores/ui';
 import { formatDebugLogLine } from '../utils/chatFormatting';
 
 const logsPanelRef = useTemplateRef<HTMLDivElement>('logsPanel');
 const logsScroll = usePinnedScroll(logsPanelRef);
-const runtimeStore = useRuntimeStore();
-const { state } = storeToRefs(runtimeStore);
+const { diagnostics } = storeToRefs(useDiagnosticsStore());
 const ui = useUiStore();
-const entriesCount = computed(() => state.value.debugLogs.length);
+const entriesCount = computed(() => diagnostics.value.debugLogs.length);
 const formattedLogs = computed(() =>
-  state.value.debugLogs.map(formatDebugLogLine).join('\n'),
+  diagnostics.value.debugLogs.map(formatDebugLogLine).join('\n'),
 );
 
 watch(formattedLogs, async () => {

@@ -1,6 +1,12 @@
 <template>
-  <template v-for="entry in chatTimelineEntries" :key="entry.id">
-    <article v-if="entry.kind === 'message'" :class="messageClasses(entry)">
+  <template v-for="entry in renderedTimelineEntries" :key="entry.id">
+    <article
+      v-if="entry.kind === 'message'"
+      :class="messageClasses(entry)"
+      :data-cutoff-drop-active="dragPreviewTargetId === entry.id"
+      data-manual-cutoff-drop-target="true"
+      :data-timeline-entry-id="entry.id"
+    >
       <button
         type="button"
         class="message-time message-time-trigger"
@@ -35,6 +41,9 @@
     <article
       v-else-if="entry.kind === 'technical-event'"
       :class="technicalEventClasses(entry.event)"
+      :data-cutoff-drop-active="dragPreviewTargetId === entry.id"
+      data-manual-cutoff-drop-target="true"
+      :data-timeline-entry-id="entry.id"
     >
       <button
         type="button"
@@ -71,9 +80,38 @@
       <div
         v-if="entry.cutoff.source === 'manual'"
         class="cutoff-banner cutoff-banner-manual"
+        :class="{
+          'cutoff-banner-dragging': draggedCutoffId === entry.id,
+          'cutoff-banner-drop-target': dragPreviewTargetId === entry.id,
+        }"
+        data-manual-cutoff-drop-target="true"
+        :data-timeline-entry-id="entry.id"
       >
+        <button
+          type="button"
+          class="cutoff-remove-button"
+          aria-label="Remove context cut-off"
+          @click="session.removeManualCutoff()"
+        >
+          x
+        </button>
+        <button
+          type="button"
+          class="cutoff-drag-handle"
+          aria-label="Drag context cut-off"
+          @pointerdown="startManualCutoffDrag($event, entry.id)"
+        >
+          <span class="cutoff-drag-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
         <span class="cutoff-copy">
-          <span class="cutoff-title">History cleared for agents</span>
+          <span class="cutoff-title">Context starts below</span>
           <span class="cutoff-manual-copy">
             Messages above stay visible but are excluded from agent context.
           </span>
@@ -82,12 +120,18 @@
             class="cutoff-link"
             @click="session.clearHistoryBeforeAgentCutoff()"
           >
-            Clear chat history
+            Delete messages above
           </button>
         </span>
       </div>
 
-      <div v-else class="cutoff-banner cutoff-banner-preview">
+      <div
+        v-else
+        class="cutoff-banner cutoff-banner-preview"
+        :class="{ 'cutoff-banner-drop-target': dragPreviewTargetId === entry.id }"
+        data-manual-cutoff-drop-target="true"
+        :data-timeline-entry-id="entry.id"
+      >
         <span class="cutoff-copy">{{ entry.cutoff.label }}</span>
       </div>
     </div>
@@ -96,6 +140,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import type { ChatMessage, RuntimeEvent } from '../../core';
 import { useInspectionStore } from '../stores/inspection';
 import { useMessageInputStore } from '../stores/messageInput';
@@ -127,6 +172,16 @@ const messageSeparator = ' ';
 const formatMessageAuthorForTemplate = formatMessageAuthorForView;
 const formatTechnicalEventLabelForTemplate = formatTechnicalEventLabelForView;
 const chatTimelineEntries = visibleTimelineEntries;
+const renderedTimelineEntries = computed(() =>
+  reorderEntriesForDragPreview(
+    chatTimelineEntries.value,
+    draggedCutoffId.value,
+    dragPreviewTargetId.value,
+  ),
+);
+const draggedCutoffId = ref<string | null>(null);
+const dragPreviewTargetId = ref<string | null | undefined>(undefined);
+let activePointerId: number | null = null;
 
 function canInspectMessage(message: ChatMessage) {
   return inspection.canInspectMessage(message);
@@ -213,6 +268,152 @@ function participantNameById(participantId: string): string | null {
     )?.name ?? null
   );
 }
+
+function startManualCutoffDrag(event: PointerEvent, cutoffId: string): void {
+  if (event.button !== 0) {
+    return;
+  }
+
+  event.preventDefault();
+  draggedCutoffId.value = cutoffId;
+  activePointerId = event.pointerId;
+  const handle = event.currentTarget as HTMLElement | null;
+  dragPreviewTargetId.value = resolveManualCutoffDropTarget(
+    event.clientX,
+    event.clientY,
+    cutoffId,
+  );
+  document.body.classList.add('cutoff-drag-active');
+  handle?.setPointerCapture?.(event.pointerId);
+  window.addEventListener('pointermove', updateManualCutoffDrag);
+  window.addEventListener('pointerup', finishManualCutoffDrag);
+  window.addEventListener('pointercancel', cancelManualCutoffDrag);
+}
+
+function updateManualCutoffDrag(event: PointerEvent): void {
+  if (!draggedCutoffId.value || activePointerId !== event.pointerId) {
+    return;
+  }
+
+  event.preventDefault();
+  dragPreviewTargetId.value = resolveManualCutoffDropTarget(
+    event.clientX,
+    event.clientY,
+    draggedCutoffId.value,
+  );
+}
+
+function finishManualCutoffDrag(event: PointerEvent): void {
+  if (!draggedCutoffId.value || activePointerId !== event.pointerId) {
+    return;
+  }
+
+  const targetEntryId =
+    dragPreviewTargetId.value ??
+    resolveManualCutoffDropTarget(event.clientX, event.clientY, draggedCutoffId.value);
+
+  if (targetEntryId === undefined) {
+    session.removeManualCutoff();
+  } else {
+    session.moveManualCutoffBefore(targetEntryId);
+  }
+
+  stopManualCutoffDrag();
+}
+
+function cancelManualCutoffDrag(): void {
+  stopManualCutoffDrag();
+}
+
+function stopManualCutoffDrag(): void {
+  draggedCutoffId.value = null;
+  activePointerId = null;
+  dragPreviewTargetId.value = undefined;
+  document.body.classList.remove('cutoff-drag-active');
+  window.removeEventListener('pointermove', updateManualCutoffDrag);
+  window.removeEventListener('pointerup', finishManualCutoffDrag);
+  window.removeEventListener('pointercancel', cancelManualCutoffDrag);
+}
+
+function resolveManualCutoffDropTarget(
+  clientX: number,
+  clientY: number,
+  cutoffId: string,
+): string | null | undefined {
+  const chatLog = document.querySelector<HTMLElement>('.chat-log');
+  if (!chatLog) {
+    return undefined;
+  }
+
+  const chatLogRect = chatLog.getBoundingClientRect();
+  const isInsideChatLog =
+    clientX >= chatLogRect.left &&
+    clientX <= chatLogRect.right &&
+    clientY >= chatLogRect.top &&
+    clientY <= chatLogRect.bottom;
+  if (!isInsideChatLog) {
+    return undefined;
+  }
+
+  const dropTargets = Array.from(
+    chatLog.querySelectorAll<HTMLElement>('[data-manual-cutoff-drop-target="true"]'),
+  ).filter((element) => element.dataset.timelineEntryId !== cutoffId);
+
+  for (const element of dropTargets) {
+    const rect = element.getBoundingClientRect();
+    if (clientY <= rect.top + rect.height / 2) {
+      return element.dataset.timelineEntryId ?? null;
+    }
+  }
+
+  return null;
+}
+
+function reorderEntriesForDragPreview(
+  entries: VisibleTimelineEntry[],
+  cutoffId: string | null,
+  targetEntryId: string | null | undefined,
+): VisibleTimelineEntry[] {
+  if (!cutoffId) {
+    return entries;
+  }
+
+  const draggedIndex = entries.findIndex((entry) => entry.id === cutoffId);
+  if (draggedIndex === -1) {
+    return entries;
+  }
+
+  const draggedEntry = entries[draggedIndex];
+  if (draggedEntry?.kind !== 'history-cutoff' || draggedEntry.cutoff.source !== 'manual') {
+    return entries;
+  }
+
+  const entriesWithoutDragged = entries.filter((entry) => entry.id !== cutoffId);
+  if (targetEntryId === undefined) {
+    return entriesWithoutDragged;
+  }
+
+  if (targetEntryId === null) {
+    return [...entriesWithoutDragged, draggedEntry];
+  }
+
+  const targetIndex = entriesWithoutDragged.findIndex(
+    (entry) => entry.id === targetEntryId,
+  );
+  if (targetIndex === -1) {
+    return entries;
+  }
+
+  return [
+    ...entriesWithoutDragged.slice(0, targetIndex),
+    draggedEntry,
+    ...entriesWithoutDragged.slice(targetIndex),
+  ];
+}
+
+onBeforeUnmount(() => {
+  stopManualCutoffDrag();
+});
 </script>
 
 <style scoped>
@@ -314,6 +515,16 @@ function participantNameById(participantId: string): string | null {
   @apply w-full text-left text-amber-800/80;
 }
 
+.cutoff-banner-dragging {
+  @apply cursor-grabbing opacity-95 shadow-sm;
+}
+
+.cutoff-banner-drop-target::after,
+[data-cutoff-drop-active='true']::before {
+  content: '';
+  @apply absolute left-0 right-0 top-[-2px] border-t-2 border-amber-500;
+}
+
 .cutoff-banner-preview::before {
   content: '';
   @apply absolute left-0 right-0 top-1/2 border-t border-dashed border-red-500/45;
@@ -329,11 +540,32 @@ function participantNameById(participantId: string): string | null {
 }
 
 .cutoff-copy {
-  @apply relative z-[1] ml-2 bg-white px-1;
+  @apply relative z-[1] bg-white px-1;
 }
 
 .cutoff-manual-copy {
   @apply ml-2;
+}
+
+.cutoff-remove-button {
+  @apply relative z-[1] mr-1 inline-flex h-5 w-5 items-center justify-center rounded-sm border-0 bg-white p-0 text-[12px] font-semibold leading-none text-amber-900/75 transition-colors hover:bg-amber-100 hover:text-amber-950;
+}
+
+.cutoff-drag-handle {
+  @apply relative z-[1] mr-1 inline-flex h-5 min-w-7 cursor-grab items-center justify-center rounded-sm border border-dashed border-amber-400/70 bg-white px-1 py-0 text-amber-900/80 transition-colors hover:bg-amber-50 hover:border-amber-500;
+  touch-action: none;
+}
+
+.cutoff-drag-handle:active {
+  @apply cursor-grabbing;
+}
+
+.cutoff-drag-dots {
+  @apply grid grid-cols-2 gap-x-1 gap-y-0.5;
+}
+
+.cutoff-drag-dots > span {
+  @apply block h-1 w-1 rounded-full bg-current;
 }
 
 .cutoff-link {
@@ -342,5 +574,10 @@ function participantNameById(participantId: string): string | null {
 
 .cutoff-link:hover {
   @apply text-amber-950 decoration-amber-900;
+}
+
+:global(body.cutoff-drag-active) {
+  user-select: none;
+  cursor: grabbing;
 }
 </style>

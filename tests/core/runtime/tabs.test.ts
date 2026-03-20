@@ -64,7 +64,9 @@ describe('MultiChatRuntime tabs', () => {
     runtime.activateTab(firstTabId);
     runtime.closeTab(secondTab.id);
 
-    const kinds = runtime.getState().debugLogs.map((entry) => entry.kind);
+    const kinds = runtime.getDiagnosticsState().debugLogs.map(
+      (entry) => entry.kind,
+    );
 
     expect(kinds).toContain('tab-created');
     expect(kinds).toContain('tab-renamed');

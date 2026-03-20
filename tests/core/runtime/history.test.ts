@@ -80,6 +80,73 @@ describe('MultiChatRuntime history cutoffs', () => {
     ).toBe(false);
   });
 
+  it('can move the manual cutoff higher in the timeline', async () => {
+    const runtime = createRuntime();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'one',
+      target: 'public',
+      triggerSweep: false,
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'two',
+      target: 'public',
+      triggerSweep: false,
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'three',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    runtime.resetAgentHistoryContext();
+
+    const firstMessageEntry = runtime
+      .getTimelineEntries()
+      .find(
+        (entry) =>
+          entry.kind === 'message' && entry.message.content === 'two',
+      );
+
+    runtime.moveManualCutoffBefore(firstMessageEntry?.id ?? null);
+
+    expect(
+      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+    ).toEqual(['two', 'three']);
+  });
+
+  it('can remove the manual cutoff without clearing chat history', async () => {
+    const runtime = createRuntime();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'before reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    runtime.resetAgentHistoryContext();
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'after reset',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    runtime.removeManualCutoff();
+
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['before reset', 'after reset'],
+    );
+    expect(
+      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+    ).toEqual(['before reset', 'after reset']);
+  });
+
   it('keeps only the latest manual cutoff after repeated resets', async () => {
     const runtime = createRuntime();
 

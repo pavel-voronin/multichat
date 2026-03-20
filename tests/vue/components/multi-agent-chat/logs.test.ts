@@ -20,7 +20,7 @@ describe('MultiAgentChat logs panel', () => {
 
     expect(wrapper.text()).toContain('Logs: off');
     expect(wrapper.find('.logs-panel').exists()).toBe(false);
-    expect(runtime.getState().debugLogs.length).toBeGreaterThan(0);
+    expect(runtime.getDiagnosticsState().debugLogs.length).toBeGreaterThan(0);
   });
 
   it('opens the logs panel from the toolbar and renders detailed lines', async () => {

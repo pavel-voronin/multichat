@@ -126,7 +126,7 @@ describe('MultiChatRuntime request traces', () => {
       target: 'public',
     });
 
-    const traces = Object.values(runtime.getState().requestTraces);
+    const traces = Object.values(runtime.getDiagnosticsState().requestTraces);
     const toolsTrace = traces.find((trace) => trace.mode === 'tools');
     const fallbackTrace = traces.find((trace) => trace.mode === 'json');
 

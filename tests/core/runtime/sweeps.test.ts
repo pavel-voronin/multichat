@@ -32,7 +32,7 @@ describe('MultiChatRuntime sweeps', () => {
     expect(timelineMessages(runtime)[0]?.costUsd).toBeUndefined();
     expect(
       runtime
-        .getState()
+        .getDiagnosticsState()
         .errors.some((error) => error.message === 'Agent turn failed'),
     ).toBe(true);
   });

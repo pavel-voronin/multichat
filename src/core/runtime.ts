@@ -6,6 +6,7 @@ import type {
   ChatMessage,
   ChatTabState,
   ContextCutoffAnchor,
+  DiagnosticsState,
   OpenRouterModel,
   RequestTrace,
   RuntimeConfig,
@@ -47,9 +48,11 @@ import {
 } from './workspace';
 
 export type RuntimeListener = (state: RuntimeState) => void;
+export type DiagnosticsListener = (state: DiagnosticsState) => void;
 
 export class MultiChatRuntime {
   private readonly listeners = new Set<RuntimeListener>();
+  private readonly diagnosticsListeners = new Set<DiagnosticsListener>();
   private readonly now: () => Date;
   private readonly createId: () => string;
   private readonly maxAutoSweeps: number;
@@ -86,11 +89,23 @@ export class MultiChatRuntime {
     return deepClone(this.workspace);
   }
 
+  getDiagnosticsState(): DiagnosticsState {
+    return this.buildDiagnosticsState(this.requireActiveTab());
+  }
+
   subscribe(listener: RuntimeListener): () => void {
     this.listeners.add(listener);
     listener(this.getState());
     return () => {
       this.listeners.delete(listener);
+    };
+  }
+
+  subscribeDiagnostics(listener: DiagnosticsListener): () => void {
+    this.diagnosticsListeners.add(listener);
+    listener(this.getDiagnosticsState());
+    return () => {
+      this.diagnosticsListeners.delete(listener);
     };
   }
 
@@ -433,6 +448,57 @@ export class MultiChatRuntime {
         details: `cleared through ${cutoff.id}`,
       },
     });
+    this.persistAndNotify();
+  }
+
+  moveManualCutoffBefore(
+    targetEntryId: string | null,
+    tabId = this.workspace.activeTabId,
+  ): void {
+    const tab = this.requireTab(tabId);
+    const cutoffIndex = getActiveManualCutoffIndex(tab);
+    if (cutoffIndex === null) {
+      return;
+    }
+
+    const cutoff = tab.timeline[cutoffIndex];
+    if (!cutoff || cutoff.kind !== 'history-cutoff') {
+      return;
+    }
+
+    const timelineWithoutCutoff = tab.timeline.filter(
+      (entry) => entry.id !== cutoff.id,
+    );
+
+    if (targetEntryId === null) {
+      tab.timeline = [...timelineWithoutCutoff, cutoff];
+      this.persistAndNotify();
+      return;
+    }
+
+    const targetIndex = timelineWithoutCutoff.findIndex(
+      (entry) => entry.id === targetEntryId,
+    );
+    if (targetIndex === -1) {
+      return;
+    }
+
+    tab.timeline = [
+      ...timelineWithoutCutoff.slice(0, targetIndex),
+      cutoff,
+      ...timelineWithoutCutoff.slice(targetIndex),
+    ];
+    this.persistAndNotify();
+  }
+
+  removeManualCutoff(tabId = this.workspace.activeTabId): void {
+    const tab = this.requireTab(tabId);
+    const cutoffIndex = getActiveManualCutoffIndex(tab);
+    if (cutoffIndex === null) {
+      return;
+    }
+
+    tab.timeline = tab.timeline.filter((_, index) => index !== cutoffIndex);
     this.persistAndNotify();
   }
 
@@ -1562,9 +1628,15 @@ export class MultiChatRuntime {
       timeline: tab.timeline,
       metrics: tab.metrics,
       settings: this.workspace.settings,
+      execution: tab.execution,
+    });
+  }
+
+  private buildDiagnosticsState(tab: ChatTabState): DiagnosticsState {
+    return deepClone({
+      activeTabId: this.workspace.activeTabId,
       debugLogs: this.workspace.debugLogs,
       errors: this.workspace.errors,
-      execution: tab.execution,
       requestTraces: tab.requestTraces,
       messageInspectionIndex: tab.messageInspectionIndex,
     });
@@ -1577,8 +1649,12 @@ export class MultiChatRuntime {
   private persistAndNotify(): void {
     this.persist();
     const snapshot = this.getState();
+    const diagnosticsSnapshot = this.getDiagnosticsState();
     for (const listener of this.listeners) {
       listener(snapshot);
+    }
+    for (const listener of this.diagnosticsListeners) {
+      listener(diagnosticsSnapshot);
     }
   }
 }

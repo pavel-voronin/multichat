@@ -73,7 +73,7 @@ describe('MultiChatRuntime accounting and logs', () => {
       target: 'public',
     });
 
-    const debugLogs = runtime.getState().debugLogs;
+    const debugLogs = runtime.getDiagnosticsState().debugLogs;
     expect(
       debugLogs.some(
         (entry) =>

@@ -2,17 +2,21 @@ import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import type {
   ChatMessage,
+  DiagnosticsState,
   MultiChatRuntime,
   RequestTrace,
   RuntimeState,
 } from '../../core';
+import { useDiagnosticsStore } from './diagnostics';
 import { useRuntimeStore } from './runtime';
 import { useUiStore, type InspectionTab } from './ui';
 
 export const useInspectionStore = defineStore('inspection', () => {
   const runtimeStore = useRuntimeStore();
+  const diagnosticsStore = useDiagnosticsStore();
   const ui = useUiStore();
   const { state } = storeToRefs(runtimeStore);
+  const { diagnostics } = storeToRefs(diagnosticsStore);
   const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
 
   const currentMessage = computed(() =>
@@ -21,7 +25,9 @@ export const useInspectionStore = defineStore('inspection', () => {
       : null,
   );
   const currentTrace = computed(() =>
-    ui.selectedTraceId ? runtime.value.getRequestTrace(ui.selectedTraceId) : null,
+    ui.selectedTraceId
+      ? findTraceById(diagnostics.value, ui.selectedTraceId)
+      : null,
   );
   const messageGraph = computed(() =>
     ui.selectedMessageId
@@ -70,6 +76,10 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   function canInspectMessage(message: ChatMessage): boolean {
+    if (message.senderId === 'human') {
+      return true;
+    }
+
     if (message.sourceTraceId) {
       return true;
     }
@@ -83,7 +93,7 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   function getRequestTrace(traceId: string): RequestTrace | null {
-    return runtime.value.getRequestTrace(traceId);
+    return findTraceById(diagnostics.value, traceId);
   }
 
   function relatedMessagesForTrace(trace: RequestTrace): ChatMessage[] {
@@ -115,6 +125,7 @@ export const useInspectionStore = defineStore('inspection', () => {
 
   return {
     state,
+    diagnostics,
     currentMessage,
     currentTrace,
     messageGraph,
@@ -144,6 +155,13 @@ function findMessageById(
   }
 
   return null;
+}
+
+function findTraceById(
+  diagnostics: DiagnosticsState,
+  traceId: string,
+): RequestTrace | null {
+  return diagnostics.requestTraces[traceId] ?? null;
 }
 
 function dedupeMessages(messages: ChatMessage[]): ChatMessage[] {

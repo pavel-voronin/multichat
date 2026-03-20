@@ -288,9 +288,13 @@ export interface RuntimeState {
   timeline: TimelineEntry[];
   metrics: Record<string, AgentMetrics>;
   settings: SettingsState;
+  execution: ExecutionState;
+}
+
+export interface DiagnosticsState {
+  activeTabId: string;
   debugLogs: DebugLogEntry[];
   errors: RuntimeError[];
-  execution: ExecutionState;
   requestTraces: Record<string, RequestTrace>;
   messageInspectionIndex: Record<string, MessageInspectionIndex>;
 }

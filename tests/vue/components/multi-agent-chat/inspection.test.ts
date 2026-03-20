@@ -8,6 +8,24 @@ afterEach(() => {
 });
 
 describe('MultiAgentChat request inspection', () => {
+  it('opens request inspection for a human message even when no agents exist', async () => {
+    const runtime = createRuntime({ createDefaultAgent: false });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'solo message',
+      target: 'public',
+      triggerSweep: false,
+    });
+
+    const wrapper = mountChat(runtime);
+
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+
+    expect(document.body.textContent).toContain('Human message');
+    expect(document.body.textContent).toContain('solo message');
+    expect(document.body.textContent).toContain('Downstream traces');
+  });
+
   it('opens request inspection for a human message from the timestamp', async () => {
     const runtime = createRuntime();
     runtime.createAgent({
