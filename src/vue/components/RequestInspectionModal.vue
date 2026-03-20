@@ -329,8 +329,7 @@
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import type { ChatMessage, RequestTrace } from '../../core';
-import { useRequestInspection } from '../composables/useRequestInspection';
-import { useChatStore } from '../stores/chat';
+import { useInspectionStore } from '../stores/inspection';
 import { useUiStore } from '../stores/ui';
 import {
   formatMessageAuthor,
@@ -348,18 +347,10 @@ const tabs = [
   { id: 'raw-json', label: 'Raw JSON' },
 ] as const;
 
-const chat = useChatStore();
-const { state } = storeToRefs(chat);
+const inspection = useInspectionStore();
+const { currentMessage, currentTrace, messageGraph, relatedTraces, state } =
+  storeToRefs(inspection);
 const ui = useUiStore();
-const inspection = useRequestInspection({
-  chat,
-  state,
-  ui,
-});
-
-const currentMessage = computed(() => inspection.currentMessage.value);
-const currentTrace = computed(() => inspection.currentTrace.value);
-const messageGraph = computed(() => inspection.messageGraph.value);
 const isMessageTarget = computed(() => ui.inspectionTargetType === 'message');
 const currentAction = computed(() => {
   const action = currentTrace.value?.payloads.normalizedActionJson;
@@ -374,7 +365,7 @@ const currentAction = computed(() => {
 });
 const parentTrace = computed(() =>
   currentTrace.value?.parentTraceId
-    ? chat.getRequestTrace(currentTrace.value.parentTraceId)
+    ? inspection.getRequestTrace(currentTrace.value.parentTraceId)
     : null,
 );
 const producedMessage = computed(() =>
@@ -416,7 +407,7 @@ const downstreamTraceCards = computed(() =>
     ? (messageGraph.value?.downstreamTraces ?? [])
     : currentTrace.value
       ? currentTrace.value.childTraceIds
-          .map((traceId) => chat.getRequestTrace(traceId))
+          .map((traceId) => inspection.getRequestTrace(traceId))
           .filter((trace): trace is RequestTrace => Boolean(trace))
       : [],
 );
@@ -432,7 +423,7 @@ const downstreamMessages = computed(() =>
 const relatedTraceCards = computed(() =>
   isMessageTarget.value
     ? (messageGraph.value?.downstreamTraces ?? [])
-    : inspection.relatedTraces.value,
+    : relatedTraces.value,
 );
 const fallbackOrErrorTraces = computed(() =>
   relatedTraceCards.value.filter(

@@ -60,13 +60,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { useMessageInputStore } from '../stores/messageInput';
-import { useChatStore } from '../stores/chat';
+import { useParticipantsStore } from '../stores/participants';
 import { useUiStore } from '../stores/ui';
 import { useOverlayControls } from '../useOverlayControls';
 import UiButton from './ui/UiButton.vue';
 
-const chat = useChatStore();
-const { participantRows } = storeToRefs(chat);
+const { participantRows } = storeToRefs(useParticipantsStore());
 const ui = useUiStore();
 const messageInput = useMessageInputStore();
 const overlayControls = useOverlayControls();

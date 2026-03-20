@@ -40,13 +40,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import { useChatStore } from '../stores/chat';
+import { useRuntimeStore } from '../stores/runtime';
+import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const chat = useChatStore();
-const { state } = storeToRefs(chat);
+const session = useSessionStore();
+const { state } = storeToRefs(useRuntimeStore());
 const ui = useUiStore();
 const humanName = computed(
   () =>
@@ -74,7 +75,7 @@ function save() {
     return;
   }
 
-  chat.updateHumanParticipant({ name });
+  session.updateHumanParticipant({ name });
   close();
 }
 </script>

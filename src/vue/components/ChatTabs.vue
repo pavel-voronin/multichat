@@ -86,14 +86,14 @@
 import { storeToRefs } from 'pinia';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
 import type { RenderedTab } from '../types';
-import { useChatStore } from '../stores/chat';
+import { useTabsStore } from '../stores/tabs';
 import { useUiStore } from '../stores/ui';
 
 type EditableInput = HTMLInputElement | null;
 type TabElement = HTMLDivElement | null;
 
-const chat = useChatStore();
-const { workspace, renderedTabs } = storeToRefs(chat);
+const tabsStore = useTabsStore();
+const { workspace, renderedTabs } = storeToRefs(tabsStore);
 const ui = useUiStore();
 const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
@@ -111,7 +111,7 @@ const EMPTY_RAIL_DOUBLE_CLICK_MOVE_THRESHOLD_PX = 6;
 
 function createTab() {
   cancelRename();
-  const tab = chat.createTab({ activate: true });
+  const tab = tabsStore.createTab({ activate: true });
   ui.resetChatScopedState();
   void nextTick(() => {
     scrollTabIntoView(tab.id);
@@ -128,7 +128,7 @@ function activateTab(tabId: string) {
   }
 
   cancelRename();
-  chat.activateTab(tabId);
+  tabsStore.activateTab(tabId);
   ui.resetChatScopedState();
   void nextTick(() => {
     scrollTabIntoView(tabId);
@@ -146,7 +146,7 @@ function startRename(tab: RenderedTab) {
 }
 
 function commitRename(tab: RenderedTab) {
-  chat.renameTab(tab.id, editingTitle.value);
+  tabsStore.renameTab(tab.id, editingTitle.value);
   cancelRename();
 }
 
@@ -224,7 +224,7 @@ function handleDocumentPointerDown(event: PointerEvent) {
 
 function closeTab(tabId: string) {
   cancelRename();
-  chat.closeTab(tabId);
+  tabsStore.closeTab(tabId);
   ui.resetChatScopedState();
 }
 
@@ -245,7 +245,7 @@ function handleDragOver(targetTabId: string) {
     return;
   }
 
-  chat.moveTab(sourceTabId, targetIndex);
+  tabsStore.moveTab(sourceTabId, targetIndex);
 }
 
 function handleDrop(targetTabId: string, event: DragEvent) {

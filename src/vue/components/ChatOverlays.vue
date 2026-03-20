@@ -36,7 +36,8 @@
 import { storeToRefs } from 'pinia';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { RuntimeEvent } from '../../core';
-import { useChatStore } from '../stores/chat';
+import { useRuntimeStore } from '../stores/runtime';
+import { useTimelineStore } from '../stores/timeline';
 import type { VisibleTimelineEntry } from '../types';
 import { setOverlayControls } from '../useOverlayControls';
 import {
@@ -62,8 +63,9 @@ const costBubbleElementRef = ref<HTMLDivElement | null>(null);
 const modelPriceBubbleElementRef = ref<HTMLDivElement | null>(null);
 const costBubble = useFloatingHoverBubble(costBubbleElementRef);
 const modelPriceBubble = useFloatingHoverBubble(modelPriceBubbleElementRef);
-const chat = useChatStore();
-const { preferences, state, visibleTimelineEntries } = storeToRefs(chat);
+const timelineStore = useTimelineStore();
+const { preferences, visibleTimelineEntries } = storeToRefs(timelineStore);
+const { state } = storeToRefs(useRuntimeStore());
 const agents = computed(() => state.value.agents);
 const chatTimelineEntries = visibleTimelineEntries;
 const visibleMessages = computed(() =>

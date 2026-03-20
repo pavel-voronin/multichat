@@ -52,13 +52,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
-import { useChatStore } from '../stores/chat';
+import { useRuntimeStore } from '../stores/runtime';
+import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 
-const chat = useChatStore();
-const { state } = storeToRefs(chat);
+const session = useSessionStore();
+const { state } = storeToRefs(useRuntimeStore());
 const ui = useUiStore();
 const draftKey = ref(state.value.settings.openRouterApiKey);
 const draftDefaultContextWindowSize = ref(
@@ -83,7 +84,7 @@ function close() {
 }
 
 function save() {
-  chat.updateRuntimeSettings({
+  session.updateRuntimeSettings({
     openRouterApiKey: draftKey.value.trim(),
     defaultContextWindowSize: Math.max(
       1,
@@ -94,7 +95,7 @@ function save() {
 }
 
 function reset() {
-  chat.resetRuntime();
+  session.resetRuntime();
   ui.reopenAgentWizardAfterSettings = false;
   close();
 }

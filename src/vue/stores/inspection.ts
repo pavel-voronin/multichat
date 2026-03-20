@@ -1,79 +1,89 @@
-import { computed, type Ref } from 'vue';
+import { defineStore, storeToRefs } from 'pinia';
+import { computed } from 'vue';
 import type {
   ChatMessage,
+  MultiChatRuntime,
   RequestTrace,
   RuntimeState,
 } from '../../core';
-import type { useChatStore } from '../stores/chat';
-import type { InspectionTab, useUiStore } from '../stores/ui';
+import { useRuntimeStore } from './runtime';
+import { useUiStore, type InspectionTab } from './ui';
 
-export function useRequestInspection(input: {
-  chat: ReturnType<typeof useChatStore>;
-  state: Readonly<Ref<RuntimeState>>;
-  ui: ReturnType<typeof useUiStore>;
-}) {
+export const useInspectionStore = defineStore('inspection', () => {
+  const runtimeStore = useRuntimeStore();
+  const ui = useUiStore();
+  const { state } = storeToRefs(runtimeStore);
+  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+
   const currentMessage = computed(() =>
-    input.ui.selectedMessageId
-      ? findMessageById(input.state.value, input.ui.selectedMessageId)
+    ui.selectedMessageId
+      ? findMessageById(state.value, ui.selectedMessageId)
       : null,
   );
   const currentTrace = computed(() =>
-    input.ui.selectedTraceId
-      ? input.chat.getRequestTrace(input.ui.selectedTraceId)
-      : null,
+    ui.selectedTraceId ? runtime.value.getRequestTrace(ui.selectedTraceId) : null,
   );
   const messageGraph = computed(() =>
-    input.ui.selectedMessageId
-      ? input.chat.getMessageInspectionGraph(input.ui.selectedMessageId)
+    ui.selectedMessageId
+      ? runtime.value.getMessageInspectionGraph(ui.selectedMessageId)
       : null,
   );
   const relatedTraces = computed(() =>
     currentTrace.value
-      ? input.chat.getRelatedRequestTraces(currentTrace.value.id)
+      ? runtime.value.getRelatedRequestTraces(currentTrace.value.id)
       : [],
   );
 
   function openForMessage(messageId: string) {
-    input.ui.showRequestInspection = true;
-    input.ui.inspectionTargetType = 'message';
-    input.ui.selectedMessageId = messageId;
-    input.ui.selectedTraceId = null;
-    input.ui.activeInspectionTab = 'overview';
+    ui.showRequestInspection = true;
+    ui.inspectionTargetType = 'message';
+    ui.selectedMessageId = messageId;
+    ui.selectedTraceId = null;
+    ui.activeInspectionTab = 'overview';
   }
 
   function openForTrace(traceId: string, messageId?: string | null) {
-    input.ui.showRequestInspection = true;
-    input.ui.inspectionTargetType = 'trace';
-    input.ui.selectedTraceId = traceId;
-    input.ui.selectedMessageId = messageId ?? null;
-    input.ui.activeInspectionTab = 'overview';
+    ui.showRequestInspection = true;
+    ui.inspectionTargetType = 'trace';
+    ui.selectedTraceId = traceId;
+    ui.selectedMessageId = messageId ?? null;
+    ui.activeInspectionTab = 'overview';
   }
 
   function selectMessage(messageId: string) {
-    input.ui.inspectionTargetType = 'message';
-    input.ui.selectedMessageId = messageId;
-    input.ui.selectedTraceId = null;
+    ui.inspectionTargetType = 'message';
+    ui.selectedMessageId = messageId;
+    ui.selectedTraceId = null;
   }
 
   function selectTrace(traceId: string) {
-    input.ui.inspectionTargetType = 'trace';
-    input.ui.selectedTraceId = traceId;
+    ui.inspectionTargetType = 'trace';
+    ui.selectedTraceId = traceId;
   }
 
   function setTab(tab: InspectionTab) {
-    input.ui.activeInspectionTab = tab;
+    ui.activeInspectionTab = tab;
   }
 
   function close() {
-    input.ui.showRequestInspection = false;
+    ui.showRequestInspection = false;
   }
 
   function canInspectMessage(message: ChatMessage): boolean {
-    return input.chat.canInspectMessage(message);
+    if (message.sourceTraceId) {
+      return true;
+    }
+
+    return runtime.value.getInspectionSubjectForMessage(message.id).downstreamTraces
+      .length > 0;
   }
 
   function getInspectionSubjectForMessage(messageId: string) {
-    return input.chat.getInspectionSubjectForMessage(messageId);
+    return runtime.value.getInspectionSubjectForMessage(messageId);
+  }
+
+  function getRequestTrace(traceId: string): RequestTrace | null {
+    return runtime.value.getRequestTrace(traceId);
   }
 
   function relatedMessagesForTrace(trace: RequestTrace): ChatMessage[] {
@@ -86,7 +96,7 @@ export function useRequestInspection(input: {
 
     return dedupeMessages(
       relatedIds
-        .map((messageId) => findMessageById(input.state.value, messageId))
+        .map((messageId) => findMessageById(state.value, messageId))
         .filter((message): message is ChatMessage => Boolean(message)),
     );
   }
@@ -97,13 +107,14 @@ export function useRequestInspection(input: {
     }
 
     return (
-      input.state.value.participants.find(
+      state.value.participants.find(
         (participant) => participant.id === participantId,
       )?.name ?? participantId
     );
   }
 
   return {
+    state,
     currentMessage,
     currentTrace,
     messageGraph,
@@ -116,10 +127,11 @@ export function useRequestInspection(input: {
     close,
     canInspectMessage,
     getInspectionSubjectForMessage,
+    getRequestTrace,
     relatedMessagesForTrace,
     participantName,
   };
-}
+});
 
 function findMessageById(
   state: RuntimeState,

@@ -29,11 +29,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useChatStore } from '../stores/chat';
+import { useAgentsStore } from '../stores/agents';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const chat = useChatStore();
+const agentsStore = useAgentsStore();
 const ui = useUiStore();
 const modalCopy = computed(() =>
   ui.pendingDeleteAgentName
@@ -53,7 +53,7 @@ function confirm() {
     return;
   }
 
-  chat.removeAgent(ui.pendingDeleteAgentId);
+  agentsStore.removeAgent(ui.pendingDeleteAgentId);
   close();
 }
 </script>

@@ -80,7 +80,7 @@
           <button
             type="button"
             class="cutoff-link"
-            @click="chat.clearHistoryBeforeAgentCutoff()"
+            @click="session.clearHistoryBeforeAgentCutoff()"
           >
             Clear chat history
           </button>
@@ -97,10 +97,10 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import type { ChatMessage, RuntimeEvent } from '../../core';
-import { useRequestInspection } from '../composables/useRequestInspection';
+import { useInspectionStore } from '../stores/inspection';
 import { useMessageInputStore } from '../stores/messageInput';
-import { useChatStore } from '../stores/chat';
-import { useUiStore } from '../stores/ui';
+import { useSessionStore } from '../stores/session';
+import { useTimelineStore } from '../stores/timeline';
 import type { VisibleTimelineEntry } from '../types';
 import { useOverlayControls } from '../useOverlayControls';
 import {
@@ -117,16 +117,12 @@ import {
   shouldShowMessageCost,
 } from '../utils/costing';
 
-const chat = useChatStore();
-const { state, preferences, visibleTimelineEntries } = storeToRefs(chat);
+const timelineStore = useTimelineStore();
+const session = useSessionStore();
+const inspection = useInspectionStore();
+const { state, preferences, visibleTimelineEntries } = storeToRefs(timelineStore);
 const messageInputState = useMessageInputStore();
 const overlayControls = useOverlayControls();
-const ui = useUiStore();
-const inspection = useRequestInspection({
-  chat,
-  state,
-  ui,
-});
 const messageSeparator = ' ';
 const formatMessageAuthorForTemplate = formatMessageAuthorForView;
 const formatTechnicalEventLabelForTemplate = formatTechnicalEventLabelForView;
@@ -176,7 +172,7 @@ function openInspection(message: ChatMessage) {
 }
 
 function canInspectEvent(event: RuntimeEvent) {
-  return chat.canInspectEvent(event);
+  return timelineStore.canInspectEvent(event);
 }
 
 function openEventInspection(event: RuntimeEvent) {

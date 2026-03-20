@@ -3,178 +3,50 @@ import type {
   AgentContextCutoff,
   AgentContextMessage,
   AgentExecutionMode,
-  AgentMetrics,
   ChatMessage,
   ChatTabState,
   ContextCutoffAnchor,
-  DebugLogEntry,
-  MessageInspectionIndex,
   OpenRouterModel,
   RequestTrace,
   RuntimeConfig,
-  RuntimeError,
-  RuntimeEvent,
   RuntimeState,
   SendMessageInput,
-  SettingsState,
   TabMutationSource,
   TimelineEntry,
-  TimelineHistoryCutoffEntry,
-  TimelineMessageEntry,
   WorkspaceState,
   TransportUsage,
 } from './types';
+import {
+  attachProducedMessageToTrace,
+  cloneTraces,
+  completeRequestTrace,
+  createManualCutoffEntry,
+  createRequestTrace,
+  findMessageEntryById,
+  getActiveManualCutoffIndex,
+  getMessageById,
+  getMessageInspectionIndexEntry,
+  getTimelineMessages,
+  pushDebugLog,
+  pushRuntimeError,
+  pushRuntimeEvent,
+  updateMessageSourceTrace,
+} from './diagnostics';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
+import {
+  DEFAULT_TAB_TITLE,
+  DEFAULT_HUMAN,
+  createEmptyTabState,
+  emptyMetrics,
+  initialWorkspace,
+  mergePersistedWorkspace,
+  resolveAutoTabTitle,
+  syncParticipants,
+  normalizeTabTitle,
+} from './workspace';
 
 export type RuntimeListener = (state: RuntimeState) => void;
-
-const DEFAULT_HUMAN = {
-  id: 'human',
-  name: 'Human',
-  role: 'human',
-} as const;
-
-const DEFAULT_TAB_TITLE = '#default';
-
-function emptyMetrics(): AgentMetrics {
-  return {
-    requestCount: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    totalTokens: 0,
-    estimatedCost: 0,
-  };
-}
-
-function normalizeAgentConfig(agent: AgentConfig): AgentConfig {
-  return {
-    ...agent,
-    isEnabled: agent.isEnabled ?? true,
-    isHidden: agent.isHidden ?? false,
-    archivedAt: agent.archivedAt ?? null,
-  };
-}
-
-function initialSettings(config: RuntimeConfig): SettingsState {
-  return {
-    openRouterApiKey: '',
-    defaultContextWindowSize: config.maxContextMessages ?? 40,
-  };
-}
-
-function initialExecutionState(): ChatTabState['execution'] {
-  return {
-    isSweepRunning: false,
-    queuedSweep: false,
-    sweepCount: 0,
-    stopRequested: false,
-  };
-}
-
-function createEmptyTabState(input: {
-  id: string;
-  title?: string;
-  human: ChatTabState['participants'][number];
-}): ChatTabState {
-  return {
-    id: input.id,
-    title: input.title ?? DEFAULT_TAB_TITLE,
-    participants: [deepClone(input.human)],
-    agents: [],
-    timeline: [],
-    metrics: {},
-    execution: initialExecutionState(),
-    requestTraces: {},
-    messageInspectionIndex: {},
-  };
-}
-
-function initialWorkspace(config: RuntimeConfig): WorkspaceState {
-  const human = config.humanParticipant ?? DEFAULT_HUMAN;
-  const tabId = 'tab-default';
-  return {
-    settings: initialSettings(config),
-    debugLogs: [],
-    errors: [],
-    tabs: [
-      createEmptyTabState({
-        id: tabId,
-        human,
-      }),
-    ],
-    activeTabId: tabId,
-  };
-}
-
-function mergePersistedWorkspace(
-  base: WorkspaceState,
-  persisted: Partial<WorkspaceState> | null,
-): WorkspaceState {
-  if (!persisted) {
-    return base;
-  }
-
-  const tabs = (persisted.tabs ?? [])
-    .map((tab) => normalizeTabState(tab, base.settings.defaultContextWindowSize))
-    .filter(Boolean) as ChatTabState[];
-
-  if (!tabs.length) {
-    return base;
-  }
-
-  const activeTabId = tabs.some((tab) => tab.id === persisted.activeTabId)
-    ? persisted.activeTabId!
-    : tabs[0]!.id;
-
-  return {
-    settings: {
-      ...base.settings,
-      ...persisted.settings,
-    },
-    debugLogs: persisted.debugLogs ?? [],
-    errors: persisted.errors ?? [],
-    tabs,
-    activeTabId,
-  };
-}
-
-function normalizeTabState(
-  tab: Partial<ChatTabState>,
-  _defaultContextWindowSize: number,
-): ChatTabState | null {
-  if (!tab.id) {
-    return null;
-  }
-
-  const participants = tab.participants?.length
-    ? tab.participants
-    : [deepClone(DEFAULT_HUMAN)];
-
-  return {
-    id: tab.id,
-    title: typeof tab.title === 'string' && tab.title.trim()
-      ? tab.title
-      : DEFAULT_TAB_TITLE,
-    participants,
-    agents: (tab.agents ?? []).map(normalizeAgentConfig),
-    timeline: tab.timeline ?? [],
-    metrics: tab.metrics ?? {},
-    execution: {
-      ...initialExecutionState(),
-      ...tab.execution,
-      isSweepRunning: false,
-      queuedSweep: false,
-      stopRequested: false,
-    },
-    requestTraces: tab.requestTraces ?? {},
-    messageInspectionIndex: tab.messageInspectionIndex ?? {},
-  };
-}
-
-function normalizeTabTitle(title: string | undefined | null): string {
-  return title?.trim() ?? '';
-}
 
 export class MultiChatRuntime {
   private readonly listeners = new Set<RuntimeListener>();
@@ -201,7 +73,7 @@ export class MultiChatRuntime {
       this.storage.load(),
     );
     for (const tab of this.workspace.tabs) {
-      this.syncParticipants(tab);
+      syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
     }
     this.persist();
   }
@@ -289,8 +161,8 @@ export class MultiChatRuntime {
     downstreamTraces: RequestTrace[];
   } {
     const tab = this.requireTab(tabId);
-    const message = this.getMessageById(messageId, tab);
-    const index = this.getMessageInspectionIndexEntry(messageId, tab);
+    const message = getMessageById(messageId, tab);
+    const index = getMessageInspectionIndexEntry(messageId, tab);
     const sourceTrace = index.sourceTraceId
       ? (tab.requestTraces[index.sourceTraceId] ?? null)
       : null;
@@ -306,9 +178,9 @@ export class MultiChatRuntime {
     return {
       message: deepClone(message ?? null),
       sourceTrace: deepClone(sourceTrace),
-      triggeringTraces: this.cloneTraces(index.triggeringTraceIds, tab),
-      visibleOnlyTraces: this.cloneTraces(visibleOnlyTraceIds, tab),
-      downstreamTraces: this.cloneTraces(downstreamTraceIds, tab),
+      triggeringTraces: cloneTraces(index.triggeringTraceIds, tab),
+      visibleOnlyTraces: cloneTraces(visibleOnlyTraceIds, tab),
+      downstreamTraces: cloneTraces(downstreamTraceIds, tab),
     };
   }
 
@@ -347,7 +219,7 @@ export class MultiChatRuntime {
     return {
       ...subject,
       relatedMessages: Array.from(relatedMessageIds)
-        .map((relatedMessageId) => this.getMessageById(relatedMessageId, tab))
+        .map((relatedMessageId) => getMessageById(relatedMessageId, tab))
         .filter((item): item is ChatMessage => Boolean(item))
         .map((item) => deepClone(item)),
     };
@@ -391,9 +263,11 @@ export class MultiChatRuntime {
       kind: 'message',
       message,
     });
-    this.updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
-    this.pushDebugLog(
-      {
+    updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'message-created',
         sweep: message.createdInSweep,
         messageId: message.id,
@@ -406,8 +280,7 @@ export class MultiChatRuntime {
           ? 'message triggers sweep'
           : 'message does not trigger sweep',
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
 
     if (triggersSweep) {
@@ -432,16 +305,17 @@ export class MultiChatRuntime {
 
     tab.agents.push(agent);
     tab.metrics[agent.id] = tab.metrics[agent.id] ?? emptyMetrics();
-    this.syncParticipants(tab);
-    this.pushDebugLog(
-      {
+    syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'agent-created',
         agentId: agent.id,
         agentName: agent.name,
         details: `model=${agent.modelId}`,
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
     return deepClone(agent);
   }
@@ -458,16 +332,17 @@ export class MultiChatRuntime {
     }
 
     Object.assign(agent, patch);
-    this.syncParticipants(tab);
-    this.pushDebugLog(
-      {
+    syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'agent-updated',
         agentId: agent.id,
         agentName: agent.name,
         details: Object.keys(patch).join(', ') || 'no fields changed',
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
     return deepClone(agent);
   }
@@ -483,16 +358,17 @@ export class MultiChatRuntime {
     agent.isHidden = true;
     agent.archivedAt = this.now().toISOString();
     this.lastProcessedKeysForTab(tab.id).delete(agentId);
-    this.syncParticipants(tab);
-    this.pushDebugLog(
-      {
+    syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'agent-removed',
         agentId: agent.id,
         agentName: agent.name,
         details: 'agent hidden and disabled',
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -501,13 +377,14 @@ export class MultiChatRuntime {
       ...this.workspace.settings,
       ...patch,
     };
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'settings-updated',
         details: JSON.stringify(patch),
       },
-      this.requireActiveTab(),
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -517,22 +394,26 @@ export class MultiChatRuntime {
       (entry) =>
         !(entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'),
     );
-    const cutoff = this.createManualCutoffEntry();
+    const cutoff = createManualCutoffEntry({
+      createId: this.createId,
+      now: this.now,
+    });
     tab.timeline.push(cutoff);
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'history-cutoff-set',
-        messageId: this.getTimelineMessages(tab).at(-1)?.id,
+        messageId: getTimelineMessages(tab).at(-1)?.id,
         details: `cutoff=${cutoff.id}`,
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
   clearHistoryBeforeAgentCutoff(tabId = this.workspace.activeTabId): void {
     const tab = this.requireTab(tabId);
-    const cutoffIndex = this.getActiveManualCutoffIndex(tab);
+    const cutoffIndex = getActiveManualCutoffIndex(tab);
     if (cutoffIndex === null) {
       return;
     }
@@ -543,14 +424,15 @@ export class MultiChatRuntime {
     }
 
     tab.timeline = tab.timeline.slice(cutoffIndex + 1);
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'history-cleared',
         messageId: cutoff.id,
         details: `cleared through ${cutoff.id}`,
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -564,13 +446,14 @@ export class MultiChatRuntime {
       idGenerator: this.createId,
     });
     this.lastProcessedVisibleContextKeys.clear();
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'runtime-reset',
         details: 'runtime state reset',
       },
-      this.requireActiveTab(),
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -590,16 +473,17 @@ export class MultiChatRuntime {
       human.name = patch.name.trim();
     }
 
-    this.syncParticipants(tab);
-    this.pushDebugLog(
-      {
+    syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'human-updated',
         agentId: human.id,
         agentName: human.name,
         details: 'human participant updated',
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -611,20 +495,21 @@ export class MultiChatRuntime {
     const human = this.config.humanParticipant ?? DEFAULT_HUMAN;
     const tab = createEmptyTabState({
       id: this.createId(),
-      title: this.resolveAutoTabTitle(input?.title),
+      title: resolveAutoTabTitle(this.workspace.tabs, input?.title),
       human,
     });
     this.workspace.tabs.push(tab);
     if (input?.activate ?? true) {
       this.workspace.activeTabId = tab.id;
     }
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'tab-created',
         details: `tab=${tab.title} tabId=${tab.id} activate=${input?.activate ?? true} source=${input?.source ?? 'user'}`,
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
     return deepClone(tab);
   }
@@ -636,20 +521,22 @@ export class MultiChatRuntime {
   ): void {
     const tab = this.requireTab(tabId);
     const nextTitle =
-      normalizeTabTitle(title) || this.resolveAutoTabTitle(undefined, tabId);
+      normalizeTabTitle(title) ||
+      resolveAutoTabTitle(this.workspace.tabs, undefined, tabId);
     if (nextTitle === tab.title) {
       return;
     }
 
     const previousTitle = tab.title;
     tab.title = nextTitle;
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'tab-renamed',
         details: `tabId=${tab.id} from=${JSON.stringify(previousTitle)} to=${JSON.stringify(nextTitle)} source=${_source}`,
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -690,13 +577,14 @@ export class MultiChatRuntime {
       return;
     }
 
-    this.pushDebugLog(
-      {
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'tab-closed',
         details: `tab=${tab.title} tabId=${tab.id} source=${_source}`,
       },
-      tab,
-    );
+    });
     this.workspace.tabs.splice(index, 1);
     this.abortControllers.delete(tab.id);
     this.lastProcessedVisibleContextKeys.delete(tab.id);
@@ -729,21 +617,24 @@ export class MultiChatRuntime {
     tab.execution.stopRequested = true;
     tab.execution.queuedSweep = false;
     this.abortControllers.get(tabId)?.abort();
-    this.pushRuntimeEvent(
-      {
+    pushRuntimeEvent({
+      createId: this.createId,
+      now: this.now,
+      tab,
+      payload: {
         type: 'sweep-stopped',
         details: 'User requested stop',
       },
-      tab,
-    );
-    this.pushDebugLog(
-      {
+    });
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'sweep-stopped',
         sweep: tab.execution.sweepCount,
         details: 'User requested stop',
       },
-      tab,
-    );
+    });
     this.persistAndNotify();
   }
 
@@ -780,21 +671,24 @@ export class MultiChatRuntime {
       currentTab.execution.isSweepRunning = true;
       currentTab.execution.queuedSweep = false;
       currentTab.execution.sweepCount += 1;
-      this.pushRuntimeEvent(
-        {
+      pushRuntimeEvent({
+        createId: this.createId,
+        now: this.now,
+        tab: currentTab,
+        payload: {
           type: 'sweep-started',
           details: trigger,
         },
-        currentTab,
-      );
-      this.pushDebugLog(
-        {
+      });
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'sweep-started',
           sweep: currentTab.execution.sweepCount,
           trigger,
         },
-        currentTab,
-      );
+      });
       this.persistAndNotify();
 
       for (const agent of this.getActiveAgents(currentTab)) {
@@ -811,21 +705,24 @@ export class MultiChatRuntime {
       }
 
       latestTab.execution.isSweepRunning = false;
-      this.pushRuntimeEvent(
-        {
+      pushRuntimeEvent({
+        createId: this.createId,
+        now: this.now,
+        tab: latestTab,
+        payload: {
           type: 'sweep-finished',
           details: trigger,
         },
-        latestTab,
-      );
-      this.pushDebugLog(
-        {
+      });
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'sweep-finished',
           sweep: latestTab.execution.sweepCount,
           trigger,
         },
-        latestTab,
-      );
+      });
       this.persistAndNotify();
       loops += 1;
     } while (
@@ -850,23 +747,26 @@ export class MultiChatRuntime {
     }
 
     if (tab.execution.stopRequested) {
-      this.pushDebugLog(
-        {
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'turn-skipped',
           sweep: tab.execution.sweepCount,
           agentId: agent.id,
           agentName: agent.name,
           skipReason: 'stop_requested',
         },
-        tab,
-      );
+      });
       return;
     }
 
     const visibleMessages = this.getVisibleMessagesForAgent(agent.id, tabId);
     if (!this.hasNewVisibleInputForAgent(agent.id, tab)) {
-      this.pushDebugLog(
-        {
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'turn-skipped',
           sweep: tab.execution.sweepCount,
           agentId: agent.id,
@@ -878,15 +778,16 @@ export class MultiChatRuntime {
             this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
           contextKeyNext: this.getVisibleContextKey(agent.id, tab),
         },
-        tab,
-      );
+      });
       return;
     }
 
     const apiKey = this.workspace.settings.openRouterApiKey;
     if (!apiKey) {
-      this.pushDebugLog(
-        {
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'turn-skipped',
           sweep: tab.execution.sweepCount,
           agentId: agent.id,
@@ -898,15 +799,18 @@ export class MultiChatRuntime {
             this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
           contextKeyNext: this.getVisibleContextKey(agent.id, tab),
         },
+      });
+      pushRuntimeError({
+        createId: this.createId,
+        now: this.now,
         tab,
-      );
-      this.pushRuntimeError(
-        {
+        workspace: this.workspace,
+        participantName: this.participantName,
+        payload: {
           agentId: agent.id,
           message: 'OpenRouter API key is missing',
         },
-        tab,
-      );
+      });
       return;
     }
 
@@ -921,20 +825,22 @@ export class MultiChatRuntime {
       previousContextKey,
       nonSelfVisibleMessageIds,
     );
-    const trace = this.createRequestTrace(
-      {
-        agent,
-        mode,
-        fallback: false,
-        parentTraceId: null,
-        triggeringMessageIds,
-        visibleMessageIds: visibleMessages.map((message) => message.id),
-        nonSelfVisibleMessageIds,
-      },
+    const trace = createRequestTrace({
+      createId: this.createId,
+      now: this.now,
       tab,
-    );
-    this.pushDebugLog(
-      {
+      agent,
+      mode,
+      fallback: false,
+      parentTraceId: null,
+      triggeringMessageIds,
+      visibleMessageIds: visibleMessages.map((message) => message.id),
+      nonSelfVisibleMessageIds,
+    });
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
         kind: 'turn-requested',
         sweep: tab.execution.sweepCount,
         agentId: agent.id,
@@ -947,8 +853,7 @@ export class MultiChatRuntime {
         contextKeyPrev: previousContextKey,
         contextKeyNext: nextContextKey,
       },
-      tab,
-    );
+    });
 
     try {
       const result = await this.config.transport.runAgentTurn({
@@ -966,21 +871,27 @@ export class MultiChatRuntime {
       this.applyUsage(agent.id, result.usage, tab);
       this.applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
       this.updateToolSupport(agent.id, result.mode, tab);
-      this.completeRequestTrace(
-        trace.id,
-        {
+      completeRequestTrace({
+        now: this.now,
+        traceId: trace.id,
+        tab,
           status: 'succeeded',
           usage: result.usage,
           action: result.action,
-        },
-        tab,
-      );
+        promptCostUsd: this.getPromptCostUsd(
+          tab.agents.find((item) => item.id === trace.agentId) ?? agent,
+          result.usage,
+        ),
+      });
 
       if (result.action.type === 'stay_silent') {
         const requestCostUsd = result.usage?.estimatedCost;
         const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
-        this.pushRuntimeEvent(
-          {
+        pushRuntimeEvent({
+          createId: this.createId,
+          now: this.now,
+          tab,
+          payload: {
             type: 'silent-decision',
             agentId: agent.id,
             details: result.action.reason,
@@ -989,10 +900,11 @@ export class MultiChatRuntime {
             ownPromptCostUsd,
             costUsd: requestCostUsd,
           },
-          tab,
-        );
-        this.pushDebugLog(
-          {
+        });
+        pushDebugLog({
+          now: this.now,
+          workspace: this.workspace,
+          payload: {
             kind: 'turn-result',
             sweep: tab.execution.sweepCount,
             agentId: agent.id,
@@ -1002,8 +914,7 @@ export class MultiChatRuntime {
             actionType: result.action.type,
             details: result.action.reason,
           },
-          tab,
-        );
+        });
         this.persistAndNotify();
         return;
       }
@@ -1025,9 +936,11 @@ export class MultiChatRuntime {
         },
         tabId,
       );
-      this.attachProducedMessageToTrace(trace.id, sentMessage.id, tab);
-      this.pushDebugLog(
-        {
+      attachProducedMessageToTrace(trace.id, sentMessage.id, tab);
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
           kind: 'turn-result',
           sweep: tab.execution.sweepCount,
           agentId: agent.id,
@@ -1040,60 +953,66 @@ export class MultiChatRuntime {
           recipientId: sentMessage.recipientId,
           content: result.action.text,
         },
-        tab,
-      );
+      });
       tab.execution.queuedSweep = true;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        this.completeRequestTrace(
-          trace.id,
-          {
+        completeRequestTrace({
+          now: this.now,
+          traceId: trace.id,
+          tab,
             status: 'aborted',
             error: 'Agent request aborted',
-          },
+            promptCostUsd: 0,
+        });
+        pushRuntimeEvent({
+          createId: this.createId,
+          now: this.now,
           tab,
-        );
-        this.pushRuntimeEvent(
-          {
+          payload: {
             type: 'sweep-stopped',
             agentId: agent.id,
             details: 'Agent request aborted',
           },
-          tab,
-        );
-        this.pushDebugLog(
-          {
+        });
+        pushDebugLog({
+          now: this.now,
+          workspace: this.workspace,
+          payload: {
             kind: 'sweep-stopped',
             sweep: tab.execution.sweepCount,
             agentId: agent.id,
             agentName: agent.name,
             details: 'Agent request aborted',
           },
-          tab,
-        );
+        });
         this.persistAndNotify();
         return;
       }
 
       const message =
         error instanceof Error ? error.message : 'Unknown agent runtime error';
-      this.completeRequestTrace(
-        trace.id,
-        {
+      completeRequestTrace({
+        now: this.now,
+        traceId: trace.id,
+        tab,
           status: 'failed',
           error: message,
-        },
+          promptCostUsd: 0,
+      });
+      pushRuntimeError({
+        createId: this.createId,
+        now: this.now,
         tab,
-      );
-      this.pushRuntimeError(
-        {
+        workspace: this.workspace,
+        participantName: this.participantName,
+        payload: {
           agentId: agent.id,
           message: 'Agent turn failed',
           details: message,
           sourceTraceId: trace.id,
         },
-        tab,
-      );
+      });
 
       if (mode === 'tools') {
         this.updateAgent(
@@ -1108,8 +1027,10 @@ export class MultiChatRuntime {
         );
 
         try {
-          const fallbackTrace = this.createRequestTrace(
-            {
+          const fallbackTrace = createRequestTrace({
+            createId: this.createId,
+            now: this.now,
+            tab,
               agent,
               mode: 'json',
               fallback: true,
@@ -1117,11 +1038,11 @@ export class MultiChatRuntime {
               triggeringMessageIds,
               visibleMessageIds: visibleMessages.map((message) => message.id),
               nonSelfVisibleMessageIds,
-            },
-            tab,
-          );
-          this.pushDebugLog(
-            {
+          });
+          pushDebugLog({
+            now: this.now,
+            workspace: this.workspace,
+            payload: {
               kind: 'turn-requested',
               sweep: tab.execution.sweepCount,
               agentId: agent.id,
@@ -1135,8 +1056,7 @@ export class MultiChatRuntime {
               contextKeyNext: nextContextKey,
               details: 'JSON fallback after tool failure',
             },
-            tab,
-          );
+          });
           const fallback = await this.config.transport.runAgentTurn({
             apiKey,
             context: {
@@ -1157,20 +1077,27 @@ export class MultiChatRuntime {
           this.markVisibleContextProcessed(agent.id, tab);
           this.applyUsage(agent.id, fallback.usage, tab);
           this.applyDownstreamPromptCost(agent, visibleMessages, fallback.usage, tab);
-          this.completeRequestTrace(
-            fallbackTrace.id,
-            {
+          completeRequestTrace({
+            now: this.now,
+            traceId: fallbackTrace.id,
+            tab,
               status: 'succeeded',
               usage: fallback.usage,
               action: fallback.action,
-            },
-            tab,
-          );
+              promptCostUsd: this.getPromptCostUsd(
+                tab.agents.find((item) => item.id === fallbackTrace.agentId) ??
+                  agent,
+                fallback.usage,
+              ),
+          });
           if (fallback.action.type === 'stay_silent') {
             const requestCostUsd = fallback.usage?.estimatedCost;
             const ownPromptCostUsd = this.getPromptCostUsd(agent, fallback.usage);
-            this.pushRuntimeEvent(
-              {
+            pushRuntimeEvent({
+              createId: this.createId,
+              now: this.now,
+              tab,
+              payload: {
                 type: 'silent-decision',
                 agentId: agent.id,
                 details: fallback.action.reason,
@@ -1179,10 +1106,11 @@ export class MultiChatRuntime {
                 ownPromptCostUsd,
                 costUsd: requestCostUsd,
               },
-              tab,
-            );
-            this.pushDebugLog(
-              {
+            });
+            pushDebugLog({
+              now: this.now,
+              workspace: this.workspace,
+              payload: {
                 kind: 'turn-result',
                 sweep: tab.execution.sweepCount,
                 agentId: agent.id,
@@ -1192,8 +1120,7 @@ export class MultiChatRuntime {
                 actionType: fallback.action.type,
                 details: fallback.action.reason,
               },
-              tab,
-            );
+            });
             this.persistAndNotify();
             return;
           }
@@ -1216,9 +1143,11 @@ export class MultiChatRuntime {
             },
             tabId,
           );
-          this.attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id, tab);
-          this.pushDebugLog(
-            {
+          attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id, tab);
+          pushDebugLog({
+            now: this.now,
+            workspace: this.workspace,
+            payload: {
               kind: 'turn-result',
               sweep: tab.execution.sweepCount,
               agentId: agent.id,
@@ -1231,8 +1160,7 @@ export class MultiChatRuntime {
               recipientId: sentMessage.recipientId,
               content: fallback.action.text,
             },
-            tab,
-          );
+          });
           tab.execution.queuedSweep = true;
         } catch (fallbackError) {
           const fallbackMessage =
@@ -1242,28 +1170,32 @@ export class MultiChatRuntime {
           const fallbackTraceId =
             tab.requestTraces[trace.id]?.childTraceIds.at(-1) ?? null;
           if (fallbackTraceId) {
-            this.completeRequestTrace(
-              fallbackTraceId,
-              {
+            completeRequestTrace({
+              now: this.now,
+              traceId: fallbackTraceId,
+              tab,
                 status:
                   fallbackError instanceof Error &&
                   fallbackError.name === 'AbortError'
                     ? 'aborted'
                     : 'failed',
                 error: fallbackMessage,
-              },
-              tab,
-            );
+                promptCostUsd: 0,
+            });
           }
-          this.pushRuntimeError(
-            {
+          pushRuntimeError({
+            createId: this.createId,
+            now: this.now,
+            tab,
+            workspace: this.workspace,
+            participantName: this.participantName,
+            payload: {
               agentId: agent.id,
               message: 'JSON fallback failed',
               details: fallbackMessage,
               sourceTraceId: fallbackTraceId ?? undefined,
             },
-            tab,
-          );
+          });
           this.persistAndNotify();
         }
       } else {
@@ -1324,7 +1256,7 @@ export class MultiChatRuntime {
 
     const promptCostPerMessage = promptCostUsd / listenedMessages.length;
     for (const visibleMessage of listenedMessages) {
-      const entry = this.findMessageEntryById(visibleMessage.id, tab);
+      const entry = findMessageEntryById(visibleMessage.id, tab);
       if (!entry) {
         continue;
       }
@@ -1427,7 +1359,7 @@ export class MultiChatRuntime {
             messageId: contextMessages[0].id,
           }
         : ({
-            kind: this.getTimelineMessages(tab).length ? 'end' : 'start',
+            kind: getTimelineMessages(tab).length ? 'end' : 'start',
           } as const);
       const key = `${anchor.kind}:${anchor.messageId ?? ''}`;
       const current: GroupedCutoff = groupedCutoffs.get(key) ?? {
@@ -1481,12 +1413,12 @@ export class MultiChatRuntime {
     agentId: string,
     tab: ChatTabState,
   ): ChatMessage[] {
-    return this.getTimelineMessages(tab).filter((message) => {
+    return getTimelineMessages(tab).filter((message) => {
       if (!this.isMessageVisibleToAgent(message, agentId)) {
         return false;
       }
 
-      const cutoffIndex = this.getActiveManualCutoffIndex(tab);
+      const cutoffIndex = getActiveManualCutoffIndex(tab);
       if (cutoffIndex === null) {
         return true;
       }
@@ -1562,316 +1494,6 @@ export class MultiChatRuntime {
     metrics.totalTokens += usage.totalTokens ?? 0;
     metrics.estimatedCost += usage.estimatedCost ?? 0;
     tab.metrics[agentId] = metrics;
-  }
-
-  private createRequestTrace(
-    input: {
-      agent: AgentConfig;
-      mode: AgentExecutionMode;
-      fallback: boolean;
-      parentTraceId: string | null;
-      triggeringMessageIds: string[];
-      visibleMessageIds: string[];
-      nonSelfVisibleMessageIds: string[];
-    },
-    tab: ChatTabState,
-  ): RequestTrace {
-    const trace: RequestTrace = {
-      id: this.createId(),
-      sweep: tab.execution.sweepCount,
-      agentId: input.agent.id,
-      agentName: input.agent.name,
-      mode: input.mode,
-      fallback: input.fallback,
-      status: 'running',
-      startedAt: this.now().toISOString(),
-      triggeringMessageIds: input.triggeringMessageIds,
-      visibleMessageIds: input.visibleMessageIds,
-      nonSelfVisibleMessageIds: input.nonSelfVisibleMessageIds,
-      producedMessageId: undefined,
-      parentTraceId: input.parentTraceId,
-      childTraceIds: [],
-      upstreamMessageIds: input.triggeringMessageIds,
-      downstreamMessageIds: [],
-      usage: undefined,
-      pricingSnapshot: {
-        prompt: input.agent.pricing?.prompt,
-        completion: input.agent.pricing?.completion,
-      },
-      transport: undefined,
-      payloads: {},
-      links: [],
-    };
-    tab.requestTraces[trace.id] = trace;
-    if (trace.parentTraceId) {
-      tab.requestTraces[trace.parentTraceId]?.childTraceIds.push(trace.id);
-      trace.links.push({ kind: 'parent', traceId: trace.parentTraceId });
-    }
-    for (const messageId of trace.triggeringMessageIds) {
-      this.linkTraceToMessage(messageId, trace.id, 'triggering', tab);
-      trace.links.push({ kind: 'triggering-message', messageId });
-    }
-    for (const messageId of trace.visibleMessageIds) {
-      this.linkTraceToMessage(messageId, trace.id, 'visible', tab);
-      trace.links.push({ kind: 'visible-message', messageId });
-    }
-    return trace;
-  }
-
-  private completeRequestTrace(
-    traceId: string,
-    input: {
-      status: RequestTrace['status'];
-      usage?: TransportUsage;
-      action?: unknown;
-      error?: string;
-    },
-    tab: ChatTabState,
-  ): void {
-    const trace = tab.requestTraces[traceId];
-    if (!trace) {
-      return;
-    }
-
-    trace.status = input.status;
-    trace.finishedAt = this.now().toISOString();
-    if (input.usage) {
-      trace.usage = {
-        promptTokens: input.usage.promptTokens,
-        completionTokens: input.usage.completionTokens,
-        totalTokens: input.usage.totalTokens,
-        estimatedCost: input.usage.estimatedCost,
-        promptCostUsd: this.getPromptCostUsd(
-          tab.agents.find((agent) => agent.id === trace.agentId) ?? {
-            id: trace.agentId,
-            name: trace.agentName,
-            modelId: '',
-            systemPrompt: '',
-            capabilities: {
-              prefersTools: false,
-              supportsToolUse: 'unknown',
-            },
-          },
-          input.usage,
-        ),
-        requestCostUsd: input.usage.estimatedCost,
-      };
-      trace.payloads.requestInputJson = input.usage.requestPayloadJson;
-      trace.payloads.responseOutputJson = input.usage.responsePayloadJson;
-      trace.transport = {
-        ...trace.transport,
-        ...input.usage.transportMeta,
-      };
-    }
-    if (input.action) {
-      trace.payloads.normalizedActionJson = input.action;
-    }
-    if (input.error) {
-      trace.transport = {
-        ...trace.transport,
-        error: input.error,
-      };
-    }
-  }
-
-  private attachProducedMessageToTrace(
-    traceId: string,
-    messageId: string,
-    tab: ChatTabState,
-  ): void {
-    const trace = tab.requestTraces[traceId];
-    if (!trace) {
-      return;
-    }
-
-    trace.producedMessageId = messageId;
-    trace.downstreamMessageIds.push(messageId);
-    trace.links.push({ kind: 'produced-message', messageId });
-    const index = this.getMessageInspectionIndexEntry(messageId, tab);
-    index.sourceTraceId = traceId;
-  }
-
-  private updateMessageSourceTrace(
-    messageId: string,
-    traceId: string | undefined,
-    tab: ChatTabState,
-  ): void {
-    if (!traceId) {
-      return;
-    }
-
-    const index = this.getMessageInspectionIndexEntry(messageId, tab);
-    index.sourceTraceId = traceId;
-  }
-
-  private getMessageInspectionIndexEntry(
-    messageId: string,
-    tab: ChatTabState,
-  ): MessageInspectionIndex {
-    tab.messageInspectionIndex[messageId] ??= {
-      sourceTraceId: undefined,
-      downstreamTraceIds: [],
-      triggeringTraceIds: [],
-      visibleTraceIds: [],
-    };
-    return tab.messageInspectionIndex[messageId]!;
-  }
-
-  private linkTraceToMessage(
-    messageId: string,
-    traceId: string,
-    kind: 'triggering' | 'visible',
-    tab: ChatTabState,
-  ): void {
-    const index = this.getMessageInspectionIndexEntry(messageId, tab);
-    const target =
-      kind === 'triggering' ? index.triggeringTraceIds : index.visibleTraceIds;
-    if (!target.includes(traceId)) {
-      target.push(traceId);
-    }
-    if (!index.downstreamTraceIds.includes(traceId)) {
-      index.downstreamTraceIds.push(traceId);
-    }
-  }
-
-  private cloneTraces(traceIds: string[], tab: ChatTabState): RequestTrace[] {
-    return traceIds
-      .map((traceId) => tab.requestTraces[traceId])
-      .filter((item): item is RequestTrace => Boolean(item))
-      .map((item) => deepClone(item));
-  }
-
-  private getMessageById(messageId: string, tab: ChatTabState): ChatMessage | null {
-    return this.findMessageEntryById(messageId, tab)?.message ?? null;
-  }
-
-  private syncParticipants(tab: ChatTabState): void {
-    const human =
-      tab.participants.find((participant) => participant.role === 'human') ??
-      deepClone(this.config.humanParticipant ?? DEFAULT_HUMAN);
-    tab.participants = [
-      human,
-      ...tab.agents.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        role: 'agent' as const,
-      })),
-    ];
-  }
-
-  private pushRuntimeEvent(
-    input: Pick<
-      RuntimeEvent,
-      | 'type'
-      | 'agentId'
-      | 'details'
-      | 'sourceTraceId'
-      | 'costUsd'
-      | 'requestCostUsd'
-      | 'ownPromptCostUsd'
-      | 'downstreamPromptCostUsd'
-      | 'downstreamPromptCostContributors'
-    >,
-    tab: ChatTabState,
-  ): void {
-    const event: RuntimeEvent = {
-      id: this.createId(),
-      createdAt: this.now().toISOString(),
-      ...input,
-    };
-    tab.timeline.push({
-      id: event.id,
-      createdAt: event.createdAt,
-      kind: 'technical-event',
-      event,
-    });
-  }
-
-  private pushRuntimeError(
-    input: Pick<
-      RuntimeError,
-      'agentId' | 'message' | 'details' | 'sourceTraceId'
-    >,
-    tab: ChatTabState,
-  ): void {
-    this.workspace.errors.push({
-      id: this.createId(),
-      createdAt: this.now().toISOString(),
-      ...input,
-    });
-    this.pushRuntimeEvent(
-      {
-        type: 'runtime-error',
-        agentId: input.agentId,
-        details: input.details ?? input.message,
-        sourceTraceId: input.sourceTraceId,
-      },
-      tab,
-    );
-    this.pushDebugLog(
-      {
-        kind: 'runtime-error',
-        sweep: tab.execution.sweepCount,
-        agentId: input.agentId,
-        agentName: input.agentId
-          ? this.participantName(input.agentId, tab)
-          : undefined,
-        details: `${input.message}${input.details ? `: ${input.details}` : ''}`,
-      },
-      tab,
-    );
-  }
-
-  private pushDebugLog(
-    input: Omit<DebugLogEntry, 'id' | 'createdAt'>,
-    _tab: ChatTabState,
-  ): void {
-    this.workspace.debugLogs.push({
-      id: `debug-${this.workspace.debugLogs.length + 1}`,
-      createdAt: this.now().toISOString(),
-      ...input,
-    });
-  }
-
-  private getTimelineMessages(tab: ChatTabState): ChatMessage[] {
-    return tab.timeline
-      .filter(
-        (entry): entry is TimelineMessageEntry => entry.kind === 'message',
-      )
-      .map((entry) => entry.message);
-  }
-
-  private findMessageEntryById(
-    messageId: string,
-    tab: ChatTabState,
-  ): TimelineMessageEntry | undefined {
-    return tab.timeline.find(
-      (entry): entry is TimelineMessageEntry =>
-        entry.kind === 'message' && entry.message.id === messageId,
-    );
-  }
-
-  private getActiveManualCutoffIndex(tab: ChatTabState): number | null {
-    for (let index = tab.timeline.length - 1; index >= 0; index -= 1) {
-      const entry = tab.timeline[index];
-      if (entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual') {
-        return index;
-      }
-    }
-
-    return null;
-  }
-
-  private createManualCutoffEntry(): TimelineHistoryCutoffEntry {
-    const createdAt = this.now().toISOString();
-    return {
-      id: this.createId(),
-      createdAt,
-      kind: 'history-cutoff',
-      cutoff: {
-        source: 'manual',
-      },
-    };
   }
 
   private participantName(participantId: string, tab: ChatTabState): string {

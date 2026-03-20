@@ -123,9 +123,9 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, onMounted, ref, watch } from 'vue';
-import type { AgentConfig, OpenRouterModel } from '../../core';
+import type { OpenRouterModel } from '../../core';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
-import { useChatStore } from '../stores/chat';
+import { useAgentsStore } from '../stores/agents';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 import UiCheckbox from './ui/UiCheckbox.vue';
@@ -133,16 +133,9 @@ import UiInput from './ui/UiInput.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
 
-const chat = useChatStore();
-const { state } = storeToRefs(chat);
+const agentsStore = useAgentsStore();
+const { selectedAgent: agent, isApiKeyPresent } = storeToRefs(agentsStore);
 const ui = useUiStore();
-const agent = computed<AgentConfig | null>(
-  () =>
-    state.value.agents.find((item) => item.id === ui.editingAgentId) ?? null,
-);
-const isApiKeyPresent = computed(() =>
-  Boolean(state.value.settings.openRouterApiKey),
-);
 
 const models = ref<OpenRouterModel[]>([]);
 const isLoadingModels = ref(false);
@@ -236,7 +229,7 @@ async function loadModels() {
   isLoadingModels.value = true;
   modelsError.value = '';
   try {
-    models.value = await chat.listModels();
+    models.value = await agentsStore.listModels();
     models.value.sort((left, right) => {
       const leftProvider = left.id.split('/')[0] ?? left.id;
       const rightProvider = right.id.split('/')[0] ?? right.id;
@@ -290,9 +283,9 @@ function save() {
   };
 
   if (agent.value?.id) {
-    chat.updateAgent(agent.value.id, payload);
+    agentsStore.updateAgent(agent.value.id, payload);
   } else {
-    chat.createAgent({
+    agentsStore.createAgent({
       ...payload,
       capabilities: {
         prefersTools: true,

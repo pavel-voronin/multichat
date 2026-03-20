@@ -1,9 +1,9 @@
 <template>
   <header class="playground-toolbar">
-    <UiButton class="toolbar-button" size="md" @click="chat.toggleContextCutoffs">
+    <UiButton class="toolbar-button" size="md" @click="session.toggleContextCutoffs">
       {{ preferences.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="chat.cycleCostDisplayMode">
+    <UiButton class="toolbar-button" size="md" @click="session.cycleCostDisplayMode">
       {{
         preferences.costDisplayMode === 'off'
           ? 'Cost: off'
@@ -12,7 +12,7 @@
             : 'Cost: net'
       }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="chat.toggleSilentDecisions">
+    <UiButton class="toolbar-button" size="md" @click="session.toggleSilentDecisions">
       {{
         preferences.showSilentDecisions
           ? 'Technical info: on'
@@ -31,7 +31,7 @@
         class="toolbar-button"
         variant="danger"
         size="md"
-        @click="chat.resetAgentHistoryContext()"
+        @click="session.resetAgentHistoryContext()"
       >
         Reset agents
       </UiButton>
@@ -40,7 +40,7 @@
         variant="danger"
         size="md"
         :disabled="!state.execution.isSweepRunning"
-        @click="chat.stop()"
+        @click="session.stop()"
       >
         Stop
       </UiButton>
@@ -57,12 +57,15 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { useChatStore } from '../stores/chat';
+import { usePreferencesStore } from '../stores/preferences';
+import { useRuntimeStore } from '../stores/runtime';
+import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
 
-const chat = useChatStore();
-const { preferences, state } = storeToRefs(chat);
+const session = useSessionStore();
+const preferences = usePreferencesStore();
+const { state } = storeToRefs(useRuntimeStore());
 const ui = useUiStore();
 </script>
 
