@@ -58,7 +58,7 @@ import SettingsModal from './SettingsModal.vue';
 }
 
 .playground-toolbar-row {
-  @apply col-span-2 w-full;
+  @apply col-span-2 w-full overflow-hidden rounded-tr-md border-x border-b border-frame-border bg-toolbar-surface;
 }
 
 .sidebar-column {

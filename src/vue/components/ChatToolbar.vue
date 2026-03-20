@@ -70,8 +70,7 @@ const ui = useUiStore();
 @reference "../../styles.css";
 
 .playground-toolbar {
-  @apply flex min-h-0 w-full items-center gap-2 border-x border-b border-neutral-300 bg-toolbar-surface px-3 py-1.5;
-  border-top-right-radius: 0.375rem;
+  @apply flex min-h-0 w-full items-center gap-2 bg-transparent px-3 py-1.5;
 }
 
 .toolbar-button {

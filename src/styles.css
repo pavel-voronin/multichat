@@ -2,6 +2,7 @@
 
 @theme {
   --color-toolbar-surface: #fafafa;
+  --color-frame-border: #d4d4d4;
 }
 
 @layer base {

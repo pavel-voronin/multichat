@@ -366,7 +366,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab {
-  @apply relative -mr-px flex h-8 w-48 shrink-0 items-center border border-neutral-300 bg-neutral-200 text-[12px] text-neutral-700 transition;
+  @apply relative -mr-px flex h-8 w-48 shrink-0 items-center border border-frame-border bg-neutral-200 text-[12px] text-neutral-700 transition;
   border-top-left-radius: 0.625rem;
   border-top-right-radius: 0.625rem;
 }
@@ -413,6 +413,16 @@ onBeforeUnmount(() => {
 
 .chat-tabs-endcap {
   @apply sticky right-0 z-20 ml-px flex h-8 min-w-7 flex-1 items-stretch bg-neutral-100 pl-1;
+}
+
+.chat-tabs-endcap::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 0.375rem;
+  bottom: 0;
+  border-bottom: 1px solid var(--color-frame-border);
+  pointer-events: none;
 }
 
 .chat-tabs-add {
