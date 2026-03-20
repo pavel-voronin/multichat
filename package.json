@@ -28,6 +28,7 @@
     "vue": "^3.5.13"
   },
   "devDependencies": {
+    "@iconify/json": "^2.2.452",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.3.0",
     "@vitejs/plugin-vue": "^6.0.1",
@@ -36,6 +37,7 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.8.3",
+    "unplugin-icons": "^23.0.1",
     "vite": "^7.1.4",
     "vitest": "^3.2.4",
     "vue-tsc": "^3.0.6"

@@ -3,11 +3,12 @@ import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
+import Icons from 'unplugin-icons/vite';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
-  plugins: [tailwindcss(), vue()],
+  plugins: [tailwindcss(), vue(), Icons({ compiler: 'vue3' })],
   build: {
     lib: {
       entry: {
