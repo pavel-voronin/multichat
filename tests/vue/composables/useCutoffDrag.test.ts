@@ -28,6 +28,7 @@ function makePreviewCutoff(id: string): VisibleTimelineEntry {
   return {
     kind: 'history-cutoff',
     id,
+    createdAt: '2024-01-01T00:00:00.000Z',
     sortAt: 0,
     cutoff: { source: 'preview', label: 'preview', anchor: { kind: 'end' }, agentIds: [], agentNames: [] },
   } as VisibleTimelineEntry;
