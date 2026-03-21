@@ -40,6 +40,19 @@ import {
   isSystemMessage,
   SYSTEM_AUTHOR_NAME,
 } from './messages';
+import {
+  getActiveAgents,
+  getAgentContextCutoffs,
+  getContextWindowMessages,
+  getNonSelfVisibleMessageIds,
+  getTriggeringMessageIds,
+  getVisibleContextKey,
+  getVisibleMessagesForAgent as getVisibleMessagesForAgentFn,
+  hasNewVisibleInputForAgent,
+  isMessageVisibleToAgent as isMessageVisibleToAgentFn,
+  isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
+  markVisibleContextProcessed,
+} from './context-routing';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
@@ -1383,139 +1396,58 @@ export class MultiChatRuntime {
     agentId: string,
     tabId = this.workspace.activeTabId,
   ): AgentContextMessage[] {
-    const tab = this.requireTab(tabId);
-    const contextWindowSize = tab.contextWindowSize ?? this.maxContextMessages;
-    const visibleMessages = this.getContextWindowMessages(tab)
-      .slice(-contextWindowSize)
-      .filter((message) => this.isMessageVisibleToAgent(message, agentId));
-
-    return visibleMessages.slice(-contextWindowSize).map((message) => {
-      const senderId = getMessageSenderId(message);
-      const sender = tab.participants.find(
-        (participant) => participant.id === senderId,
-      );
-      const recipient = tab.participants.find(
-        (participant) => participant.id === message.recipientId,
-      );
-
-      return {
-        id: message.id,
-        authorType: message.author.type,
-        senderId: senderId ?? undefined,
-        senderName: isSystemMessage(message)
-          ? SYSTEM_AUTHOR_NAME
-          : (sender?.name ?? senderId ?? ''),
-        target: message.target,
-        recipientId: message.recipientId,
-        recipientName: recipient?.name,
-        content: message.content,
-        createdAt: message.createdAt,
-      };
-    });
+    return getVisibleMessagesForAgentFn(
+      agentId,
+      this.requireTab(tabId),
+      this.maxContextMessages,
+    );
   }
 
-  getAgentContextCutoffs(
-    tabId = this.workspace.activeTabId,
-  ): AgentContextCutoff[] {
-    const tab = this.requireTab(tabId);
-    const activeAgents = this.getActiveAgents(tab);
-    const contextWindowSize = tab.contextWindowSize ?? this.maxContextMessages;
-    const contextMessages =
-      this.getContextWindowMessages(tab).slice(-contextWindowSize);
-    const anchor = contextMessages[0]
-      ? {
-          kind: 'before-message' as const,
-          messageId: contextMessages[0].id,
-        }
-      : ({
-          kind: getTimelineMessages(tab).length ? 'end' : 'start',
-        } as const);
-
-    return [
-      {
-        anchor,
-        agentIds: activeAgents.map((agent) => agent.id),
-        agentNames: activeAgents.map((agent) => agent.name),
-      },
-    ];
+  getAgentContextCutoffs(tabId = this.workspace.activeTabId): AgentContextCutoff[] {
+    return getAgentContextCutoffs(this.requireTab(tabId), this.maxContextMessages);
   }
 
   isMessageVisibleToAgent(message: ChatMessage, agentId: string): boolean {
-    if (message.target === 'public') {
-      return true;
-    }
-
-    return (
-      getMessageSenderId(message) === agentId || message.recipientId === agentId
-    );
+    return isMessageVisibleToAgentFn(message, agentId);
   }
 
-  isMessageVisibleToParticipant(
-    message: ChatMessage,
-    participantId: string,
-  ): boolean {
-    if (message.target === 'public') {
-      return true;
-    }
-
-    if (participantId === DEFAULT_HUMAN.id) {
-      return true;
-    }
-
-    return (
-      getMessageSenderId(message) === participantId ||
-      message.recipientId === participantId
-    );
+  isMessageVisibleToParticipant(message: ChatMessage, participantId: string): boolean {
+    return isMessageVisibleToParticipantFn(message, participantId);
   }
 
   private getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
-    const cutoffIndex = getActiveManualCutoffIndex(tab);
-    if (cutoffIndex === null) {
-      return getTimelineMessages(tab);
-    }
-
-    return tab.timeline
-      .slice(cutoffIndex + 1)
-      .filter((entry) => entry.kind === 'message')
-      .map((entry) => entry.message);
+    return getContextWindowMessages(tab);
   }
 
-  private getNonSelfVisibleMessageIds(
-    agentId: string,
-    tab: ChatTabState,
-  ): string[] {
-    return this.getVisibleMessagesForAgent(agentId, tab.id)
-      .filter((message) => message.senderId !== agentId)
-      .map((message) => message.id);
+  private getNonSelfVisibleMessageIds(agentId: string, tab: ChatTabState): string[] {
+    return getNonSelfVisibleMessageIds(agentId, tab, this.maxContextMessages);
   }
 
   private getVisibleContextKey(agentId: string, tab: ChatTabState): string {
-    return this.getNonSelfVisibleMessageIds(agentId, tab).join('|');
+    return getVisibleContextKey(agentId, tab, this.maxContextMessages);
   }
 
   private hasNewVisibleInputForAgent(
     agentId: string,
     tab: ChatTabState,
   ): boolean {
-    const keys = this.lastProcessedKeysForTab(tab.id);
-    if (!keys.has(agentId)) {
-      return true;
-    }
-
-    const previousIds = new Set(
-      (keys.get(agentId) ?? '').split('|').filter(Boolean),
+    return hasNewVisibleInputForAgent(
+      agentId,
+      tab,
+      this.lastProcessedKeysForTab(tab.id),
+      this.maxContextMessages,
     );
-    const nextIds = this.getNonSelfVisibleMessageIds(agentId, tab);
-    return nextIds.some((messageId) => !previousIds.has(messageId));
   }
 
   private markVisibleContextProcessed(
     agentId: string,
     tab: ChatTabState,
   ): void {
-    this.lastProcessedKeysForTab(tab.id).set(
+    markVisibleContextProcessed(
       agentId,
-      this.getVisibleContextKey(agentId, tab),
+      tab,
+      this.lastProcessedKeysForTab(tab.id),
+      this.maxContextMessages,
     );
   }
 
@@ -1523,18 +1455,11 @@ export class MultiChatRuntime {
     previousContextKey: string,
     nextVisibleMessageIds: string[],
   ): string[] {
-    const previousMessageIds = new Set(
-      previousContextKey ? previousContextKey.split('|').filter(Boolean) : [],
-    );
-    return nextVisibleMessageIds.filter(
-      (messageId) => !previousMessageIds.has(messageId),
-    );
+    return getTriggeringMessageIds(previousContextKey, nextVisibleMessageIds);
   }
 
   private getActiveAgents(tab: ChatTabState): AgentConfig[] {
-    return tab.agents.filter(
-      (agent) => agent.isEnabled !== false && agent.isHidden !== true,
-    );
+    return getActiveAgents(tab);
   }
 
   private applyUsage(
