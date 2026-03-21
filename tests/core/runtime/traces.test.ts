@@ -63,6 +63,63 @@ describe('MultiChatRuntime request traces', () => {
     expect(agentMessage.sourceTraceId).toBe(trace?.id);
   });
 
+  it('records private agent replies with recipient and produced trace link', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => ({
+        mode: 'tools',
+        action:
+          agentId === 'id-1'
+            ? { type: 'send_private', to: 'id-2', text: 'private trace hello' }
+            : { type: 'stay_silent', reason: 'not addressed' },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-b',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'coordinate privately',
+      target: 'public',
+    });
+
+    const privateMessage = timelineMessages(runtime).find(
+      (message) => message.target === 'private',
+    );
+    const trace = runtime.getRequestTrace(privateMessage!.sourceTraceId!);
+
+    expect(privateMessage).toEqual(
+      expect.objectContaining({
+        target: 'private',
+        recipientId: 'id-2',
+        content: 'private trace hello',
+      }),
+    );
+    expect(trace).toEqual(
+      expect.objectContaining({
+        producedMessageId: privateMessage!.id,
+        payloads: expect.objectContaining({
+          normalizedActionJson: {
+            type: 'send_private',
+            to: 'id-2',
+            text: 'private trace hello',
+          },
+        }),
+      }),
+    );
+  });
+
   it('indexes human messages by triggering traces before passive visible traces', async () => {
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => ({
@@ -138,6 +195,48 @@ describe('MultiChatRuntime request traces', () => {
     expect(toolsTrace?.status).toBe('failed');
     expect(fallbackTrace?.parentTraceId).toBe(toolsTrace?.id);
     expect(toolsTrace?.childTraceIds).toContain(fallbackTrace?.id);
+  });
+
+  it('completes the fallback trace when json fallback fails', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async (_agentId, mode) => {
+        if (mode === 'tools') {
+          throw new Error('tool unsupported');
+        }
+
+        throw new Error('json fallback broke');
+      }),
+    });
+
+    runtime.createAgent({
+      name: 'Fallback',
+      modelId: 'model-a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'force fallback failure',
+      target: 'public',
+    });
+
+    const traces = Object.values(runtime.getDiagnosticsState().requestTraces);
+    const fallbackTrace = traces.find((trace) => trace.mode === 'json');
+    const fallbackError = runtime
+      .getDiagnosticsState()
+      .errors.find((error) => error.message === 'JSON fallback failed');
+
+    expect(fallbackTrace).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        transport: expect.objectContaining({
+          error: 'json fallback broke',
+        }),
+      }),
+    );
+    expect(fallbackError?.sourceTraceId).toBe(fallbackTrace?.id);
   });
 
   it('links silent technical events back to the request trace', async () => {

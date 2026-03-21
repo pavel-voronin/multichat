@@ -3,6 +3,7 @@ import type {
   AgentContextCutoff,
   AgentContextMessage,
   AgentExecutionMode,
+  AgentTurnResult,
   ChatMessage,
   ChatTabState,
   ContextCutoffAnchor,
@@ -996,94 +997,16 @@ export class MultiChatRuntime {
         signal: abortController.signal,
       });
 
-      this.markVisibleContextProcessed(agent.id, tab);
-      this.applyUsage(agent.id, result.usage, tab);
-      this.applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
-      this.updateToolSupport(agent.id, result.mode, tab);
-      completeRequestTrace({
-        now: this.now,
+      await this.handleSuccessfulAgentTurnResult({
+        agent,
+        result,
         traceId: trace.id,
         tab,
-        status: 'succeeded',
-        usage: result.usage,
-        action: result.action,
-        promptCostUsd: this.getPromptCostUsd(
-          tab.agents.find((item) => item.id === trace.agentId) ?? agent,
-          result.usage,
-        ),
-      });
-
-      if (result.action.type === 'stay_silent') {
-        const requestCostUsd = result.usage?.estimatedCost;
-        const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
-        pushRuntimeEvent({
-          createId: this.createId,
-          now: this.now,
-          tab,
-          payload: {
-            type: 'silent-decision',
-            agentId: agent.id,
-            details: result.action.reason,
-            sourceTraceId: trace.id,
-            requestCostUsd,
-            ownPromptCostUsd,
-            costUsd: requestCostUsd,
-          },
-        });
-        pushDebugLog({
-          now: this.now,
-          workspace: this.workspace,
-          payload: {
-            kind: 'turn-result',
-            sweep: tab.execution.sweepCount,
-            agentId: agent.id,
-            agentName: agent.name,
-            mode: result.mode,
-            fallback: false,
-            actionType: result.action.type,
-            details: result.action.reason,
-          },
-        });
-        this.persistAndNotify();
-        return;
-      }
-
-      const sentMessage = await this.sendMessage(
-        {
-          senderId: agent.id,
-          content: result.action.text,
-          target: result.action.type === 'speak_public' ? 'public' : 'private',
-          recipientId:
-            result.action.type === 'send_private'
-              ? result.action.to
-              : undefined,
-          requestCostUsd: result.usage?.estimatedCost,
-          ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
-          createdInSweep: tab.execution.sweepCount,
-          sourceTraceId: trace.id,
-          triggerSweep: false,
-        },
         tabId,
-      );
-      attachProducedMessageToTrace(trace.id, sentMessage.id, tab);
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'turn-result',
-          sweep: tab.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          mode: result.mode,
-          fallback: false,
-          actionType: result.action.type,
-          messageId: sentMessage.id,
-          target: sentMessage.target,
-          recipientId: sentMessage.recipientId,
-          content: result.action.text,
-        },
+        visibleMessages,
+        fallback: false,
+        updateToolSupport: true,
       });
-      tab.execution.queuedSweep = true;
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         completeRequestTrace({
@@ -1155,6 +1078,7 @@ export class MultiChatRuntime {
           tabId,
         );
 
+        let fallbackTraceId: string | null = null;
         try {
           const fallbackTrace = createRequestTrace({
             createId: this.createId,
@@ -1168,6 +1092,7 @@ export class MultiChatRuntime {
             visibleMessageIds: visibleMessages.map((message) => message.id),
             nonSelfVisibleMessageIds,
           });
+          fallbackTraceId = fallbackTrace.id;
           pushDebugLog({
             now: this.now,
             workspace: this.workspace,
@@ -1203,109 +1128,21 @@ export class MultiChatRuntime {
             signal: abortController.signal,
           });
 
-          this.markVisibleContextProcessed(agent.id, tab);
-          this.applyUsage(agent.id, fallback.usage, tab);
-          this.applyDownstreamPromptCost(
+          await this.handleSuccessfulAgentTurnResult({
             agent,
-            visibleMessages,
-            fallback.usage,
-            tab,
-          );
-          completeRequestTrace({
-            now: this.now,
+            result: fallback,
             traceId: fallbackTrace.id,
             tab,
-            status: 'succeeded',
-            usage: fallback.usage,
-            action: fallback.action,
-            promptCostUsd: this.getPromptCostUsd(
-              tab.agents.find((item) => item.id === fallbackTrace.agentId) ??
-                agent,
-              fallback.usage,
-            ),
-          });
-          if (fallback.action.type === 'stay_silent') {
-            const requestCostUsd = fallback.usage?.estimatedCost;
-            const ownPromptCostUsd = this.getPromptCostUsd(
-              agent,
-              fallback.usage,
-            );
-            pushRuntimeEvent({
-              createId: this.createId,
-              now: this.now,
-              tab,
-              payload: {
-                type: 'silent-decision',
-                agentId: agent.id,
-                details: fallback.action.reason,
-                sourceTraceId: fallbackTrace.id,
-                requestCostUsd,
-                ownPromptCostUsd,
-                costUsd: requestCostUsd,
-              },
-            });
-            pushDebugLog({
-              now: this.now,
-              workspace: this.workspace,
-              payload: {
-                kind: 'turn-result',
-                sweep: tab.execution.sweepCount,
-                agentId: agent.id,
-                agentName: agent.name,
-                mode: 'json',
-                fallback: true,
-                actionType: fallback.action.type,
-                details: fallback.action.reason,
-              },
-            });
-            this.persistAndNotify();
-            return;
-          }
-
-          const sentMessage = await this.sendMessage(
-            {
-              senderId: agent.id,
-              target:
-                fallback.action.type === 'speak_public' ? 'public' : 'private',
-              recipientId:
-                fallback.action.type === 'send_private'
-                  ? fallback.action.to
-                  : undefined,
-              content: fallback.action.text,
-              requestCostUsd: fallback.usage?.estimatedCost,
-              ownPromptCostUsd: this.getPromptCostUsd(agent, fallback.usage),
-              createdInSweep: tab.execution.sweepCount,
-              sourceTraceId: fallbackTrace.id,
-              triggerSweep: false,
-            },
             tabId,
-          );
-          attachProducedMessageToTrace(fallbackTrace.id, sentMessage.id, tab);
-          pushDebugLog({
-            now: this.now,
-            workspace: this.workspace,
-            payload: {
-              kind: 'turn-result',
-              sweep: tab.execution.sweepCount,
-              agentId: agent.id,
-              agentName: agent.name,
-              mode: 'json',
-              fallback: true,
-              actionType: fallback.action.type,
-              messageId: sentMessage.id,
-              target: sentMessage.target,
-              recipientId: sentMessage.recipientId,
-              content: fallback.action.text,
-            },
+            visibleMessages,
+            fallback: true,
+            updateToolSupport: false,
           });
-          tab.execution.queuedSweep = true;
         } catch (fallbackError) {
           const fallbackMessage =
             fallbackError instanceof Error
               ? fallbackError.message
               : 'Unknown JSON fallback error';
-          const fallbackTraceId =
-            tab.requestTraces[trace.id]?.childTraceIds.at(-1) ?? null;
           if (fallbackTraceId) {
             completeRequestTrace({
               now: this.now,
@@ -1343,6 +1180,112 @@ export class MultiChatRuntime {
         this.abortControllers.delete(tab.id);
       }
     }
+  }
+
+  private async handleSuccessfulAgentTurnResult({
+    agent,
+    result,
+    traceId,
+    tab,
+    tabId,
+    visibleMessages,
+    fallback,
+    updateToolSupport,
+  }: {
+    agent: AgentConfig;
+    result: AgentTurnResult;
+    traceId: string;
+    tab: ChatTabState;
+    tabId: string;
+    visibleMessages: AgentContextMessage[];
+    fallback: boolean;
+    updateToolSupport: boolean;
+  }): Promise<void> {
+    this.markVisibleContextProcessed(agent.id, tab);
+    this.applyUsage(agent.id, result.usage, tab);
+    this.applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
+    if (updateToolSupport) {
+      this.updateToolSupport(agent.id, result.mode, tab);
+    }
+    completeRequestTrace({
+      now: this.now,
+      traceId,
+      tab,
+      status: 'succeeded',
+      usage: result.usage,
+      action: result.action,
+      promptCostUsd: this.getPromptCostUsd(agent, result.usage),
+    });
+
+    if (result.action.type === 'stay_silent') {
+      const requestCostUsd = result.usage?.estimatedCost;
+      const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
+      pushRuntimeEvent({
+        createId: this.createId,
+        now: this.now,
+        tab,
+        payload: {
+          type: 'silent-decision',
+          agentId: agent.id,
+          details: result.action.reason,
+          sourceTraceId: traceId,
+          requestCostUsd,
+          ownPromptCostUsd,
+          costUsd: requestCostUsd,
+        },
+      });
+      pushDebugLog({
+        now: this.now,
+        workspace: this.workspace,
+        payload: {
+          kind: 'turn-result',
+          sweep: tab.execution.sweepCount,
+          agentId: agent.id,
+          agentName: agent.name,
+          mode: result.mode,
+          fallback,
+          actionType: result.action.type,
+          details: result.action.reason,
+        },
+      });
+      this.persistAndNotify();
+      return;
+    }
+
+    const sentMessage = await this.sendMessage(
+      {
+        senderId: agent.id,
+        content: result.action.text,
+        target: result.action.type === 'speak_public' ? 'public' : 'private',
+        recipientId:
+          result.action.type === 'send_private' ? result.action.to : undefined,
+        requestCostUsd: result.usage?.estimatedCost,
+        ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
+        createdInSweep: tab.execution.sweepCount,
+        sourceTraceId: traceId,
+        triggerSweep: false,
+      },
+      tabId,
+    );
+    attachProducedMessageToTrace(traceId, sentMessage.id, tab);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
+        kind: 'turn-result',
+        sweep: tab.execution.sweepCount,
+        agentId: agent.id,
+        agentName: agent.name,
+        mode: result.mode,
+        fallback,
+        actionType: result.action.type,
+        messageId: sentMessage.id,
+        target: sentMessage.target,
+        recipientId: sentMessage.recipientId,
+        content: result.action.text,
+      },
+    });
+    tab.execution.queuedSweep = true;
   }
 
   private chooseAgentMode(agent: AgentConfig): AgentExecutionMode {
@@ -1526,17 +1469,15 @@ export class MultiChatRuntime {
   }
 
   private getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
-    return getTimelineMessages(tab).filter((message) => {
-      const cutoffIndex = getActiveManualCutoffIndex(tab);
-      if (cutoffIndex === null) {
-        return true;
-      }
+    const cutoffIndex = getActiveManualCutoffIndex(tab);
+    if (cutoffIndex === null) {
+      return getTimelineMessages(tab);
+    }
 
-      const entryIndex = tab.timeline.findIndex(
-        (entry) => entry.id === message.id,
-      );
-      return entryIndex > cutoffIndex;
-    });
+    return tab.timeline
+      .slice(cutoffIndex + 1)
+      .filter((entry) => entry.kind === 'message')
+      .map((entry) => entry.message);
   }
 
   private getNonSelfVisibleMessageIds(
@@ -1736,32 +1677,6 @@ export class MultiChatRuntime {
 
   private requireActiveTab(): ChatTabState {
     return this.requireTab(this.workspace.activeTabId);
-  }
-
-  private resolveAutoTabTitle(
-    preferredTitle?: string,
-    excludeTabId?: string,
-  ): string {
-    const normalizedPreferred = normalizeTabTitle(preferredTitle);
-    if (normalizedPreferred) {
-      return normalizedPreferred;
-    }
-
-    const titles = new Set(
-      this.workspace.tabs
-        .filter((tab) => tab.id !== excludeTabId)
-        .map((tab) => tab.title),
-    );
-    if (!titles.has(DEFAULT_TAB_TITLE)) {
-      return DEFAULT_TAB_TITLE;
-    }
-
-    let index = 2;
-    while (titles.has(`${DEFAULT_TAB_TITLE}${index}`)) {
-      index += 1;
-    }
-
-    return `${DEFAULT_TAB_TITLE}${index}`;
   }
 
   private buildRuntimeState(tab: ChatTabState): RuntimeState {

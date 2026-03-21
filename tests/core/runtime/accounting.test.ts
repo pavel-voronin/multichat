@@ -112,4 +112,50 @@ describe('MultiChatRuntime accounting and logs', () => {
       ),
     ).toBe(true);
   });
+
+  it('records debug logs for private replies with recipient metadata', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => ({
+        mode: 'tools',
+        action:
+          agentId === 'id-1'
+            ? { type: 'send_private', to: 'id-2', text: 'logged private' }
+            : { type: 'stay_silent', reason: 'observer' },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'b',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'reply privately',
+      target: 'public',
+    });
+
+    const debugLogs = runtime.getDiagnosticsState().debugLogs;
+    expect(
+      debugLogs.some(
+        (entry) =>
+          entry.kind === 'turn-result' &&
+          entry.agentId === 'id-1' &&
+          entry.actionType === 'send_private' &&
+          entry.target === 'private' &&
+          entry.recipientId === 'id-2' &&
+          entry.content === 'logged private',
+      ),
+    ).toBe(true);
+  });
 });
