@@ -63,11 +63,6 @@ const drag = useCutoffDrag();
   @apply absolute left-0 right-0 top-[-2px] border-t-2 border-amber-500;
 }
 
-[data-cutoff-drop-active='true']::before {
-  content: '';
-  @apply absolute left-0 right-0 top-[-2px] border-t-2 border-amber-500;
-}
-
 .cutoff-controls {
   @apply relative z-[1] flex shrink-0 items-center bg-white;
 }
