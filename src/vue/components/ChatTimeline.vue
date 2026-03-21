@@ -1,5 +1,5 @@
 <template>
-  <div class="timeline-root" :class="{ 'timeline-root--dragging': drag.isDragging }">
+  <div class="timeline-root" :class="{ 'timeline-root--dragging': drag.isDragging.value }">
     <template v-for="entry in renderedTimelineEntries" :key="entry.id">
       <MessageEntry
         v-if="entry.kind === 'message'"

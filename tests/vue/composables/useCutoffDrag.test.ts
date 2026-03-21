@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 function makeMessage(id: string): VisibleTimelineEntry {
-  return { kind: 'message', id, sortAt: 0, isMuted: false } as VisibleTimelineEntry;
+  return { kind: 'message', id, sortAt: 0, isMuted: false, createdAt: '2024-01-01T00:00:00.000Z' } as VisibleTimelineEntry;
 }
 
 function makeManualCutoff(id: string): VisibleTimelineEntry {
@@ -20,6 +20,7 @@ function makeManualCutoff(id: string): VisibleTimelineEntry {
     kind: 'history-cutoff',
     id,
     sortAt: 0,
+    createdAt: '2024-01-01T00:00:00.000Z',
     cutoff: { source: 'manual' },
   } as VisibleTimelineEntry;
 }
