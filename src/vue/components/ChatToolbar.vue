@@ -6,7 +6,7 @@
       size="md"
       @click="session.resetAgentHistoryContext()"
     >
-      Add context cut-off
+      New topic
     </UiButton>
     <UiButton
       class="toolbar-button"

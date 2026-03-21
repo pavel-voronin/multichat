@@ -13,14 +13,14 @@
       <button
         type="button"
         class="cutoff-drag-handle"
-        aria-label="Drag context cut-off"
+        aria-label="Drag topic break"
         @pointerdown="drag.startDrag($event, entry.id)"
       >
         <IconMdiDragVertical class="cutoff-drag-icon" aria-hidden="true" />
       </button>
     </span>
     <span class="cutoff-copy">
-      <span class="cutoff-title">Context starts below.</span>
+      <span class="cutoff-title">New topic starts below.</span>
       <span class="cutoff-manual-copy">
         Messages above stay visible but are excluded from agent context.
       </span>
@@ -33,7 +33,7 @@
         class="cutoff-link cutoff-link-secondary"
         @click="session.removeManualCutoff()"
       >
-        Remove cut-off
+        Remove topic break
       </button>
       <span class="cutoff-link-gap" aria-hidden="true">&nbsp;</span>
     </span>
