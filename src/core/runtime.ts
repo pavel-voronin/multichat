@@ -20,19 +20,14 @@ import type {
 } from './types';
 import {
   attachProducedMessageToTrace,
-  cloneTraces,
   completeRequestTrace,
   createManualCutoffEntry,
   createRequestTrace,
-  findMessageEntryById,
   getActiveManualCutoffIndex,
-  getMessageById,
-  getMessageInspectionIndexEntry,
   getTimelineMessages,
   pushDebugLog,
   pushRuntimeError,
   pushRuntimeEvent,
-  updateMessageSourceTrace,
 } from './diagnostics';
 import {
   applyDownstreamPromptCost,
@@ -45,14 +40,8 @@ import {
   getRelatedRequestTraces as getRelatedRequestTracesFn,
 } from './traces';
 import {
-  getMessageSenderId,
-  isSystemMessage,
-  SYSTEM_AUTHOR_NAME,
-} from './messages';
-import {
   getActiveAgents,
   getAgentContextCutoffs,
-  getContextWindowMessages,
   getNonSelfVisibleMessageIds,
   getTriggeringMessageIds,
   getVisibleContextKey,
@@ -69,7 +58,6 @@ import {
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
-  DEFAULT_TAB_TITLE,
   DEFAULT_HUMAN,
   createEmptyTabState,
   emptyMetrics,
@@ -1283,10 +1271,6 @@ export class MultiChatRuntime {
 
   isMessageVisibleToParticipant(message: ChatMessage, participantId: string): boolean {
     return isMessageVisibleToParticipantFn(message, participantId);
-  }
-
-  private getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
-    return getContextWindowMessages(tab);
   }
 
   private getNonSelfVisibleMessageIds(agentId: string, tab: ChatTabState): string[] {
