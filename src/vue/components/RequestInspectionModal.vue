@@ -328,7 +328,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import type { ChatMessage, RequestTrace } from '../../core';
+import {
+  getMessageSenderId,
+  type ChatMessage,
+  type RequestTrace,
+} from '../../core';
 import { useInspectionStore } from '../stores/inspection';
 import { useUiStore } from '../stores/ui';
 import {
@@ -440,7 +444,7 @@ const currentSubjectLabel = computed(() => {
     return 'Request inspection';
   }
 
-  return currentMessage.value.senderId === 'human'
+  return getMessageSenderId(currentMessage.value) === 'human'
     ? 'Human message'
     : 'Agent message';
 });

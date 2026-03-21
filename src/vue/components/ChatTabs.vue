@@ -1,7 +1,11 @@
 <template>
   <section class="chat-tabs">
     <div class="chat-tabs-rail" @click="handleRailClick">
-      <div ref="scrollElement" class="chat-tabs-scroll" @click="handleRailClick">
+      <div
+        ref="scrollElement"
+        class="chat-tabs-scroll"
+        @click="handleRailClick"
+      >
         <div class="chat-tabs-list">
           <div
             v-for="tab in renderedTabs"
@@ -84,7 +88,15 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useTemplateRef,
+  watch,
+} from 'vue';
 import type { RenderedTab } from '../types';
 import { useTabsStore } from '../stores/tabs';
 import { useUiStore } from '../stores/ui';
@@ -213,7 +225,9 @@ function handleDocumentPointerDown(event: PointerEvent) {
     return;
   }
 
-  const activeTab = renderedTabs.value.find((tab) => tab.id === editingTabId.value);
+  const activeTab = renderedTabs.value.find(
+    (tab) => tab.id === editingTabId.value,
+  );
   if (activeTab) {
     commitRename(activeTab);
     return;
@@ -240,7 +254,9 @@ function handleDragOver(targetTabId: string) {
     return;
   }
 
-  const targetIndex = renderedTabs.value.findIndex((tab) => tab.id === targetTabId);
+  const targetIndex = renderedTabs.value.findIndex(
+    (tab) => tab.id === targetTabId,
+  );
   if (targetIndex === -1) {
     return;
   }
@@ -272,10 +288,7 @@ function setEditInputRef(tabId: string, element: unknown) {
 }
 
 function setTabElementRef(tabId: string, element: unknown) {
-  tabElementRefs.set(
-    tabId,
-    element instanceof HTMLDivElement ? element : null,
-  );
+  tabElementRefs.set(tabId, element instanceof HTMLDivElement ? element : null);
 }
 
 function scrollTabIntoView(tabId: string) {
@@ -290,10 +303,7 @@ function scrollTabIntoView(tabId: string) {
   const tabRight = tabLeft + element.offsetWidth;
   const viewLeft = container.scrollLeft;
   const viewRight = viewLeft + container.clientWidth;
-  const scrollContainer = (
-    left: number,
-    behavior: ScrollBehavior,
-  ) => {
+  const scrollContainer = (left: number, behavior: ScrollBehavior) => {
     if (typeof container.scrollTo === 'function') {
       container.scrollTo({ left, behavior });
       return;
@@ -309,10 +319,7 @@ function scrollTabIntoView(tabId: string) {
 
   if (tabRight > viewRight - visibilityMargin) {
     scrollContainer(
-      Math.max(
-        0,
-        tabRight - container.clientWidth + visibilityMargin,
-      ),
+      Math.max(0, tabRight - container.clientWidth + visibilityMargin),
       'smooth',
     );
   }

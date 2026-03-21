@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createRuntime, createTransport, timelineEvents, timelineMessages } from './helpers';
+import {
+  createRuntime,
+  createTransport,
+  timelineEvents,
+  timelineMessages,
+} from './helpers';
 
 describe('MultiChatRuntime request traces', () => {
   it('records request traces and links produced agent messages back to the trace', async () => {

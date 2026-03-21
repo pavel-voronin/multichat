@@ -40,7 +40,7 @@ describe('MultiAgentChat history controls', () => {
 
     expect(wrapper.text()).toContain('Context starts below');
     expect(wrapper.text()).toContain('Delete messages above');
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(2);
+    expect(wrapper.findAll('.message-line-muted')).toHaveLength(3);
     expect(wrapper.text()).toContain('Fresh context');
 
     const logText = wrapper
@@ -124,29 +124,37 @@ describe('MultiAgentChat history controls', () => {
     const chatLog = wrapper.find('.chat-log').element as HTMLElement;
     const firstMessage = wrapper
       .findAll('[data-timeline-entry-id]')
-      .find((node) => node.text().includes('One'))!
-      .element as HTMLElement;
+      .find((node) => node.text().includes('One'))!.element as HTMLElement;
     const secondMessage = wrapper
       .findAll('[data-timeline-entry-id]')
-      .find((node) => node.text().includes('Two'))!
-      .element as HTMLElement;
+      .find((node) => node.text().includes('Two'))!.element as HTMLElement;
     const thirdMessage = wrapper
       .findAll('[data-timeline-entry-id]')
-      .find((node) => node.text().includes('Three'))!
-      .element as HTMLElement;
+      .find((node) => node.text().includes('Three'))!.element as HTMLElement;
 
     setElementRect(chatLog, { top: 0, bottom: 400, left: 0, right: 400 });
     setElementRect(firstMessage, { top: 40, bottom: 80, left: 0, right: 400 });
-    setElementRect(secondMessage, { top: 120, bottom: 160, left: 0, right: 400 });
-    setElementRect(thirdMessage, { top: 200, bottom: 240, left: 0, right: 400 });
+    setElementRect(secondMessage, {
+      top: 120,
+      bottom: 160,
+      left: 0,
+      right: 400,
+    });
+    setElementRect(thirdMessage, {
+      top: 200,
+      bottom: 240,
+      left: 0,
+      right: 400,
+    });
 
     await wrapper
       .find('.cutoff-drag-handle')
       .trigger('pointerdown', { button: 0, pointerId: 1 });
     window.dispatchEvent(createPointerLikeEvent('pointermove', 10, 140, 1));
     await wrapper.vm.$nextTick();
-    expect(wrapper.find('.cutoff-banner-dragging').exists()).toBe(true);
-    expect(wrapper.find('[data-cutoff-drop-active="true"]').exists()).toBe(true);
+    expect(wrapper.find('[data-cutoff-drop-active="true"]').exists()).toBe(
+      true,
+    );
     window.dispatchEvent(createPointerLikeEvent('pointerup', 10, 140, 1));
     await wrapper.vm.$nextTick();
 
@@ -160,7 +168,7 @@ describe('MultiAgentChat history controls', () => {
     expect(logText.indexOf('Context starts below')).toBeLessThan(
       logText.indexOf('Two'),
     );
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(1);
+    expect(wrapper.findAll('.message-line-muted')).toHaveLength(2);
   });
 
   it('removes the manual cutoff when dragging it outside chat history', async () => {
@@ -223,7 +231,7 @@ describe('MultiAgentChat history controls', () => {
     });
 
     expect(wrapper.findAll('.cutoff-banner-manual')).toHaveLength(1);
-    expect(wrapper.findAll('.cutoff-link')).toHaveLength(1);
+    expect(wrapper.findAll('.cutoff-link')).toHaveLength(2);
   });
 
   it('keeps context preview hidden by default', async () => {
@@ -248,10 +256,9 @@ describe('MultiAgentChat history controls', () => {
       name: 'Beta',
       modelId: 'model-b:free',
       systemPrompt: 'prompt',
-      contextWindowSize: 1,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
-    runtime.updateSettings({ defaultContextWindowSize: 2 });
+    runtime.updateTabContextWindowSize(2);
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -282,11 +289,152 @@ describe('MultiAgentChat history controls', () => {
     await contextBordersButton!.trigger('click');
     await wrapper.vm.$nextTick();
 
-    expect(wrapper.text()).toContain('context for: Alpha');
-    expect(wrapper.text()).toContain('context for: Beta');
+    expect(wrapper.text()).toContain('context for: all agents');
     expect(wrapper.text()).not.toContain(
       'From here messages are included in context by current settings',
     );
+  });
+
+  it('moves the context border inside chat history and updates the tab window', async () => {
+    const runtime = createRuntime();
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-b:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.updateTabContextWindowSize(2);
+
+    for (const content of ['One', 'Two', 'Three']) {
+      await runtime.sendMessage({
+        senderId: 'human',
+        content,
+        target: 'public',
+        triggerSweep: false,
+      });
+    }
+
+    const wrapper = mountChat(runtime);
+    await wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Show borders'))!
+      .trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const chatLog = wrapper.find('.chat-log').element as HTMLElement;
+    const firstMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('One'))!.element as HTMLElement;
+    const secondMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('Two'))!.element as HTMLElement;
+    const thirdMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('Three'))!.element as HTMLElement;
+
+    setElementRect(chatLog, { top: 0, bottom: 400, left: 0, right: 400 });
+    setElementRect(firstMessage, { top: 40, bottom: 80, left: 0, right: 400 });
+    setElementRect(secondMessage, {
+      top: 120,
+      bottom: 160,
+      left: 0,
+      right: 400,
+    });
+    setElementRect(thirdMessage, {
+      top: 200,
+      bottom: 240,
+      left: 0,
+      right: 400,
+    });
+
+    await wrapper
+      .find('.cutoff-drag-handle-preview')
+      .trigger('pointerdown', { button: 0, pointerId: 2 });
+    window.dispatchEvent(createPointerLikeEvent('pointermove', 10, 220, 2));
+    await wrapper.vm.$nextTick();
+    window.dispatchEvent(createPointerLikeEvent('pointerup', 10, 220, 2));
+    await wrapper.vm.$nextTick();
+
+    expect(runtime.getState().contextWindowSize).toBe(1);
+
+    const logText = wrapper
+      .findAll('.chat-log > *')
+      .map((node) => node.text())
+      .join('\n');
+    expect(logText.indexOf('Two')).toBeLessThan(
+      logText.indexOf('context for: all agents'),
+    );
+    expect(logText.indexOf('context for: all agents')).toBeLessThan(
+      logText.indexOf('Three'),
+    );
+  });
+
+  it('returns the context border to its original position when dragged outside chat', async () => {
+    const runtime = createRuntime();
+    runtime.updateTabContextWindowSize(2);
+
+    for (const content of ['One', 'Two', 'Three']) {
+      await runtime.sendMessage({
+        senderId: 'human',
+        content,
+        target: 'public',
+        triggerSweep: false,
+      });
+    }
+
+    const wrapper = mountChat(runtime);
+    await wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Show borders'))!
+      .trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const chatLog = wrapper.find('.chat-log').element as HTMLElement;
+    const firstMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('One'))!.element as HTMLElement;
+    const secondMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('Two'))!.element as HTMLElement;
+    const thirdMessage = wrapper
+      .findAll('[data-timeline-entry-id]')
+      .find((node) => node.text().includes('Three'))!.element as HTMLElement;
+
+    setElementRect(chatLog, { top: 0, bottom: 240, left: 0, right: 240 });
+    setElementRect(firstMessage, { top: 40, bottom: 80, left: 0, right: 240 });
+    setElementRect(secondMessage, {
+      top: 120,
+      bottom: 160,
+      left: 0,
+      right: 240,
+    });
+    setElementRect(thirdMessage, {
+      top: 200,
+      bottom: 240,
+      left: 0,
+      right: 240,
+    });
+
+    const beforeText = wrapper
+      .findAll('.chat-log > *')
+      .map((node) => node.text())
+      .join('\n');
+
+    await wrapper
+      .find('.cutoff-drag-handle-preview')
+      .trigger('pointerdown', { button: 0, pointerId: 3 });
+    window.dispatchEvent(createPointerLikeEvent('pointermove', 260, 260, 3));
+    await wrapper.vm.$nextTick();
+    window.dispatchEvent(createPointerLikeEvent('pointerup', 260, 260, 3));
+    await wrapper.vm.$nextTick();
+
+    expect(runtime.getState().contextWindowSize).toBe(2);
+
+    const afterText = wrapper
+      .findAll('.chat-log > *')
+      .map((node) => node.text())
+      .join('\n');
+    expect(afterText).toBe(beforeText);
   });
 });
 

@@ -1,4 +1,4 @@
-import type { AgentConfig } from '../../core';
+import type { AgentConfig, AgentMetrics, RequestTrace } from '../../core';
 import type { CostDisplayMode, CostTrackedItem } from '../types';
 
 export function formatMessageCost(costUsd: number): string {
@@ -90,4 +90,58 @@ export function agentCompletionPrice(
   return Number.isFinite(completionPrice) && completionPrice > 0
     ? completionPrice
     : 0;
+}
+
+export function agentPromptSpend(
+  agent: AgentConfig | null | undefined,
+  metrics: AgentMetrics | null | undefined,
+): number {
+  return (metrics?.promptTokens ?? 0) * agentPromptPrice(agent);
+}
+
+export function agentCompletionSpend(
+  agent: AgentConfig | null | undefined,
+  metrics: AgentMetrics | null | undefined,
+): number {
+  return (metrics?.completionTokens ?? 0) * agentCompletionPrice(agent);
+}
+
+export function aggregateAgentSpendFromTraces(
+  agentId: string | null | undefined,
+  traces: RequestTrace[],
+): {
+  promptCostUsd: number;
+  completionCostUsd: number;
+  totalCostUsd: number;
+} {
+  if (!agentId) {
+    return {
+      promptCostUsd: 0,
+      completionCostUsd: 0,
+      totalCostUsd: 0,
+    };
+  }
+
+  return traces.reduce(
+    (sum, trace) => {
+      if (trace.agentId !== agentId || trace.status !== 'succeeded') {
+        return sum;
+      }
+
+      const promptCostUsd = trace.usage?.promptCostUsd ?? 0;
+      const totalCostUsd =
+        trace.usage?.requestCostUsd ?? trace.usage?.estimatedCost ?? 0;
+      const completionCostUsd = Math.max(0, totalCostUsd - promptCostUsd);
+
+      sum.promptCostUsd += promptCostUsd;
+      sum.completionCostUsd += completionCostUsd;
+      sum.totalCostUsd += totalCostUsd;
+      return sum;
+    },
+    {
+      promptCostUsd: 0,
+      completionCostUsd: 0,
+      totalCostUsd: 0,
+    },
+  );
 }

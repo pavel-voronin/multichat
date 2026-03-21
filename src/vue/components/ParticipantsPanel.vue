@@ -42,15 +42,6 @@
           >
             Edit
           </UiButton>
-          <UiButton
-            v-if="participant.role === 'agent'"
-            class="participant-delete-button"
-            variant="danger"
-            size="sm"
-            @click="openDeleteAgentModal(participant.id)"
-          >
-            Delete
-          </UiButton>
         </div>
       </li>
     </ul>
@@ -76,7 +67,9 @@ function openCreateAgentWizard() {
 }
 
 function openParticipantEditor(participantId: string) {
-  const participant = participantRows.value.find((item) => item.id === participantId);
+  const participant = participantRows.value.find(
+    (item) => item.id === participantId,
+  );
   if (!participant) {
     return;
   }
@@ -88,17 +81,6 @@ function openParticipantEditor(participantId: string) {
   }
 
   ui.showHumanNameModal = true;
-}
-
-function openDeleteAgentModal(participantId: string) {
-  const participant = participantRows.value.find((item) => item.id === participantId);
-  if (!participant || participant.role !== 'agent') {
-    return;
-  }
-
-  ui.pendingDeleteAgentId = participant.id;
-  ui.pendingDeleteAgentName = participant.name;
-  ui.showDeleteAgentConfirm = true;
 }
 </script>
 
@@ -157,10 +139,6 @@ function openDeleteAgentModal(participantId: string) {
 
 .participant-actions {
   @apply pointer-events-none absolute inset-y-0 right-2 flex items-center gap-1 bg-linear-to-l from-white via-white to-transparent pl-6 opacity-0 transition;
-}
-
-.participant-delete-button {
-  @apply px-2 text-red-700;
 }
 
 .participant-row:hover .participant-actions {

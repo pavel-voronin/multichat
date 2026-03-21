@@ -10,7 +10,9 @@ export const useTimelineStore = defineStore('timeline', () => {
   const runtimeStore = useRuntimeStore();
   const preferencesStore = usePreferencesStore();
   const { state } = storeToRefs(runtimeStore);
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   const preferences = computed<ChatViewPreferences>(() => ({
     showContextCutoffs: preferencesStore.showContextCutoffs,
@@ -20,8 +22,9 @@ export const useTimelineStore = defineStore('timeline', () => {
 
   const humanParticipant = computed(
     () =>
-      state.value.participants.find((participant) => participant.role === 'human') ??
-      null,
+      state.value.participants.find(
+        (participant) => participant.role === 'human',
+      ) ?? null,
   );
 
   const visibleTimelineEntries = computed<VisibleTimelineEntry[]>(() =>

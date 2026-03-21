@@ -1,6 +1,10 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import type { AgentConfig, MultiChatRuntime, OpenRouterModel } from '../../core';
+import type {
+  AgentConfig,
+  MultiChatRuntime,
+  OpenRouterModel,
+} from '../../core';
 import { useRuntimeStore } from './runtime';
 import { useUiStore } from './ui';
 
@@ -8,7 +12,9 @@ export const useAgentsStore = defineStore('agents', () => {
   const runtimeStore = useRuntimeStore();
   const ui = useUiStore();
   const { state } = storeToRefs(runtimeStore);
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   const selectedAgent = computed<AgentConfig | null>(
     () =>

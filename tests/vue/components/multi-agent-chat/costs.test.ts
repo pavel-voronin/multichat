@@ -18,7 +18,6 @@ describe('MultiAgentChat cost display', () => {
         completion: '0.02',
       },
       systemPrompt: 'prompt',
-      contextWindowSize: null,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     await runtime.sendMessage({
@@ -99,7 +98,7 @@ describe('MultiAgentChat cost display', () => {
     expect(wrapper.find('.participant-price-trigger').exists()).toBe(false);
   });
 
-  it('shows model pricing bubble next to participant name when money is enabled', async () => {
+  it('shows accumulated prompt and completion costs from request traces next to participant name when money is enabled', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
         return [{ id: 'model-a:free', name: 'Model A Free' }];
@@ -112,7 +111,7 @@ describe('MultiAgentChat cost display', () => {
             promptTokens: 10,
             completionTokens: 2,
             totalTokens: 12,
-            estimatedCost: 0.1234,
+            estimatedCost: 0.03,
           },
         };
       },
@@ -123,8 +122,8 @@ describe('MultiAgentChat cost display', () => {
     const wrapper = mountChat(runtime);
 
     const priceTrigger = wrapper.get('.participant-price-trigger');
-    expect(priceTrigger.text()).toContain('$0.1234');
-    expect(wrapper.text()).toContain('$0.1234');
+    expect(priceTrigger.text()).toContain('$0.0300');
+    expect(wrapper.text()).toContain('$0.0300');
 
     await priceTrigger.trigger('mouseenter');
     await wrapper.vm.$nextTick();
@@ -132,7 +131,112 @@ describe('MultiAgentChat cost display', () => {
     expect(document.body.textContent).toContain('Alpha');
     expect(document.body.textContent).toContain('Prompt');
     expect(document.body.textContent).toContain('Completion');
-    expect(document.body.textContent).toContain('$0.0010');
+    expect(document.body.textContent).toContain('Total');
     expect(document.body.textContent).toContain('$0.0100');
+    expect(document.body.textContent).toContain('$0.0200');
+    expect(document.body.textContent).toContain('$0.0300');
+  });
+
+  it('keeps participant breakdown aligned with total when provider total differs from token-price multiplication', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [{ id: 'model-a:free', name: 'Model A Free' }];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'noop' },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 2,
+            totalTokens: 12,
+            estimatedCost: 0.0173,
+          },
+        };
+      },
+    };
+    const runtime = createRuntime({ transport });
+    await runtime.runAgentSweep('manual');
+
+    const wrapper = mountChat(runtime);
+    const priceTrigger = wrapper.get('.participant-price-trigger');
+
+    await priceTrigger.trigger('mouseenter');
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('$0.0173');
+    expect(document.body.textContent).toContain('$0.0100');
+    expect(document.body.textContent).toContain('$0.0073');
+  });
+
+  it('shows net cost for a system message when other agents read it', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [{ id: 'model-a:free', name: 'Model A Free' }];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'noop' },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 0,
+            totalTokens: 10,
+            estimatedCost: 0.05,
+          },
+        };
+      },
+    };
+    const runtime = createRuntime({
+      transport,
+      createDefaultAgent: false,
+      setApiKey: false,
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      pricing: { prompt: '0.001', completion: '0.01' },
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-b:free',
+      pricing: { prompt: '0.002', completion: '0.02' },
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'key' });
+
+    await runtime.sendSystemMessage({
+      content: 'Topic changed to: System topic',
+      system: {
+        type: 'topic_changed',
+        topicTitle: 'System topic',
+      },
+    });
+
+    const wrapper = mountChat(runtime);
+
+    const costModeButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Cost: request'));
+    expect(costModeButton).toBeDefined();
+
+    await costModeButton!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    const systemLines = wrapper.findAll('.message-line-system');
+    expect(
+      systemLines.some((line) =>
+        line.text().includes('Topic changed to: System topic'),
+      ),
+    ).toBe(true);
+    expect(wrapper.text()).toContain('Topic changed to: System topic');
+    expect(
+      wrapper.find('.message-line-system .message-cost-trigger').exists(),
+    ).toBe(true);
   });
 });

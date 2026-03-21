@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentConfig, ChatMessage, RuntimeEvent } from '../../../src/core';
 import {
-  agentCompletionPrice,
-  agentPromptPrice,
+  aggregateAgentSpendFromTraces,
+  agentCompletionSpend,
+  agentPromptSpend,
   displayedMessageCost,
   formatMessageCost,
   messageCostSummaryClass,
@@ -13,7 +14,8 @@ import {
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {
     id: 'm-1',
-    senderId: 'human',
+    author: { type: 'participant', participantId: 'human' },
+    kind: 'participant',
     target: 'public',
     content: 'hello',
     createdAt: '2026-01-01T10:00:00.000Z',
@@ -71,7 +73,7 @@ describe('costing utils', () => {
     expect(messageCostSummaryClass(message, 'net')).toBe('message-cost-net');
   });
 
-  it('extracts valid positive pricing from agent config', () => {
+  it('calculates aggregate prompt and completion spend from metrics', () => {
     const agent: AgentConfig = {
       id: 'a-1',
       name: 'Alpha',
@@ -80,7 +82,62 @@ describe('costing utils', () => {
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
       pricing: { prompt: '0.002', completion: '0.01' },
     };
-    expect(agentPromptPrice(agent)).toBe(0.002);
-    expect(agentCompletionPrice(agent)).toBe(0.01);
+    expect(
+      agentPromptSpend(agent, {
+        requestCount: 1,
+        promptTokens: 5,
+        completionTokens: 3,
+        totalTokens: 8,
+        estimatedCost: 0.04,
+      }),
+    ).toBe(0.01);
+    expect(
+      agentCompletionSpend(agent, {
+        requestCount: 1,
+        promptTokens: 5,
+        completionTokens: 3,
+        totalTokens: 8,
+        estimatedCost: 0.04,
+      }),
+    ).toBe(0.03);
+  });
+
+  it('aggregates agent spend from traces so total always matches breakdown', () => {
+    const breakdown = aggregateAgentSpendFromTraces('a-1', [
+      {
+        id: 't-1',
+        sweep: 1,
+        agentId: 'a-1',
+        agentName: 'Alpha',
+        mode: 'tools',
+        fallback: false,
+        status: 'succeeded',
+        startedAt: '2026-01-01T10:00:00.000Z',
+        triggeringMessageIds: [],
+        visibleMessageIds: [],
+        nonSelfVisibleMessageIds: [],
+        childTraceIds: [],
+        upstreamMessageIds: [],
+        downstreamMessageIds: [],
+        payloads: {},
+        links: [],
+        usage: {
+          promptTokens: 10,
+          completionTokens: 2,
+          estimatedCost: 0.0173,
+          promptCostUsd: 0.0141,
+          requestCostUsd: 0.0173,
+        },
+      },
+    ]);
+
+    expect(breakdown.promptCostUsd).toBeCloseTo(0.0141);
+    expect(breakdown.completionCostUsd).toBeCloseTo(0.0032);
+    expect(breakdown.totalCostUsd).toBeCloseTo(0.0173);
+    expect(
+      breakdown.promptCostUsd +
+        breakdown.completionCostUsd -
+        breakdown.totalCostUsd,
+    ).toBeCloseTo(0);
   });
 });

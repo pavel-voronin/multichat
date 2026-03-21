@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createRuntime, createTransport, timelineEvents, timelineMessages } from './helpers';
+import {
+  createRuntime,
+  createTransport,
+  timelineEvents,
+  timelineMessages,
+} from './helpers';
 
 describe('MultiChatRuntime cost attribution', () => {
   it('stores request cost on agent-authored messages', async () => {
@@ -113,7 +118,12 @@ describe('MultiChatRuntime cost attribution', () => {
       pricing: { prompt: '0.002', completion: '0.02' },
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const readerId = runtime
+      .getState()
+      .agents.find((agent) => agent.name === 'Reader')!.id;
 
     await runtime.runAgentSweep('manual');
 
@@ -124,7 +134,7 @@ describe('MultiChatRuntime cost attribution', () => {
       costUsd: 0.54,
       downstreamPromptCostContributors: [
         {
-          agentId: 'id-2',
+          agentId: readerId,
           promptCostUsd: 0.04,
           listenCount: 1,
         },
@@ -175,7 +185,10 @@ describe('MultiChatRuntime cost attribution', () => {
       pricing: { prompt: '0.002', completion: '0.02' },
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const [readerA, readerB] = runtime.getState().agents;
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -189,12 +202,12 @@ describe('MultiChatRuntime cost attribution', () => {
       costUsd: 0.05,
       downstreamPromptCostContributors: [
         {
-          agentId: 'id-1',
+          agentId: readerA!.id,
           promptCostUsd: 0.01,
           listenCount: 1,
         },
         {
-          agentId: 'id-2',
+          agentId: readerB!.id,
           promptCostUsd: 0.04,
           listenCount: 1,
         },
@@ -223,7 +236,10 @@ describe('MultiChatRuntime cost attribution', () => {
       pricing: { prompt: '0.002', completion: '0.02' },
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const readerId = runtime.getState().agents[0]!.id;
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -247,7 +263,7 @@ describe('MultiChatRuntime cost attribution', () => {
           downstreamPromptCostUsd: 0.02,
           downstreamPromptCostContributors: [
             {
-              agentId: 'id-1',
+              agentId: readerId,
               promptCostUsd: 0.02,
               listenCount: 1,
             },
@@ -258,7 +274,7 @@ describe('MultiChatRuntime cost attribution', () => {
           downstreamPromptCostUsd: 0.02,
           downstreamPromptCostContributors: [
             {
-              agentId: 'id-1',
+              agentId: readerId,
               promptCostUsd: 0.02,
               listenCount: 1,
             },

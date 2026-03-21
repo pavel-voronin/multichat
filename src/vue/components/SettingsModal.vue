@@ -13,22 +13,6 @@
             placeholder="sk-or-v1-..."
           />
         </label>
-
-        <label class="modal-field">
-          <span class="modal-label">Default history window</span>
-          <UiInput
-            v-model.number="draftDefaultContextWindowSize"
-            class="modal-input"
-            type="number"
-            min="1"
-            step="1"
-          />
-          <span class="modal-copy">
-            Affects the actual agent prompt context and the optional red cutoff
-            preview in chat.
-          </span>
-        </label>
-
         <div class="modal-actions">
           <UiButton
             class="modal-primary-button"
@@ -62,9 +46,6 @@ const session = useSessionStore();
 const { state } = storeToRefs(useRuntimeStore());
 const ui = useUiStore();
 const draftKey = ref(state.value.settings.openRouterApiKey);
-const draftDefaultContextWindowSize = ref(
-  state.value.settings.defaultContextWindowSize,
-);
 
 watch(
   () => ui.showSettings,
@@ -74,8 +55,6 @@ watch(
     }
 
     draftKey.value = state.value.settings.openRouterApiKey;
-    draftDefaultContextWindowSize.value =
-      state.value.settings.defaultContextWindowSize;
   },
 );
 
@@ -86,10 +65,6 @@ function close() {
 function save() {
   session.updateRuntimeSettings({
     openRouterApiKey: draftKey.value.trim(),
-    defaultContextWindowSize: Math.max(
-      1,
-      Math.floor(draftDefaultContextWindowSize.value || 1),
-    ),
   });
   close();
 }
@@ -126,9 +101,5 @@ function reset() {
 
 .modal-actions {
   @apply mt-5 flex flex-wrap gap-2;
-}
-
-.modal-copy {
-  @apply text-[12px] text-neutral-500;
 }
 </style>

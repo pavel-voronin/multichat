@@ -73,7 +73,7 @@ describe('MultiAgentChat layout and workflow', () => {
         .findAll('.toolbar-button')
         .map((button) => button.text())
         .filter((text) => text === 'Reset agents' || text === 'Stop'),
-    ).toEqual(['Reset agents', 'Stop']);
+    ).toEqual(['Stop']);
     expect(wrapper.find('.composer-actions').text()).toContain('Send');
   });
 

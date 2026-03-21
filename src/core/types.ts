@@ -1,5 +1,24 @@
 export type ParticipantRole = 'human' | 'agent';
 export type MessageTarget = 'public' | 'private';
+export type ChatMessageKind = 'participant' | 'system';
+export type SystemMessageType =
+  | 'participant_joined'
+  | 'participant_left'
+  | 'topic_changed';
+export type ChatMessageAuthor =
+  | {
+      type: 'participant';
+      participantId: string;
+    }
+  | {
+      type: 'system';
+    };
+export interface SystemMessagePayload {
+  type: SystemMessageType;
+  participantId?: string;
+  participantName?: string;
+  topicTitle?: string;
+}
 export type RuntimeEventType =
   | 'sweep-started'
   | 'sweep-finished'
@@ -9,6 +28,7 @@ export type RuntimeEventType =
 export type DebugLogKind =
   | 'tab-created'
   | 'tab-renamed'
+  | 'tab-context-window-updated'
   | 'tab-closed'
   | 'agent-created'
   | 'agent-updated'
@@ -59,16 +79,17 @@ export interface AgentConfig {
     completion?: string;
   };
   systemPrompt: string;
-  contextWindowSize?: number | null;
   capabilities: AgentCapabilities;
 }
 
 export interface ChatMessage {
   id: string;
-  senderId: string;
+  author: ChatMessageAuthor;
+  kind: ChatMessageKind;
   target: MessageTarget;
   recipientId?: string;
   content: string;
+  system?: SystemMessagePayload;
   createdAt: string;
   costUsd?: number;
   requestCostUsd?: number;
@@ -166,12 +187,10 @@ export interface AgentContextCutoff {
   anchor: ContextCutoffAnchor;
   agentIds: string[];
   agentNames: string[];
-  usesGlobalWindow: boolean;
 }
 
 export interface SettingsState {
   openRouterApiKey: string;
-  defaultContextWindowSize: number;
 }
 
 export interface RuntimeError {
@@ -264,6 +283,7 @@ export type TabMutationSource = 'user' | 'system' | 'future-event';
 export interface ChatTabState {
   id: string;
   title: string;
+  contextWindowSize: number;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];
@@ -283,6 +303,7 @@ export interface WorkspaceState {
 
 export interface RuntimeState {
   activeTabId: string;
+  contextWindowSize: number;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];
@@ -318,6 +339,12 @@ export interface SendMessageInput {
   triggerSweep?: boolean;
 }
 
+export interface SendSystemMessageInput {
+  content: string;
+  system: SystemMessagePayload;
+  triggerSweep?: boolean;
+}
+
 export interface OpenRouterModel {
   id: string;
   name: string;
@@ -350,8 +377,9 @@ export interface AgentTurnResult {
 
 export interface AgentContextMessage {
   id: string;
+  authorType: ChatMessageAuthor['type'];
   senderName: string;
-  senderId: string;
+  senderId?: string;
   target: MessageTarget;
   recipientId?: string;
   recipientName?: string;

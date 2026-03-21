@@ -1,4 +1,10 @@
-import type { ChatMessage, DebugLogEntry, RuntimeEvent } from '../../core';
+import {
+  getMessageSenderId,
+  isSystemMessage as isSystemMessageCore,
+  type ChatMessage,
+  type DebugLogEntry,
+  type RuntimeEvent,
+} from '../../core';
 
 export interface ParticipantNameLookup {
   byId: (participantId: string) => string | null;
@@ -17,7 +23,12 @@ export function formatMessageAuthor(
   message: ChatMessage,
   lookup: ParticipantNameLookup,
 ): string {
-  const sender = lookup.byId(message.senderId) ?? message.senderId;
+  if (isSystemMessageCore(message)) {
+    return '[System]';
+  }
+
+  const senderId = getMessageSenderId(message);
+  const sender = senderId ? (lookup.byId(senderId) ?? senderId) : 'unknown';
 
   if (message.target === 'private') {
     const recipient = message.recipientId
@@ -27,6 +38,10 @@ export function formatMessageAuthor(
   }
 
   return `<${sender}>`;
+}
+
+export function isSystemMessage(message: ChatMessage): boolean {
+  return isSystemMessageCore(message);
 }
 
 export function formatTechnicalEventLabel(

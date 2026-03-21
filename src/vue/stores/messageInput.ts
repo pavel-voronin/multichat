@@ -1,6 +1,6 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed, nextTick, ref } from 'vue';
-import type { ChatMessage } from '../../core';
+import { getMessageSenderIdOrThrow, type ChatMessage } from '../../core';
 import { useRuntimeStore } from './runtime';
 
 type MessageInputElement = { focus: () => void } | null;
@@ -71,7 +71,7 @@ export const useMessageInputStore = defineStore('messageInput', () => {
   }
 
   function mentionMessageSender(message: ChatMessage): void {
-    mentionParticipantById(message.senderId);
+    mentionParticipantById(getMessageSenderIdOrThrow(message));
   }
 
   async function sendCurrentMessage(): Promise<void> {

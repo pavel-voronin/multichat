@@ -50,6 +50,7 @@ export function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
   return runtime
     .getTimelineEntries()
     .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
+    .filter((entry) => entry.message.kind !== 'system')
     .map((entry) => entry.message);
 }
 

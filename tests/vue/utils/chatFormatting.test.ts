@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage, DebugLogEntry, RuntimeEvent } from '../../../src/core';
+import type {
+  ChatMessage,
+  DebugLogEntry,
+  RuntimeEvent,
+} from '../../../src/core';
 import {
   formatDebugLogLine,
   formatMessageAuthor,
@@ -22,7 +26,8 @@ const lookup = {
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {
     id: 'm-1',
-    senderId: 'human',
+    author: { type: 'participant', participantId: 'human' },
+    kind: 'participant',
     target: 'public',
     content: 'hello',
     createdAt: '2026-01-01T10:00:00.000Z',
@@ -32,13 +37,15 @@ function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
 
 describe('chatFormatting utils', () => {
   it('formats public message author', () => {
-    const message = createMessage({ senderId: 'alpha' });
+    const message = createMessage({
+      author: { type: 'participant', participantId: 'alpha' },
+    });
     expect(formatMessageAuthor(message, lookup)).toBe('<Alpha>');
   });
 
   it('formats private message author with recipient', () => {
     const message = createMessage({
-      senderId: 'alpha',
+      author: { type: 'participant', participantId: 'alpha' },
       target: 'private',
       recipientId: 'beta',
     });
@@ -66,6 +73,15 @@ describe('chatFormatting utils', () => {
     expect(technicalEventClasses(event)).toBe(
       'runtime-line runtime-line-silent',
     );
+  });
+
+  it('formats system messages with a system label', () => {
+    const message = createMessage({
+      author: { type: 'system' },
+      kind: 'system',
+      system: { type: 'topic_changed', topicTitle: 'New topic' },
+    });
+    expect(formatMessageAuthor(message, lookup)).toBe('[System]');
   });
 
   it('formats debug logs with key metadata', () => {

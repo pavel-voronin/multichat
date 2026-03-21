@@ -38,7 +38,6 @@ export interface TimelinePreviewCutoffEntry extends TimelineEntryBase {
     anchor: ContextCutoffAnchor;
     agentIds: string[];
     agentNames: string[];
-    usesGlobalWindow: boolean;
   };
   sortAt: number;
 }

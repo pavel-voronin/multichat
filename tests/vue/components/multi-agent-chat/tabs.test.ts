@@ -158,9 +158,11 @@ describe('MultiAgentChat tabs', () => {
       '#default',
       '#default2',
     ]);
-    expect(wrapper.get('.chat-tab-input').element).toBeInstanceOf(HTMLInputElement);
-    expect((wrapper.get('.chat-tab-input').element as HTMLInputElement).value).toBe(
-      '#default2',
+    expect(wrapper.get('.chat-tab-input').element).toBeInstanceOf(
+      HTMLInputElement,
     );
+    expect(
+      (wrapper.get('.chat-tab-input').element as HTMLInputElement).value,
+    ).toBe('#default2');
   });
 });

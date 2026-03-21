@@ -16,6 +16,10 @@ describe('MultiChatRuntime context routing', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    const betaId = runtime
+      .getState()
+      .agents.find((agent) => agent.name === 'Beta')!.id;
+    runtime.resetAgentHistoryContext();
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -31,7 +35,7 @@ describe('MultiChatRuntime context routing', () => {
     ).toContain('secret');
     expect(
       runtime
-        .getVisibleMessagesForAgent('id-2')
+        .getVisibleMessagesForAgent(betaId)
         .map((message) => message.content),
     ).not.toContain('secret');
   });
@@ -44,6 +48,7 @@ describe('MultiChatRuntime context routing', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    runtime.resetAgentHistoryContext();
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -65,14 +70,13 @@ describe('MultiChatRuntime context routing', () => {
     ).toEqual(['hello', 'my own reply']);
   });
 
-  it('uses per-agent context window override before global default', async () => {
+  it('uses the active tab context window for agent visibility', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ defaultContextWindowSize: 3 });
+    runtime.updateTabContextWindowSize(2);
     const agent = runtime.createAgent({
       name: 'Windowed',
       modelId: 'm',
       systemPrompt: 'prompt',
-      contextWindowSize: 2,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 

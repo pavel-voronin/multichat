@@ -107,14 +107,15 @@ describe('MultiChatRuntime history cutoffs', () => {
     const firstMessageEntry = runtime
       .getTimelineEntries()
       .find(
-        (entry) =>
-          entry.kind === 'message' && entry.message.content === 'two',
+        (entry) => entry.kind === 'message' && entry.message.content === 'two',
       );
 
     runtime.moveManualCutoffBefore(firstMessageEntry?.id ?? null);
 
     expect(
-      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+      runtime
+        .getVisibleMessagesForAgent('id-1')
+        .map((message) => message.content),
     ).toEqual(['two', 'three']);
   });
 
@@ -143,7 +144,9 @@ describe('MultiChatRuntime history cutoffs', () => {
       ['before reset', 'after reset'],
     );
     expect(
-      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+      runtime
+        .getVisibleMessagesForAgent('id-1')
+        .map((message) => message.content),
     ).toEqual(['before reset', 'after reset']);
   });
 
@@ -184,24 +187,25 @@ describe('MultiChatRuntime history cutoffs', () => {
 
     expect(manualCutoffs).toHaveLength(1);
     expect(
-      runtime.getVisibleMessagesForAgent('id-1').map((message) => message.content),
+      runtime
+        .getVisibleMessagesForAgent('id-1')
+        .map((message) => message.content),
     ).toEqual(['after second reset']);
   });
 
-  it('combines manual reset with per-agent and global windows in preview cutoffs', async () => {
+  it('combines manual reset with tab windows in preview cutoffs', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ defaultContextWindowSize: 3 });
-    runtime.createAgent({
+    runtime.updateTabContextWindowSize(2);
+    const alpha = runtime.createAgent({
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
-    runtime.createAgent({
+    const beta = runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      contextWindowSize: 1,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
@@ -227,35 +231,24 @@ describe('MultiChatRuntime history cutoffs', () => {
 
     expect(
       runtime
-        .getVisibleMessagesForAgent('id-1')
+        .getVisibleMessagesForAgent(alpha.id)
         .map((message) => message.content),
     ).toEqual(['four', 'five']);
     expect(
       runtime
-        .getVisibleMessagesForAgent('id-2')
+        .getVisibleMessagesForAgent(beta.id)
         .map((message) => message.content),
-    ).toEqual(['five']);
+    ).toEqual(['four', 'five']);
 
-    const alphaVisibleMessages = runtime.getVisibleMessagesForAgent('id-1');
-    const betaVisibleMessages = runtime.getVisibleMessagesForAgent('id-2');
+    const visibleMessages = runtime.getVisibleMessagesForAgent(alpha.id);
     expect(runtime.getAgentContextCutoffs()).toEqual([
       {
         anchor: {
           kind: 'before-message',
-          messageId: alphaVisibleMessages[0].id,
+          messageId: visibleMessages[0].id,
         },
-        agentIds: ['id-1'],
-        agentNames: ['Alpha'],
-        usesGlobalWindow: true,
-      },
-      {
-        anchor: {
-          kind: 'before-message',
-          messageId: betaVisibleMessages[0].id,
-        },
-        agentIds: ['id-2'],
-        agentNames: ['Beta'],
-        usesGlobalWindow: false,
+        agentIds: [alpha.id, beta.id],
+        agentNames: ['Alpha', 'Beta'],
       },
     ]);
   });
@@ -271,7 +264,6 @@ describe('MultiChatRuntime history cutoffs', () => {
         load: () => ({
           settings: {
             openRouterApiKey: 'persisted-key',
-            defaultContextWindowSize: 5,
           },
           debugLogs: [],
           errors: [],
@@ -280,6 +272,7 @@ describe('MultiChatRuntime history cutoffs', () => {
             {
               id: 'tab-1',
               title: '#default',
+              contextWindowSize: 5,
               participants: [{ id: 'human', name: 'Human', role: 'human' }],
               agents: [],
               timeline: [
@@ -289,7 +282,8 @@ describe('MultiChatRuntime history cutoffs', () => {
                   createdAt: '2026-03-16T10:00:00.000Z',
                   message: {
                     id: 'm-1',
-                    senderId: 'human',
+                    author: { type: 'participant', participantId: 'human' },
+                    kind: 'participant',
                     target: 'public',
                     content: 'persisted',
                     createdAt: '2026-03-16T10:00:00.000Z',
@@ -332,7 +326,7 @@ describe('MultiChatRuntime history cutoffs', () => {
       id: 'cutoff-1',
       createdAt: '2026-03-16T10:01:00.000Z',
     });
-    expect(state.settings.defaultContextWindowSize).toBe(5);
+    expect(state.contextWindowSize).toBe(5);
     expect(save).toHaveBeenCalled();
   });
 
@@ -383,7 +377,7 @@ describe('MultiChatRuntime history cutoffs', () => {
 
   it('groups cutoff previews for all active agents when they share one cutoff', async () => {
     const runtime = createRuntime();
-    runtime.updateSettings({ defaultContextWindowSize: 1 });
+    runtime.updateTabContextWindowSize(1);
     const alpha = runtime.createAgent({
       name: 'Alpha',
       modelId: 'a',

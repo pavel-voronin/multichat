@@ -23,8 +23,9 @@
     :agent="hoveredModelAgent"
     :placement="modelPriceBubblePlacement"
     :style="modelPriceBubbleStyle"
-    :prompt-price="modelPromptPrice"
-    :completion-price="modelCompletionPrice"
+    :prompt-cost="modelPromptCost"
+    :completion-cost="modelCompletionCost"
+    :total-cost="modelTotalCost"
     :format-message-cost="formatMessageCost"
     @mouseenter="cancelModelPriceBubbleClose"
     @mouseleave="closeModelPriceBubble"
@@ -45,8 +46,7 @@ import {
   formatTechnicalEventLabel,
 } from '../utils/chatFormatting';
 import {
-  agentCompletionPrice,
-  agentPromptPrice,
+  aggregateAgentSpendFromTraces,
   displayedMessageCost,
   downstreamMessageCost,
   formatContributorCost,
@@ -65,7 +65,7 @@ const costBubble = useFloatingHoverBubble(costBubbleElementRef);
 const modelPriceBubble = useFloatingHoverBubble(modelPriceBubbleElementRef);
 const timelineStore = useTimelineStore();
 const { preferences, visibleTimelineEntries } = storeToRefs(timelineStore);
-const { state } = storeToRefs(useRuntimeStore());
+const { state, diagnostics } = storeToRefs(useRuntimeStore());
 const agents = computed(() => state.value.agents);
 const chatTimelineEntries = visibleTimelineEntries;
 const visibleMessages = computed(() =>
@@ -110,6 +110,12 @@ const hoveredModelAgent = computed(
     agents.value.find(
       (agent) => agent.id === modelPriceBubble.hoveredId.value,
     ) ?? null,
+);
+const hoveredModelSpend = computed(() =>
+  aggregateAgentSpendFromTraces(
+    hoveredModelAgent.value?.id,
+    Object.values(diagnostics.value.requestTraces ?? {}),
+  ),
 );
 
 const costRequest = computed(() =>
@@ -178,12 +184,11 @@ const costBubbleTitle = computed(() => {
   })}`;
 });
 
-const modelPromptPrice = computed(() =>
-  agentPromptPrice(hoveredModelAgent.value),
+const modelPromptCost = computed(() => hoveredModelSpend.value.promptCostUsd);
+const modelCompletionCost = computed(
+  () => hoveredModelSpend.value.completionCostUsd,
 );
-const modelCompletionPrice = computed(() =>
-  agentCompletionPrice(hoveredModelAgent.value),
-);
+const modelTotalCost = computed(() => hoveredModelSpend.value.totalCostUsd);
 
 watch(
   () => visibleMessages.value.length + visibleCostEvents.value.length,

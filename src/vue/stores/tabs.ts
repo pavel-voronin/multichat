@@ -9,7 +9,9 @@ export const useTabsStore = defineStore('tabs', () => {
   const runtimeStore = useRuntimeStore();
   const messageInputStore = useMessageInputStore();
   const { workspace } = storeToRefs(runtimeStore);
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   const renderedTabs = computed<RenderedTab[]>(() =>
     workspace.value.tabs.map((tab) => ({

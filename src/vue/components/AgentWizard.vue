@@ -84,23 +84,6 @@
               rows="10"
             />
           </label>
-
-          <label class="wizard-field">
-            <span class="wizard-label">History window override</span>
-            <UiInput
-              v-model.number="contextWindowSize"
-              class="wizard-input"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="Use global default"
-            />
-            <p class="wizard-copy">
-              Leave empty to use the global default. When set, this agent will
-              only receive that many latest visible messages in context.
-            </p>
-          </label>
-
           <div class="wizard-actions">
             <UiButton
               class="wizard-primary-button"
@@ -112,6 +95,14 @@
             </UiButton>
             <UiButton class="wizard-secondary-button" @click="close">
               Cancel
+            </UiButton>
+            <UiButton
+              v-if="agent"
+              class="wizard-delete-button"
+              variant="danger"
+              @click="requestDeleteAgent"
+            >
+              Delete
             </UiButton>
           </div>
         </template>
@@ -145,7 +136,6 @@ const modelSearch = ref('');
 const name = ref('');
 const modelId = ref('');
 const systemPrompt = ref('');
-const contextWindowSize = ref<number | null>(null);
 const selectedPresetId = ref(defaultPromptPreset.id);
 
 const visibleModels = computed(() => {
@@ -192,7 +182,6 @@ watch(
     name.value = nextAgent?.name ?? '';
     modelId.value = nextAgent?.modelId ?? '';
     systemPrompt.value = nextAgent?.systemPrompt ?? defaultPromptPreset.prompt;
-    contextWindowSize.value = nextAgent?.contextWindowSize ?? null;
     selectedPresetId.value = defaultPromptPreset.id;
   },
   { immediate: true },
@@ -267,6 +256,17 @@ function close() {
   ui.showAgentWizard = false;
 }
 
+function requestDeleteAgent() {
+  if (!agent.value) {
+    return;
+  }
+
+  ui.pendingDeleteAgentId = agent.value.id;
+  ui.pendingDeleteAgentName = agent.value.name;
+  ui.showAgentWizard = false;
+  ui.showDeleteAgentConfirm = true;
+}
+
 function save() {
   const selectedModel = models.value.find(
     (model) => model.id === modelId.value,
@@ -276,10 +276,6 @@ function save() {
     modelId: modelId.value,
     pricing: selectedModel?.pricing ?? agent.value?.pricing,
     systemPrompt: systemPrompt.value.trim(),
-    contextWindowSize:
-      contextWindowSize.value && contextWindowSize.value > 0
-        ? Math.floor(contextWindowSize.value)
-        : null,
   };
 
   if (agent.value?.id) {
@@ -317,6 +313,10 @@ function openSettings() {
 
 .wizard-title {
   @apply m-0 text-base font-semibold;
+}
+
+.wizard-delete-button {
+  @apply text-red-700;
 }
 
 .wizard-blocked {

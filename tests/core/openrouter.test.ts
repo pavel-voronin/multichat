@@ -51,6 +51,7 @@ describe('OpenRouterHttpTransport', () => {
       visibleMessages: [
         {
           id: 'm-1',
+          authorType: 'participant',
           senderId: 'human',
           senderName: 'Pavel',
           target: 'public',
@@ -60,6 +61,7 @@ describe('OpenRouterHttpTransport', () => {
         },
         {
           id: 'm-2',
+          authorType: 'participant',
           senderId: 'kiryuha',
           senderName: 'Kiryuha',
           target: 'private',

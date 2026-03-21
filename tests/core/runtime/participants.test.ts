@@ -56,4 +56,83 @@ describe('MultiChatRuntime participant lifecycle', () => {
       }),
     );
   });
+
+  it('publishes system messages when an agent joins and leaves', () => {
+    const runtime = createRuntime();
+    const agent = runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+
+    let messages = runtime
+      .getTimelineEntries()
+      .filter((entry) => entry.kind === 'message')
+      .map((entry) => entry.message);
+    expect(messages.at(-1)).toMatchObject({
+      author: { type: 'system' },
+      kind: 'system',
+      content: 'Alpha joined the chat',
+      system: {
+        type: 'participant_joined',
+        participantId: agent.id,
+        participantName: 'Alpha',
+      },
+    });
+
+    runtime.removeAgent(agent.id);
+
+    messages = runtime
+      .getTimelineEntries()
+      .filter((entry) => entry.kind === 'message')
+      .map((entry) => entry.message);
+    expect(messages.at(-1)).toMatchObject({
+      author: { type: 'system' },
+      kind: 'system',
+      content: 'Alpha left the chat',
+      system: {
+        type: 'participant_left',
+        participantId: agent.id,
+        participantName: 'Alpha',
+      },
+    });
+  });
+
+  it('publishes a system message when the tab title changes', () => {
+    const runtime = createRuntime();
+
+    runtime.renameTab(runtime.getState().activeTabId, 'New topic');
+
+    const messages = runtime
+      .getTimelineEntries()
+      .filter((entry) => entry.kind === 'message')
+      .map((entry) => entry.message);
+
+    expect(messages.at(-1)).toMatchObject({
+      author: { type: 'system' },
+      kind: 'system',
+      content: 'Topic changed to: New topic',
+      system: {
+        type: 'topic_changed',
+        topicTitle: 'New topic',
+      },
+    });
+  });
+
+  it('does not publish a system message for a no-op tab rename', () => {
+    const runtime = createRuntime();
+    const tab = runtime.getWorkspaceState().tabs[0]!;
+    const beforeCount = runtime
+      .getTimelineEntries()
+      .filter((entry) => entry.kind === 'message').length;
+
+    runtime.renameTab(tab.id, tab.title);
+
+    const afterCount = runtime
+      .getTimelineEntries()
+      .filter((entry) => entry.kind === 'message').length;
+
+    expect(afterCount).toBe(beforeCount);
+  });
 });

@@ -12,6 +12,7 @@ import type {
   RuntimeConfig,
   RuntimeState,
   SendMessageInput,
+  SendSystemMessageInput,
   TabMutationSource,
   TimelineEntry,
   WorkspaceState,
@@ -33,6 +34,11 @@ import {
   pushRuntimeEvent,
   updateMessageSourceTrace,
 } from './diagnostics';
+import {
+  getMessageSenderId,
+  isSystemMessage,
+  SYSTEM_AUTHOR_NAME,
+} from './messages';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
@@ -62,6 +68,7 @@ export class MultiChatRuntime {
     string,
     Map<string, string>
   >();
+  private readonly activeSweepPromises = new Map<string, Promise<void>>();
   private readonly abortControllers = new Map<string, AbortController>();
   private workspace: WorkspaceState;
 
@@ -122,7 +129,10 @@ export class MultiChatRuntime {
     return deepClone(this.requireTab(tabId).timeline);
   }
 
-  getRequestTrace(traceId: string, tabId = this.workspace.activeTabId): RequestTrace | null {
+  getRequestTrace(
+    traceId: string,
+    tabId = this.workspace.activeTabId,
+  ): RequestTrace | null {
     return deepClone(this.requireTab(tabId).requestTraces[traceId] ?? null);
   }
 
@@ -244,59 +254,20 @@ export class MultiChatRuntime {
     input: SendMessageInput,
     tabId = this.workspace.activeTabId,
   ): Promise<ChatMessage> {
-    const tab = this.requireTab(tabId);
-    if (input.target === 'private' && !input.recipientId) {
-      throw new Error('Private message requires recipientId');
+    const { message, triggersSweep } = this.publishMessage(input, tabId);
+
+    if (triggersSweep) {
+      await this.runAgentSweep('message', tabId);
     }
 
-    const triggersSweep = input.triggerSweep ?? true;
-    const createdInSweep =
-      input.createdInSweep ??
-      (triggersSweep ? tab.execution.sweepCount + 1 : undefined);
+    return message;
+  }
 
-    const message: ChatMessage = {
-      id: this.createId(),
-      senderId: input.senderId,
-      target: input.target,
-      recipientId: input.recipientId,
-      content: input.content.trim(),
-      createdAt: this.now().toISOString(),
-      requestCostUsd: input.requestCostUsd ?? input.costUsd,
-      ownPromptCostUsd: input.ownPromptCostUsd,
-      downstreamPromptCostUsd: input.downstreamPromptCostUsd,
-      downstreamPromptCostContributors: input.downstreamPromptCostContributors,
-      costUsd:
-        (input.requestCostUsd ?? input.costUsd ?? 0) +
-          (input.downstreamPromptCostUsd ?? 0) || undefined,
-      createdInSweep,
-      sourceTraceId: input.sourceTraceId,
-    };
-
-    tab.timeline.push({
-      id: message.id,
-      createdAt: message.createdAt,
-      kind: 'message',
-      message,
-    });
-    updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
-    pushDebugLog({
-      now: this.now,
-      workspace: this.workspace,
-      payload: {
-        kind: 'message-created',
-        sweep: message.createdInSweep,
-        messageId: message.id,
-        agentId: input.senderId,
-        agentName: this.participantName(input.senderId, tab),
-        target: message.target,
-        recipientId: message.recipientId,
-        content: message.content,
-        details: triggersSweep
-          ? 'message triggers sweep'
-          : 'message does not trigger sweep',
-      },
-    });
-    this.persistAndNotify();
+  async sendSystemMessage(
+    input: SendSystemMessageInput,
+    tabId = this.workspace.activeTabId,
+  ): Promise<ChatMessage> {
+    const { message, triggersSweep } = this.publishSystemMessage(input, tabId);
 
     if (triggersSweep) {
       await this.runAgentSweep('message', tabId);
@@ -331,7 +302,21 @@ export class MultiChatRuntime {
         details: `model=${agent.modelId}`,
       },
     });
-    this.persistAndNotify();
+    const { triggersSweep } = this.publishSystemMessage(
+      {
+        content: `${agent.name} joined the chat`,
+        system: {
+          type: 'participant_joined',
+          participantId: agent.id,
+          participantName: agent.name,
+        },
+        triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
+      },
+      tab.id,
+    );
+    if (triggersSweep) {
+      void this.runAgentSweep('message', tab.id);
+    }
     return deepClone(agent);
   }
 
@@ -384,7 +369,21 @@ export class MultiChatRuntime {
         details: 'agent hidden and disabled',
       },
     });
-    this.persistAndNotify();
+    const { triggersSweep } = this.publishSystemMessage(
+      {
+        content: `${agent.name} left the chat`,
+        system: {
+          type: 'participant_left',
+          participantId: agent.id,
+          participantName: agent.name,
+        },
+        triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
+      },
+      tab.id,
+    );
+    if (triggersSweep) {
+      void this.runAgentSweep('message', tab.id);
+    }
   }
 
   updateSettings(patch: Partial<RuntimeState['settings']>): void {
@@ -398,6 +397,31 @@ export class MultiChatRuntime {
       payload: {
         kind: 'settings-updated',
         details: JSON.stringify(patch),
+      },
+    });
+    this.persistAndNotify();
+  }
+
+  updateTabContextWindowSize(
+    contextWindowSize: number,
+    tabId = this.workspace.activeTabId,
+  ): void {
+    const tab = this.requireTab(tabId);
+    const nextContextWindowSize = Math.max(
+      1,
+      Math.floor(contextWindowSize || 1),
+    );
+    if (tab.contextWindowSize === nextContextWindowSize) {
+      return;
+    }
+
+    tab.contextWindowSize = nextContextWindowSize;
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
+        kind: 'tab-context-window-updated',
+        details: `tabId=${tab.id} contextWindowSize=${nextContextWindowSize}`,
       },
     });
     this.persistAndNotify();
@@ -563,6 +587,7 @@ export class MultiChatRuntime {
       id: this.createId(),
       title: resolveAutoTabTitle(this.workspace.tabs, input?.title),
       human,
+      contextWindowSize: this.maxContextMessages,
     });
     this.workspace.tabs.push(tab);
     if (input?.activate ?? true) {
@@ -603,7 +628,20 @@ export class MultiChatRuntime {
         details: `tabId=${tab.id} from=${JSON.stringify(previousTitle)} to=${JSON.stringify(nextTitle)} source=${_source}`,
       },
     });
-    this.persistAndNotify();
+    const { triggersSweep } = this.publishSystemMessage(
+      {
+        content: `Topic changed to: ${nextTitle}`,
+        system: {
+          type: 'topic_changed',
+          topicTitle: nextTitle,
+        },
+        triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
+      },
+      tab.id,
+    );
+    if (triggersSweep) {
+      void this.runAgentSweep('message', tab.id);
+    }
   }
 
   activateTab(tabId: string): void {
@@ -675,7 +713,10 @@ export class MultiChatRuntime {
     if (!maybeTab) {
       return;
     }
-    if (!maybeTab.execution.isSweepRunning && !this.abortControllers.has(tabId)) {
+    if (
+      !maybeTab.execution.isSweepRunning &&
+      !this.abortControllers.has(tabId)
+    ) {
       return;
     }
     const tab = maybeTab;
@@ -713,97 +754,110 @@ export class MultiChatRuntime {
       return;
     }
 
-    if (tab.execution.isSweepRunning) {
+    const activeSweepPromise = this.activeSweepPromises.get(tabId);
+    if (activeSweepPromise) {
       if (!tab.execution.stopRequested) {
         tab.execution.queuedSweep = true;
       }
       this.persistAndNotify();
+      await activeSweepPromise;
       return;
     }
 
-    if (trigger === 'manual') {
-      this.lastProcessedKeysForTab(tab.id).clear();
-    }
-
-    let loops = 0;
-    tab.execution.stopRequested = false;
-
-    do {
-      const currentTab = this.getTab(tabId);
-      if (!currentTab || currentTab.execution.stopRequested) {
-        break;
+    const sweepPromise = (async () => {
+      if (trigger === 'manual') {
+        this.lastProcessedKeysForTab(tab.id).clear();
       }
 
-      currentTab.execution.isSweepRunning = true;
-      currentTab.execution.queuedSweep = false;
-      currentTab.execution.sweepCount += 1;
-      pushRuntimeEvent({
-        createId: this.createId,
-        now: this.now,
-        tab: currentTab,
-        payload: {
-          type: 'sweep-started',
-          details: trigger,
-        },
-      });
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'sweep-started',
-          sweep: currentTab.execution.sweepCount,
-          trigger,
-        },
-      });
-      this.persistAndNotify();
+      let loops = 0;
+      tab.execution.stopRequested = false;
 
-      for (const agent of this.getActiveAgents(currentTab)) {
-        const latestTab = this.getTab(tabId);
-        if (!latestTab || latestTab.execution.stopRequested) {
+      do {
+        const currentTab = this.getTab(tabId);
+        if (!currentTab || currentTab.execution.stopRequested) {
           break;
         }
-        await this.runAgentTurn(agent, tabId);
-      }
 
-      const latestTab = this.getTab(tabId);
-      if (!latestTab) {
-        break;
-      }
+        currentTab.execution.isSweepRunning = true;
+        currentTab.execution.queuedSweep = false;
+        currentTab.execution.sweepCount += 1;
+        pushRuntimeEvent({
+          createId: this.createId,
+          now: this.now,
+          tab: currentTab,
+          payload: {
+            type: 'sweep-started',
+            details: trigger,
+          },
+        });
+        pushDebugLog({
+          now: this.now,
+          workspace: this.workspace,
+          payload: {
+            kind: 'sweep-started',
+            sweep: currentTab.execution.sweepCount,
+            trigger,
+          },
+        });
+        this.persistAndNotify();
 
-      latestTab.execution.isSweepRunning = false;
-      pushRuntimeEvent({
-        createId: this.createId,
-        now: this.now,
-        tab: latestTab,
-        payload: {
-          type: 'sweep-finished',
-          details: trigger,
-        },
-      });
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'sweep-finished',
-          sweep: latestTab.execution.sweepCount,
-          trigger,
-        },
-      });
+        for (const agent of this.getActiveAgents(currentTab)) {
+          const latestTab = this.getTab(tabId);
+          if (!latestTab || latestTab.execution.stopRequested) {
+            break;
+          }
+          await this.runAgentTurn(agent, tabId);
+        }
+
+        const latestTab = this.getTab(tabId);
+        if (!latestTab) {
+          break;
+        }
+
+        latestTab.execution.isSweepRunning = false;
+        pushRuntimeEvent({
+          createId: this.createId,
+          now: this.now,
+          tab: latestTab,
+          payload: {
+            type: 'sweep-finished',
+            details: trigger,
+          },
+        });
+        pushDebugLog({
+          now: this.now,
+          workspace: this.workspace,
+          payload: {
+            kind: 'sweep-finished',
+            sweep: latestTab.execution.sweepCount,
+            trigger,
+          },
+        });
+        this.persistAndNotify();
+        loops += 1;
+      } while (
+        this.getTab(tabId)?.execution.queuedSweep &&
+        loops < this.maxAutoSweeps &&
+        !this.getTab(tabId)?.execution.stopRequested
+      );
+
+      const finalTab = this.getTab(tabId);
+      if (finalTab) {
+        finalTab.execution.isSweepRunning = false;
+        finalTab.execution.queuedSweep = false;
+      }
+      this.abortControllers.delete(tabId);
       this.persistAndNotify();
-      loops += 1;
-    } while (
-      this.getTab(tabId)?.execution.queuedSweep &&
-      loops < this.maxAutoSweeps &&
-      !this.getTab(tabId)?.execution.stopRequested
-    );
+    })();
 
-    const finalTab = this.getTab(tabId);
-    if (finalTab) {
-      finalTab.execution.isSweepRunning = false;
-      finalTab.execution.queuedSweep = false;
+    this.activeSweepPromises.set(tabId, sweepPromise);
+    try {
+      await sweepPromise;
+    } finally {
+      if (this.activeSweepPromises.get(tabId) === sweepPromise) {
+        this.activeSweepPromises.delete(tabId);
+      }
     }
-    this.abortControllers.delete(tabId);
-    this.persistAndNotify();
   }
 
   private async runAgentTurn(agent: AgentConfig, tabId: string): Promise<void> {
@@ -839,7 +893,10 @@ export class MultiChatRuntime {
           agentName: agent.name,
           skipReason: 'no_new_input',
           visibleMessageIds: visibleMessages.map((message) => message.id),
-          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id, tab),
+          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(
+            agent.id,
+            tab,
+          ),
           contextKeyPrev:
             this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
           contextKeyNext: this.getVisibleContextKey(agent.id, tab),
@@ -860,7 +917,10 @@ export class MultiChatRuntime {
           agentName: agent.name,
           skipReason: 'no_api_key',
           visibleMessageIds: visibleMessages.map((message) => message.id),
-          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(agent.id, tab),
+          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(
+            agent.id,
+            tab,
+          ),
           contextKeyPrev:
             this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
           contextKeyNext: this.getVisibleContextKey(agent.id, tab),
@@ -886,7 +946,10 @@ export class MultiChatRuntime {
     const previousContextKey =
       this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '';
     const nextContextKey = this.getVisibleContextKey(agent.id, tab);
-    const nonSelfVisibleMessageIds = this.getNonSelfVisibleMessageIds(agent.id, tab);
+    const nonSelfVisibleMessageIds = this.getNonSelfVisibleMessageIds(
+      agent.id,
+      tab,
+    );
     const triggeringMessageIds = this.getTriggeringMessageIds(
       previousContextKey,
       nonSelfVisibleMessageIds,
@@ -941,9 +1004,9 @@ export class MultiChatRuntime {
         now: this.now,
         traceId: trace.id,
         tab,
-          status: 'succeeded',
-          usage: result.usage,
-          action: result.action,
+        status: 'succeeded',
+        usage: result.usage,
+        action: result.action,
         promptCostUsd: this.getPromptCostUsd(
           tab.agents.find((item) => item.id === trace.agentId) ?? agent,
           result.usage,
@@ -1027,9 +1090,9 @@ export class MultiChatRuntime {
           now: this.now,
           traceId: trace.id,
           tab,
-            status: 'aborted',
-            error: 'Agent request aborted',
-            promptCostUsd: 0,
+          status: 'aborted',
+          error: 'Agent request aborted',
+          promptCostUsd: 0,
         });
         pushRuntimeEvent({
           createId: this.createId,
@@ -1062,9 +1125,9 @@ export class MultiChatRuntime {
         now: this.now,
         traceId: trace.id,
         tab,
-          status: 'failed',
-          error: message,
-          promptCostUsd: 0,
+        status: 'failed',
+        error: message,
+        promptCostUsd: 0,
       });
       pushRuntimeError({
         createId: this.createId,
@@ -1097,13 +1160,13 @@ export class MultiChatRuntime {
             createId: this.createId,
             now: this.now,
             tab,
-              agent,
-              mode: 'json',
-              fallback: true,
-              parentTraceId: trace.id,
-              triggeringMessageIds,
-              visibleMessageIds: visibleMessages.map((message) => message.id),
-              nonSelfVisibleMessageIds,
+            agent,
+            mode: 'json',
+            fallback: true,
+            parentTraceId: trace.id,
+            triggeringMessageIds,
+            visibleMessageIds: visibleMessages.map((message) => message.id),
+            nonSelfVisibleMessageIds,
           });
           pushDebugLog({
             now: this.now,
@@ -1142,23 +1205,31 @@ export class MultiChatRuntime {
 
           this.markVisibleContextProcessed(agent.id, tab);
           this.applyUsage(agent.id, fallback.usage, tab);
-          this.applyDownstreamPromptCost(agent, visibleMessages, fallback.usage, tab);
+          this.applyDownstreamPromptCost(
+            agent,
+            visibleMessages,
+            fallback.usage,
+            tab,
+          );
           completeRequestTrace({
             now: this.now,
             traceId: fallbackTrace.id,
             tab,
-              status: 'succeeded',
-              usage: fallback.usage,
-              action: fallback.action,
-              promptCostUsd: this.getPromptCostUsd(
-                tab.agents.find((item) => item.id === fallbackTrace.agentId) ??
-                  agent,
-                fallback.usage,
-              ),
+            status: 'succeeded',
+            usage: fallback.usage,
+            action: fallback.action,
+            promptCostUsd: this.getPromptCostUsd(
+              tab.agents.find((item) => item.id === fallbackTrace.agentId) ??
+                agent,
+              fallback.usage,
+            ),
           });
           if (fallback.action.type === 'stay_silent') {
             const requestCostUsd = fallback.usage?.estimatedCost;
-            const ownPromptCostUsd = this.getPromptCostUsd(agent, fallback.usage);
+            const ownPromptCostUsd = this.getPromptCostUsd(
+              agent,
+              fallback.usage,
+            );
             pushRuntimeEvent({
               createId: this.createId,
               now: this.now,
@@ -1240,13 +1311,13 @@ export class MultiChatRuntime {
               now: this.now,
               traceId: fallbackTraceId,
               tab,
-                status:
-                  fallbackError instanceof Error &&
-                  fallbackError.name === 'AbortError'
-                    ? 'aborted'
-                    : 'failed',
-                error: fallbackMessage,
-                promptCostUsd: 0,
+              status:
+                fallbackError instanceof Error &&
+                fallbackError.name === 'AbortError'
+                  ? 'aborted'
+                  : 'failed',
+              error: fallbackMessage,
+              promptCostUsd: 0,
             });
           }
           pushRuntimeError({
@@ -1370,16 +1441,15 @@ export class MultiChatRuntime {
     tabId = this.workspace.activeTabId,
   ): AgentContextMessage[] {
     const tab = this.requireTab(tabId);
-    const agent = tab.agents.find((item) => item.id === agentId);
-    const contextWindowSize =
-      agent?.contextWindowSize ??
-      this.workspace.settings.defaultContextWindowSize ??
-      this.maxContextMessages;
-    const visibleMessages = this.getContextEligibleMessagesForAgent(agentId, tab);
+    const contextWindowSize = tab.contextWindowSize ?? this.maxContextMessages;
+    const visibleMessages = this.getContextWindowMessages(tab)
+      .slice(-contextWindowSize)
+      .filter((message) => this.isMessageVisibleToAgent(message, agentId));
 
     return visibleMessages.slice(-contextWindowSize).map((message) => {
+      const senderId = getMessageSenderId(message);
       const sender = tab.participants.find(
-        (participant) => participant.id === message.senderId,
+        (participant) => participant.id === senderId,
       );
       const recipient = tab.participants.find(
         (participant) => participant.id === message.recipientId,
@@ -1387,8 +1457,11 @@ export class MultiChatRuntime {
 
       return {
         id: message.id,
-        senderId: message.senderId,
-        senderName: sender?.name ?? message.senderId,
+        authorType: message.author.type,
+        senderId: senderId ?? undefined,
+        senderName: isSystemMessage(message)
+          ? SYSTEM_AUTHOR_NAME
+          : (sender?.name ?? senderId ?? ''),
         target: message.target,
         recipientId: message.recipientId,
         recipientName: recipient?.name,
@@ -1398,55 +1471,30 @@ export class MultiChatRuntime {
     });
   }
 
-  getAgentContextCutoffs(tabId = this.workspace.activeTabId): AgentContextCutoff[] {
+  getAgentContextCutoffs(
+    tabId = this.workspace.activeTabId,
+  ): AgentContextCutoff[] {
     const tab = this.requireTab(tabId);
-    type GroupedCutoff = {
-      anchor: ContextCutoffAnchor;
-      agentIds: string[];
-      agentNames: string[];
-      usesGlobalWindowFlags: boolean[];
-    };
+    const activeAgents = this.getActiveAgents(tab);
+    const contextWindowSize = tab.contextWindowSize ?? this.maxContextMessages;
+    const contextMessages =
+      this.getContextWindowMessages(tab).slice(-contextWindowSize);
+    const anchor = contextMessages[0]
+      ? {
+          kind: 'before-message' as const,
+          messageId: contextMessages[0].id,
+        }
+      : ({
+          kind: getTimelineMessages(tab).length ? 'end' : 'start',
+        } as const);
 
-    const groupedCutoffs = new Map<string, GroupedCutoff>();
-
-    for (const agent of this.getActiveAgents(tab)) {
-      const eligibleMessages = this.getContextEligibleMessagesForAgent(
-        agent.id,
-        tab,
-      );
-      const contextWindowSize =
-        agent.contextWindowSize ??
-        this.workspace.settings.defaultContextWindowSize ??
-        this.maxContextMessages;
-      const contextMessages = eligibleMessages.slice(-contextWindowSize);
-      const anchor = contextMessages[0]
-        ? {
-            kind: 'before-message' as const,
-            messageId: contextMessages[0].id,
-          }
-        : ({
-            kind: getTimelineMessages(tab).length ? 'end' : 'start',
-          } as const);
-      const key = `${anchor.kind}:${anchor.messageId ?? ''}`;
-      const current: GroupedCutoff = groupedCutoffs.get(key) ?? {
+    return [
+      {
         anchor,
-        agentIds: [],
-        agentNames: [],
-        usesGlobalWindowFlags: [],
-      };
-
-      current.agentIds.push(agent.id);
-      current.agentNames.push(agent.name);
-      current.usesGlobalWindowFlags.push(agent.contextWindowSize == null);
-      groupedCutoffs.set(key, current);
-    }
-
-    return Array.from(groupedCutoffs.values()).map((group) => ({
-      anchor: group.anchor,
-      agentIds: group.agentIds,
-      agentNames: group.agentNames,
-      usesGlobalWindow: group.usesGlobalWindowFlags.every(Boolean),
-    }));
+        agentIds: activeAgents.map((agent) => agent.id),
+        agentNames: activeAgents.map((agent) => agent.name),
+      },
+    ];
   }
 
   isMessageVisibleToAgent(message: ChatMessage, agentId: string): boolean {
@@ -1454,7 +1502,9 @@ export class MultiChatRuntime {
       return true;
     }
 
-    return message.senderId === agentId || message.recipientId === agentId;
+    return (
+      getMessageSenderId(message) === agentId || message.recipientId === agentId
+    );
   }
 
   isMessageVisibleToParticipant(
@@ -1470,26 +1520,21 @@ export class MultiChatRuntime {
     }
 
     return (
-      message.senderId === participantId ||
+      getMessageSenderId(message) === participantId ||
       message.recipientId === participantId
     );
   }
 
-  private getContextEligibleMessagesForAgent(
-    agentId: string,
-    tab: ChatTabState,
-  ): ChatMessage[] {
+  private getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
     return getTimelineMessages(tab).filter((message) => {
-      if (!this.isMessageVisibleToAgent(message, agentId)) {
-        return false;
-      }
-
       const cutoffIndex = getActiveManualCutoffIndex(tab);
       if (cutoffIndex === null) {
         return true;
       }
 
-      const entryIndex = tab.timeline.findIndex((entry) => entry.id === message.id);
+      const entryIndex = tab.timeline.findIndex(
+        (entry) => entry.id === message.id,
+      );
       return entryIndex > cutoffIndex;
     });
   }
@@ -1516,12 +1561,17 @@ export class MultiChatRuntime {
       return true;
     }
 
-    const previousIds = new Set((keys.get(agentId) ?? '').split('|').filter(Boolean));
+    const previousIds = new Set(
+      (keys.get(agentId) ?? '').split('|').filter(Boolean),
+    );
     const nextIds = this.getNonSelfVisibleMessageIds(agentId, tab);
     return nextIds.some((messageId) => !previousIds.has(messageId));
   }
 
-  private markVisibleContextProcessed(agentId: string, tab: ChatTabState): void {
+  private markVisibleContextProcessed(
+    agentId: string,
+    tab: ChatTabState,
+  ): void {
     this.lastProcessedKeysForTab(tab.id).set(
       agentId,
       this.getVisibleContextKey(agentId, tab),
@@ -1535,7 +1585,9 @@ export class MultiChatRuntime {
     const previousMessageIds = new Set(
       previousContextKey ? previousContextKey.split('|').filter(Boolean) : [],
     );
-    return nextVisibleMessageIds.filter((messageId) => !previousMessageIds.has(messageId));
+    return nextVisibleMessageIds.filter(
+      (messageId) => !previousMessageIds.has(messageId),
+    );
   }
 
   private getActiveAgents(tab: ChatTabState): AgentConfig[] {
@@ -1560,6 +1612,98 @@ export class MultiChatRuntime {
     metrics.totalTokens += usage.totalTokens ?? 0;
     metrics.estimatedCost += usage.estimatedCost ?? 0;
     tab.metrics[agentId] = metrics;
+  }
+
+  private publishSystemMessage(
+    input: SendSystemMessageInput,
+    tabId: string,
+  ): { message: ChatMessage; triggersSweep: boolean } {
+    return this.publishMessage(
+      {
+        content: input.content,
+        target: 'public',
+        triggerSweep: input.triggerSweep,
+        kind: 'system',
+        system: input.system,
+      },
+      tabId,
+    );
+  }
+
+  private publishMessage(
+    input: Omit<SendMessageInput, 'senderId'> & {
+      senderId?: string;
+      kind?: ChatMessage['kind'];
+      system?: ChatMessage['system'];
+    },
+    tabId: string,
+  ): { message: ChatMessage; triggersSweep: boolean } {
+    const tab = this.requireTab(tabId);
+    if (input.target === 'private' && !input.recipientId) {
+      throw new Error('Private message requires recipientId');
+    }
+    if (input.kind !== 'system' && !input.senderId) {
+      throw new Error('Participant message requires senderId');
+    }
+
+    const triggersSweep = input.triggerSweep ?? true;
+    const createdInSweep =
+      input.createdInSweep ??
+      (triggersSweep ? tab.execution.sweepCount + 1 : undefined);
+
+    const message: ChatMessage = {
+      id: this.createId(),
+      author:
+        input.kind === 'system'
+          ? { type: 'system' }
+          : { type: 'participant', participantId: input.senderId! },
+      kind: input.kind ?? 'participant',
+      target: input.target,
+      recipientId: input.recipientId,
+      content: input.content.trim(),
+      system: input.system,
+      createdAt: this.now().toISOString(),
+      requestCostUsd: input.requestCostUsd ?? input.costUsd,
+      ownPromptCostUsd: input.ownPromptCostUsd,
+      downstreamPromptCostUsd: input.downstreamPromptCostUsd,
+      downstreamPromptCostContributors: input.downstreamPromptCostContributors,
+      costUsd:
+        (input.requestCostUsd ?? input.costUsd ?? 0) +
+          (input.downstreamPromptCostUsd ?? 0) || undefined,
+      createdInSweep,
+      sourceTraceId: input.sourceTraceId,
+    };
+
+    tab.timeline.push({
+      id: message.id,
+      createdAt: message.createdAt,
+      kind: 'message',
+      message,
+    });
+    updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
+        kind: 'message-created',
+        sweep: message.createdInSweep,
+        messageId: message.id,
+        agentId: input.kind === 'system' ? undefined : input.senderId,
+        agentName:
+          input.kind === 'system'
+            ? SYSTEM_AUTHOR_NAME
+            : this.participantName(input.senderId!, tab),
+        target: message.target,
+        recipientId: message.recipientId,
+        content: message.content,
+        details: triggersSweep
+          ? 'message triggers sweep'
+          : 'message does not trigger sweep',
+      },
+    });
+    this.persistAndNotify();
+
+    return { message, triggersSweep };
   }
 
   private participantName(participantId: string, tab: ChatTabState): string {
@@ -1623,6 +1767,7 @@ export class MultiChatRuntime {
   private buildRuntimeState(tab: ChatTabState): RuntimeState {
     return deepClone({
       activeTabId: this.workspace.activeTabId,
+      contextWindowSize: tab.contextWindowSize,
       participants: tab.participants,
       agents: tab.agents,
       timeline: tab.timeline,

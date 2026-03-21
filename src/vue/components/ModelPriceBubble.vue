@@ -15,13 +15,19 @@
       <span class="message-cost-row">
         <span class="message-cost-label">Prompt</span>
         <span class="message-cost-request">{{
-          formatMessageCost(promptPrice)
+          formatMessageCost(promptCost)
         }}</span>
       </span>
       <span class="message-cost-row">
         <span class="message-cost-label">Completion</span>
         <span class="message-cost-output">{{
-          formatMessageCost(completionPrice)
+          formatMessageCost(completionCost)
+        }}</span>
+      </span>
+      <span class="message-cost-row message-cost-row-total">
+        <span class="message-cost-label">Total</span>
+        <span class="message-cost-total">{{
+          formatMessageCost(totalCost)
         }}</span>
       </span>
     </div>
@@ -36,8 +42,9 @@ defineProps<{
   agent: AgentConfig | null;
   placement: 'up' | 'down';
   style: Record<string, string>;
-  promptPrice: number;
-  completionPrice: number;
+  promptCost: number;
+  completionCost: number;
+  totalCost: number;
   formatMessageCost: (costUsd: number) => string;
 }>();
 
@@ -81,6 +88,10 @@ watchEffect(() => {
   @apply flex items-start justify-between gap-3;
 }
 
+.message-cost-row-total {
+  @apply mt-1 border-t border-neutral-200 pt-1;
+}
+
 .message-cost-label {
   @apply text-neutral-600;
 }
@@ -91,5 +102,9 @@ watchEffect(() => {
 
 .message-cost-output {
   @apply text-lime-700;
+}
+
+.message-cost-total {
+  @apply font-semibold text-emerald-800;
 }
 </style>

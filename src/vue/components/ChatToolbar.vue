@@ -8,10 +8,18 @@
     >
       Add context cut-off
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="session.toggleContextCutoffs">
+    <UiButton
+      class="toolbar-button"
+      size="md"
+      @click="session.toggleContextCutoffs"
+    >
       {{ preferences.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="session.cycleCostDisplayMode">
+    <UiButton
+      class="toolbar-button"
+      size="md"
+      @click="session.cycleCostDisplayMode"
+    >
       {{
         preferences.costDisplayMode === 'off'
           ? 'Cost: off'
@@ -20,7 +28,11 @@
             : 'Cost: net'
       }}
     </UiButton>
-    <UiButton class="toolbar-button" size="md" @click="session.toggleSilentDecisions">
+    <UiButton
+      class="toolbar-button"
+      size="md"
+      @click="session.toggleSilentDecisions"
+    >
       {{
         preferences.showSilentDecisions
           ? 'Technical info: on'

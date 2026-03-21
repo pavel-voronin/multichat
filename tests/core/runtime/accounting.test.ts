@@ -65,9 +65,13 @@ describe('MultiChatRuntime accounting and logs', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    const [alphaId, betaId] = runtime
+      .getState()
+      .agents.map((agent) => agent.id);
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
-    await runtime.sendMessage({
+    const triggerMessage = await runtime.sendMessage({
       senderId: 'human',
       content: 'inspect this',
       target: 'public',
@@ -78,15 +82,15 @@ describe('MultiChatRuntime accounting and logs', () => {
       debugLogs.some(
         (entry) =>
           entry.kind === 'turn-requested' &&
-          entry.agentId === 'id-1' &&
-          entry.triggeringMessageIds?.includes('id-3'),
+          entry.agentId === alphaId &&
+          entry.triggeringMessageIds?.includes(triggerMessage.id),
       ),
     ).toBe(true);
     expect(
       debugLogs.some(
         (entry) =>
           entry.kind === 'turn-result' &&
-          entry.agentId === 'id-1' &&
+          entry.agentId === alphaId &&
           entry.actionType === 'speak_public',
       ),
     ).toBe(true);
@@ -94,7 +98,7 @@ describe('MultiChatRuntime accounting and logs', () => {
       debugLogs.some(
         (entry) =>
           entry.kind === 'turn-result' &&
-          entry.agentId === 'id-2' &&
+          entry.agentId === betaId &&
           entry.actionType === 'stay_silent' &&
           entry.details === 'observer',
       ),

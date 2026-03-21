@@ -27,13 +27,24 @@ describe('MultiAgentChat request inspection', () => {
   });
 
   it('opens request inspection for a human message from the timestamp', async () => {
-    const runtime = createRuntime();
+    const runtime = createRuntime({
+      createDefaultAgent: false,
+      setApiKey: false,
+    });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b:free',
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'key' });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'inspect me',
@@ -51,7 +62,18 @@ describe('MultiAgentChat request inspection', () => {
   });
 
   it('opens the single downstream silent trace directly from a human message timestamp', async () => {
-    const runtime = createRuntime();
+    const runtime = createRuntime({
+      createDefaultAgent: false,
+      setApiKey: false,
+    });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'key' });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'one silent reader',
@@ -69,7 +91,18 @@ describe('MultiAgentChat request inspection', () => {
   });
 
   it('shows silent outcome details inside request inspection', async () => {
-    const runtime = createRuntime();
+    const runtime = createRuntime({
+      createDefaultAgent: false,
+      setApiKey: false,
+    });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
+    });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'key' });
     await runtime.sendMessage({
       senderId: 'human',
       content: 'should stay silent',

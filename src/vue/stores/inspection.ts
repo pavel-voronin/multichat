@@ -1,12 +1,13 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import type {
-  ChatMessage,
-  DiagnosticsState,
-  MultiChatRuntime,
-  RequestTrace,
-  RuntimeState,
+import {
+  type ChatMessage,
+  type DiagnosticsState,
+  type MultiChatRuntime,
+  type RequestTrace,
+  type RuntimeState,
 } from '../../core';
+import { getMessageSenderId, isSystemMessage } from '../../core/messages';
 import { useDiagnosticsStore } from './diagnostics';
 import { useRuntimeStore } from './runtime';
 import { useUiStore, type InspectionTab } from './ui';
@@ -17,7 +18,9 @@ export const useInspectionStore = defineStore('inspection', () => {
   const ui = useUiStore();
   const { state } = storeToRefs(runtimeStore);
   const { diagnostics } = storeToRefs(diagnosticsStore);
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   const currentMessage = computed(() =>
     ui.selectedMessageId
@@ -76,7 +79,11 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   function canInspectMessage(message: ChatMessage): boolean {
-    if (message.senderId === 'human') {
+    if (isSystemMessage(message)) {
+      return false;
+    }
+
+    if (getMessageSenderId(message) === 'human') {
       return true;
     }
 
@@ -84,8 +91,10 @@ export const useInspectionStore = defineStore('inspection', () => {
       return true;
     }
 
-    return runtime.value.getInspectionSubjectForMessage(message.id).downstreamTraces
-      .length > 0;
+    return (
+      runtime.value.getInspectionSubjectForMessage(message.id).downstreamTraces
+        .length > 0
+    );
   }
 
   function getInspectionSubjectForMessage(messageId: string) {

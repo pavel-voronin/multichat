@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentTurnResult } from '../../../src/core';
-import { createRuntime, createTransport, timelineEvents, timelineMessages } from './helpers';
+import {
+  createRuntime,
+  createTransport,
+  timelineEvents,
+  timelineMessages,
+} from './helpers';
 
 describe('MultiChatRuntime sweeps', () => {
   it('falls back to json mode when tools fail', async () => {
@@ -61,15 +66,18 @@ describe('MultiChatRuntime sweeps', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    const agentIds = runtime.getState().agents.map((agent) => agent.id);
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
     await runtime.runAgentSweep('manual');
 
-    expect(order).toEqual(['id-1', 'id-2']);
+    expect(order).toEqual(agentIds);
   });
 
   it('continues with another sweep when later agents create messages', async () => {
     const turns: Record<string, number> = {};
+    let alphaId = '';
+    let betaId = '';
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
         turns[agentId] = (turns[agentId] ?? 0) + 1;
@@ -77,10 +85,10 @@ describe('MultiChatRuntime sweeps', () => {
           .getVisibleMessagesForAgent(agentId)
           .map((message) => `${message.senderId}:${message.content}`);
 
-        if (agentId === 'id-1') {
+        if (agentId === alphaId) {
           if (
             visible.some((message) => message === 'human:start debate') &&
-            !visible.some((message) => message === 'id-2:reply from beta')
+            !visible.some((message) => message === `${betaId}:reply from beta`)
           ) {
             return {
               mode: 'tools',
@@ -89,8 +97,12 @@ describe('MultiChatRuntime sweeps', () => {
           }
 
           if (
-            visible.some((message) => message === 'id-2:reply from beta') &&
-            !visible.some((message) => message === 'id-1:follow-up from alpha')
+            visible.some(
+              (message) => message === `${betaId}:reply from beta`,
+            ) &&
+            !visible.some(
+              (message) => message === `${alphaId}:follow-up from alpha`,
+            )
           ) {
             return {
               mode: 'tools',
@@ -100,9 +112,11 @@ describe('MultiChatRuntime sweeps', () => {
         }
 
         if (
-          agentId === 'id-2' &&
-          visible.some((message) => message === 'id-1:reply from alpha') &&
-          !visible.some((message) => message === 'id-2:reply from beta')
+          agentId === betaId &&
+          visible.some(
+            (message) => message === `${alphaId}:reply from alpha`,
+          ) &&
+          !visible.some((message) => message === `${betaId}:reply from beta`)
         ) {
           return {
             mode: 'tools',
@@ -129,6 +143,8 @@ describe('MultiChatRuntime sweeps', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    [alphaId, betaId] = runtime.getState().agents.map((agent) => agent.id);
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
     await runtime.sendMessage({
@@ -146,15 +162,16 @@ describe('MultiChatRuntime sweeps', () => {
       ],
     );
     expect(turns).toEqual({
-      'id-1': 2,
-      'id-2': 2,
+      [alphaId]: 2,
+      [betaId]: 2,
     });
   });
 
   it('does not let an agent repeat on unchanged visible context', async () => {
+    let alphaId = '';
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
-        if (agentId === 'id-1') {
+        if (agentId === alphaId) {
           return {
             mode: 'tools',
             action: { type: 'speak_public', text: 'need more detail' },
@@ -180,6 +197,8 @@ describe('MultiChatRuntime sweeps', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    alphaId = runtime.getState().agents[0]!.id;
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
     await runtime.sendMessage({
@@ -195,11 +214,12 @@ describe('MultiChatRuntime sweeps', () => {
 
   it('does not rerun a speaking agent when its own reply displaces the prompt from a tiny window', async () => {
     const turns: string[] = [];
+    let alphaId = '';
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
         turns.push(agentId);
 
-        if (agentId === 'id-1') {
+        if (agentId === alphaId) {
           return {
             mode: 'tools',
             action: { type: 'speak_public', text: 'answer once' },
@@ -217,7 +237,6 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      contextWindowSize: 1,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
@@ -226,6 +245,9 @@ describe('MultiChatRuntime sweeps', () => {
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+    const agentIds = runtime.getState().agents.map((agent) => agent.id);
+    alphaId = agentIds[0]!;
+    runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
     await runtime.sendMessage({
@@ -237,7 +259,7 @@ describe('MultiChatRuntime sweeps', () => {
     expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
       ['question', 'answer once'],
     );
-    expect(turns).toEqual(['id-1', 'id-2']);
+    expect(turns).toEqual(agentIds);
   });
 
   it('stop aborts active sweep and clears queued execution', async () => {

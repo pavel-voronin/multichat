@@ -9,7 +9,9 @@ export const useSessionStore = defineStore('session', () => {
   const runtimeStore = useRuntimeStore();
   const preferencesStore = usePreferencesStore();
   const messageInputStore = useMessageInputStore();
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   function updateRuntimeSettings(
     patch: Parameters<MultiChatRuntime['updateSettings']>[0],
@@ -17,12 +19,17 @@ export const useSessionStore = defineStore('session', () => {
     runtime.value.updateSettings(patch);
   }
 
+  function updateContextWindowSize(contextWindowSize: number): void {
+    runtime.value.updateTabContextWindowSize(contextWindowSize);
+  }
+
   function toggleContextCutoffs(): void {
     preferencesStore.showContextCutoffs = !preferencesStore.showContextCutoffs;
   }
 
   function toggleSilentDecisions(): void {
-    preferencesStore.showSilentDecisions = !preferencesStore.showSilentDecisions;
+    preferencesStore.showSilentDecisions =
+      !preferencesStore.showSilentDecisions;
   }
 
   function cycleCostDisplayMode(): void {
@@ -68,6 +75,7 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     updateRuntimeSettings,
+    updateContextWindowSize,
     toggleContextCutoffs,
     toggleSilentDecisions,
     cycleCostDisplayMode,

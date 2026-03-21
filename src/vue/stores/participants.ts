@@ -17,7 +17,9 @@ export const useParticipantsStore = defineStore('participants', () => {
           return true;
         }
 
-        const agent = state.value.agents.find((item) => item.id === participant.id);
+        const agent = state.value.agents.find(
+          (item) => item.id === participant.id,
+        );
         return agent?.isHidden !== true;
       })
       .map((participant) => ({
@@ -27,8 +29,8 @@ export const useParticipantsStore = defineStore('participants', () => {
         subtitle:
           participant.role === 'human'
             ? 'human'
-            : state.value.agents.find((agent) => agent.id === participant.id)
-                ?.modelId ?? participant.role,
+            : (state.value.agents.find((agent) => agent.id === participant.id)
+                ?.modelId ?? participant.role),
         showMoney:
           preferencesStore.costDisplayMode !== 'off' &&
           participant.role === 'agent' &&
@@ -36,7 +38,7 @@ export const useParticipantsStore = defineStore('participants', () => {
             ?.isHidden !== true,
         spentSummary: formatMessageCost(
           participant.role === 'agent'
-            ? state.value.metrics[participant.id]?.estimatedCost ?? 0
+            ? (state.value.metrics[participant.id]?.estimatedCost ?? 0)
             : 0,
         ),
       })),

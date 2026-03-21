@@ -173,7 +173,10 @@ export function linkTraceToMessage(
   }
 }
 
-export function cloneTraces(traceIds: string[], tab: ChatTabState): RequestTrace[] {
+export function cloneTraces(
+  traceIds: string[],
+  tab: ChatTabState,
+): RequestTrace[] {
   return traceIds
     .map((traceId) => tab.requestTraces[traceId])
     .filter((item): item is RequestTrace => Boolean(item))

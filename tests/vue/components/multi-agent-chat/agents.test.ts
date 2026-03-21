@@ -18,8 +18,18 @@ describe('MultiAgentChat agent lifecycle', () => {
 
     const wrapper = mountChat(runtime);
 
-    const deleteButton = wrapper.get('.participant-delete-button');
-    await deleteButton.trigger('click');
+    await wrapper.findAll('.participant-edit-button').at(-1)!.trigger('click');
+    expect(document.body.textContent).toContain('Edit agent');
+
+    const deleteButton = Array.from(
+      document.body.querySelectorAll('.wizard-backdrop button'),
+    ).find((button) => button.textContent?.trim() === 'Delete') as
+      | HTMLButtonElement
+      | undefined;
+    expect(deleteButton).toBeDefined();
+
+    deleteButton?.click();
+    await wrapper.vm.$nextTick();
 
     expect(document.body.textContent).toContain('Hide agent?');
     expect(document.body.textContent).toContain(

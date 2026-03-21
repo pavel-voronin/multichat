@@ -18,7 +18,9 @@ export function buildVisibleTimelineEntries(input: {
     'showContextCutoffs' | 'showSilentDecisions'
   >;
 }): VisibleTimelineEntry[] {
-  const activeManualCutoffIndex = getActiveManualCutoffIndex(input.state.timeline);
+  const activeManualCutoffIndex = getActiveManualCutoffIndex(
+    input.state.timeline,
+  );
   const visibleEntries: VisibleTimelineEntry[] = [];
   const visibleMessages: Array<{ message: ChatMessage; sortAt: number }> = [];
 
@@ -79,7 +81,6 @@ export function buildVisibleTimelineEntries(input: {
           anchor: cutoff.anchor,
           agentIds: cutoff.agentIds,
           agentNames: cutoff.agentNames,
-          usesGlobalWindow: cutoff.usesGlobalWindow,
         },
         sortAt,
       });

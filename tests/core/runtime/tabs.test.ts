@@ -60,16 +60,18 @@ describe('MultiChatRuntime tabs', () => {
     const secondTab = runtime.createTab({ title: '#second' });
 
     runtime.renameTab(secondTab.id, '#renamed');
+    runtime.updateTabContextWindowSize(12, secondTab.id);
     runtime.moveTab(secondTab.id, 0);
     runtime.activateTab(firstTabId);
     runtime.closeTab(secondTab.id);
 
-    const kinds = runtime.getDiagnosticsState().debugLogs.map(
-      (entry) => entry.kind,
-    );
+    const kinds = runtime
+      .getDiagnosticsState()
+      .debugLogs.map((entry) => entry.kind);
 
     expect(kinds).toContain('tab-created');
     expect(kinds).toContain('tab-renamed');
+    expect(kinds).toContain('tab-context-window-updated');
     expect(kinds).toContain('tab-closed');
   });
 
@@ -114,23 +116,21 @@ describe('MultiChatRuntime tabs', () => {
       triggerSweep: false,
     });
 
-    expect(runtime.getState().participants.map((participant) => participant.name)).toEqual([
-      'Human',
-      'Beta',
-    ]);
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      'message two',
-    ]);
+    expect(
+      runtime.getState().participants.map((participant) => participant.name),
+    ).toEqual(['Human', 'Beta']);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['message two'],
+    );
 
     runtime.activateTab(defaultTabId);
 
-    expect(runtime.getState().participants.map((participant) => participant.name)).toEqual([
-      'Human',
-      'Alpha',
-    ]);
-    expect(timelineMessages(runtime).map((message) => message.content)).toEqual([
-      'message one',
-    ]);
+    expect(
+      runtime.getState().participants.map((participant) => participant.name),
+    ).toEqual(['Human', 'Alpha']);
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['message one'],
+    );
     expect(
       runtime
         .getTimelineEntries()
@@ -141,7 +141,28 @@ describe('MultiChatRuntime tabs', () => {
     ).toBe(true);
 
     runtime.closeTab(secondTab.id);
-    expect(runtime.getWorkspaceState().tabs.some((tab) => tab.id === secondTab.id)).toBe(false);
+    expect(
+      runtime.getWorkspaceState().tabs.some((tab) => tab.id === secondTab.id),
+    ).toBe(false);
+  });
+
+  it('keeps context window size isolated per tab', () => {
+    const runtime = createEmptyRuntime();
+    const firstTabId = runtime.getWorkspaceState().activeTabId;
+    const secondTab = runtime.createTab({ title: '#second' });
+
+    runtime.updateTabContextWindowSize(7, secondTab.id);
+    runtime.activateTab(firstTabId);
+
+    expect(runtime.getState().contextWindowSize).toBe(40);
+
+    runtime.activateTab(secondTab.id);
+
+    expect(runtime.getState().contextWindowSize).toBe(7);
+    expect(
+      runtime.getWorkspaceState().tabs.find((tab) => tab.id === secondTab.id)
+        ?.contextWindowSize,
+    ).toBe(7);
   });
 
   it('keeps inactive tabs running while another tab is active', async () => {
@@ -153,7 +174,10 @@ describe('MultiChatRuntime tabs', () => {
               if (agentId === 'id-1') {
                 resolve({
                   mode: 'tools' as const,
-                  action: { type: 'speak_public' as const, text: 'background reply' },
+                  action: {
+                    type: 'speak_public' as const,
+                    text: 'background reply',
+                  },
                 });
                 return;
               }
@@ -201,7 +225,9 @@ describe('MultiChatRuntime tabs', () => {
       runtime
         .getTimelineEntries(firstTabId)
         .filter((entry) => entry.kind === 'message')
-        .map((entry) => (entry.kind === 'message' ? entry.message.content : '')),
+        .map((entry) =>
+          entry.kind === 'message' ? entry.message.content : '',
+        ),
     ).toContain('background reply');
   });
 });

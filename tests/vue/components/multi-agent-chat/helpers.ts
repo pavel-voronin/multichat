@@ -14,17 +14,16 @@ import type {
 export function createRuntime(options?: {
   transport?: OpenRouterTransport;
   createDefaultAgent?: boolean;
+  setApiKey?: boolean;
 }) {
-  const transport: OpenRouterTransport =
-    options?.transport ??
-    {
-      async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
-      },
-      async runAgentTurn() {
-        return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
-      },
-    };
+  const transport: OpenRouterTransport = options?.transport ?? {
+    async listModels() {
+      return [{ id: 'model-a:free', name: 'Model A Free' }];
+    },
+    async runAgentTurn() {
+      return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+    },
+  };
 
   const runtime = new MultiChatRuntime({
     transport,
@@ -35,8 +34,6 @@ export function createRuntime(options?: {
     },
   });
 
-  runtime.updateSettings({ openRouterApiKey: 'key' });
-
   if (options?.createDefaultAgent !== false) {
     runtime.createAgent({
       name: 'Alpha',
@@ -46,9 +43,12 @@ export function createRuntime(options?: {
         completion: '0.01',
       },
       systemPrompt: 'prompt',
-      contextWindowSize: null,
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+  }
+
+  if (options?.setApiKey !== false) {
+    runtime.updateSettings({ openRouterApiKey: 'key' });
   }
 
   return runtime;
@@ -58,6 +58,7 @@ export function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
   return runtime
     .getTimelineEntries()
     .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
+    .filter((entry) => entry.message.kind !== 'system')
     .map((entry) => entry.message);
 }
 
