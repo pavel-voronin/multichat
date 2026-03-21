@@ -2,8 +2,6 @@ import type {
   AgentConfig,
   AgentContextCutoff,
   AgentContextMessage,
-  AgentExecutionMode,
-  AgentTurnResult,
   ChatMessage,
   ChatTabState,
   DiagnosticsState,
@@ -16,45 +14,33 @@ import type {
   TabMutationSource,
   TimelineEntry,
   WorkspaceState,
-  TransportUsage,
 } from './types';
 import {
-  attachProducedMessageToTrace,
-  completeRequestTrace,
   createManualCutoffEntry,
-  createRequestTrace,
   getActiveManualCutoffIndex,
   getTimelineMessages,
   pushDebugLog,
-  pushRuntimeError,
   pushRuntimeEvent,
 } from './diagnostics';
-import {
-  applyDownstreamPromptCost,
-  applyUsage,
-  getPromptCostUsd,
-} from './accounting';
 import {
   getInspectionSubjectForMessage as getInspectionSubjectFn,
   getMessageInspectionGraph as getMessageInspectionGraphFn,
   getRelatedRequestTraces as getRelatedRequestTracesFn,
 } from './traces';
 import {
-  getActiveAgents,
   getAgentContextCutoffs,
-  getNonSelfVisibleMessageIds,
-  getTriggeringMessageIds,
-  getVisibleContextKey,
   getVisibleMessagesForAgent as getVisibleMessagesForAgentFn,
-  hasNewVisibleInputForAgent,
   isMessageVisibleToAgent as isMessageVisibleToAgentFn,
   isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
-  markVisibleContextProcessed,
 } from './context-routing';
 import {
   publishMessageToTab,
   publishSystemMessageToTab,
 } from './messaging';
+import {
+  runAgentSweepFn,
+  type ExecutionContext,
+} from './execution';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
@@ -671,583 +657,27 @@ export class MultiChatRuntime {
     trigger: string,
     tabId = this.workspace.activeTabId,
   ): Promise<void> {
-    const tab = this.getTab(tabId);
-    if (!tab) {
-      return;
-    }
-
-    const activeSweepPromise = this.activeSweepPromises.get(tabId);
-    if (activeSweepPromise) {
-      if (!tab.execution.stopRequested) {
-        tab.execution.queuedSweep = true;
-      }
-      this.persistAndNotify();
-      await activeSweepPromise;
-      return;
-    }
-
-    const sweepPromise = (async () => {
-      if (trigger === 'manual') {
-        this.lastProcessedKeysForTab(tab.id).clear();
-      }
-
-      let loops = 0;
-      tab.execution.stopRequested = false;
-
-      do {
-        const currentTab = this.getTab(tabId);
-        if (!currentTab || currentTab.execution.stopRequested) {
-          break;
-        }
-
-        currentTab.execution.isSweepRunning = true;
-        currentTab.execution.queuedSweep = false;
-        currentTab.execution.sweepCount += 1;
-        pushRuntimeEvent({
-          createId: this.createId,
-          now: this.now,
-          tab: currentTab,
-          payload: {
-            type: 'sweep-started',
-            details: trigger,
-          },
-        });
-        pushDebugLog({
-          now: this.now,
-          workspace: this.workspace,
-          payload: {
-            kind: 'sweep-started',
-            sweep: currentTab.execution.sweepCount,
-            trigger,
-          },
-        });
-        this.persistAndNotify();
-
-        for (const agent of this.getActiveAgents(currentTab)) {
-          const latestTab = this.getTab(tabId);
-          if (!latestTab || latestTab.execution.stopRequested) {
-            break;
-          }
-          await this.runAgentTurn(agent, tabId);
-        }
-
-        const latestTab = this.getTab(tabId);
-        if (!latestTab) {
-          break;
-        }
-
-        latestTab.execution.isSweepRunning = false;
-        pushRuntimeEvent({
-          createId: this.createId,
-          now: this.now,
-          tab: latestTab,
-          payload: {
-            type: 'sweep-finished',
-            details: trigger,
-          },
-        });
-        pushDebugLog({
-          now: this.now,
-          workspace: this.workspace,
-          payload: {
-            kind: 'sweep-finished',
-            sweep: latestTab.execution.sweepCount,
-            trigger,
-          },
-        });
-        this.persistAndNotify();
-        loops += 1;
-      } while (
-        this.getTab(tabId)?.execution.queuedSweep &&
-        loops < this.maxAutoSweeps &&
-        !this.getTab(tabId)?.execution.stopRequested
-      );
-
-      const finalTab = this.getTab(tabId);
-      if (finalTab) {
-        finalTab.execution.isSweepRunning = false;
-        finalTab.execution.queuedSweep = false;
-      }
-      this.abortControllers.delete(tabId);
-      this.persistAndNotify();
-    })();
-
-    this.activeSweepPromises.set(tabId, sweepPromise);
-    try {
-      await sweepPromise;
-    } finally {
-      if (this.activeSweepPromises.get(tabId) === sweepPromise) {
-        this.activeSweepPromises.delete(tabId);
-      }
-    }
+    await runAgentSweepFn(trigger, tabId, this.buildExecutionContext());
   }
 
-  private async runAgentTurn(agent: AgentConfig, tabId: string): Promise<void> {
-    const tab = this.getTab(tabId);
-    if (!tab) {
-      return;
-    }
-
-    if (tab.execution.stopRequested) {
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'turn-skipped',
-          sweep: tab.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          skipReason: 'stop_requested',
-        },
-      });
-      return;
-    }
-
-    const visibleMessages = this.getVisibleMessagesForAgent(agent.id, tabId);
-    if (!this.hasNewVisibleInputForAgent(agent.id, tab)) {
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'turn-skipped',
-          sweep: tab.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          skipReason: 'no_new_input',
-          visibleMessageIds: visibleMessages.map((message) => message.id),
-          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(
-            agent.id,
-            tab,
-          ),
-          contextKeyPrev:
-            this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
-          contextKeyNext: this.getVisibleContextKey(agent.id, tab),
-        },
-      });
-      return;
-    }
-
-    const apiKey = this.workspace.settings.openRouterApiKey;
-    if (!apiKey) {
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'turn-skipped',
-          sweep: tab.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          skipReason: 'no_api_key',
-          visibleMessageIds: visibleMessages.map((message) => message.id),
-          nonSelfVisibleMessageIds: this.getNonSelfVisibleMessageIds(
-            agent.id,
-            tab,
-          ),
-          contextKeyPrev:
-            this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '',
-          contextKeyNext: this.getVisibleContextKey(agent.id, tab),
-        },
-      });
-      pushRuntimeError({
-        createId: this.createId,
-        now: this.now,
-        tab,
-        workspace: this.workspace,
-        participantName: this.participantName,
-        payload: {
-          agentId: agent.id,
-          message: 'OpenRouter API key is missing',
-        },
-      });
-      return;
-    }
-
-    const mode = this.chooseAgentMode(agent);
-    const abortController = new AbortController();
-    this.abortControllers.set(tab.id, abortController);
-    const previousContextKey =
-      this.lastProcessedKeysForTab(tab.id).get(agent.id) ?? '';
-    const nextContextKey = this.getVisibleContextKey(agent.id, tab);
-    const nonSelfVisibleMessageIds = this.getNonSelfVisibleMessageIds(
-      agent.id,
-      tab,
-    );
-    const triggeringMessageIds = this.getTriggeringMessageIds(
-      previousContextKey,
-      nonSelfVisibleMessageIds,
-    );
-    const trace = createRequestTrace({
+  private buildExecutionContext(): ExecutionContext {
+    return {
+      workspace: this.workspace,
+      transport: this.config.transport,
+      abortControllers: this.abortControllers,
+      activeSweepPromises: this.activeSweepPromises,
+      maxAutoSweeps: this.maxAutoSweeps,
+      maxContextMessages: this.maxContextMessages,
+      now: this.now,
       createId: this.createId,
-      now: this.now,
-      tab,
-      agent,
-      mode,
-      fallback: false,
-      parentTraceId: null,
-      triggeringMessageIds,
-      visibleMessageIds: visibleMessages.map((message) => message.id),
-      nonSelfVisibleMessageIds,
-    });
-    pushDebugLog({
-      now: this.now,
-      workspace: this.workspace,
-      payload: {
-        kind: 'turn-requested',
-        sweep: tab.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        mode,
-        fallback: false,
-        visibleMessageIds: visibleMessages.map((message) => message.id),
-        nonSelfVisibleMessageIds,
-        triggeringMessageIds,
-        contextKeyPrev: previousContextKey,
-        contextKeyNext: nextContextKey,
-      },
-    });
-
-    try {
-      const result = await this.config.transport.runAgentTurn({
-        apiKey,
-        context: {
-          agent,
-          participants: deepClone(tab.participants),
-          visibleMessages,
-        },
-        mode,
-        signal: abortController.signal,
-      });
-
-      await this.handleSuccessfulAgentTurnResult({
-        agent,
-        result,
-        traceId: trace.id,
-        tab,
-        tabId,
-        visibleMessages,
-        fallback: false,
-        updateToolSupport: true,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        completeRequestTrace({
-          now: this.now,
-          traceId: trace.id,
-          tab,
-          status: 'aborted',
-          error: 'Agent request aborted',
-          promptCostUsd: 0,
-        });
-        pushRuntimeEvent({
-          createId: this.createId,
-          now: this.now,
-          tab,
-          payload: {
-            type: 'sweep-stopped',
-            agentId: agent.id,
-            details: 'Agent request aborted',
-          },
-        });
-        pushDebugLog({
-          now: this.now,
-          workspace: this.workspace,
-          payload: {
-            kind: 'sweep-stopped',
-            sweep: tab.execution.sweepCount,
-            agentId: agent.id,
-            agentName: agent.name,
-            details: 'Agent request aborted',
-          },
-        });
-        this.persistAndNotify();
-        return;
-      }
-
-      const message =
-        error instanceof Error ? error.message : 'Unknown agent runtime error';
-      completeRequestTrace({
-        now: this.now,
-        traceId: trace.id,
-        tab,
-        status: 'failed',
-        error: message,
-        promptCostUsd: 0,
-      });
-      pushRuntimeError({
-        createId: this.createId,
-        now: this.now,
-        tab,
-        workspace: this.workspace,
-        participantName: this.participantName,
-        payload: {
-          agentId: agent.id,
-          message: 'Agent turn failed',
-          details: message,
-          sourceTraceId: trace.id,
-        },
-      });
-
-      if (mode === 'tools') {
-        this.updateAgent(
-          agent.id,
-          {
-            capabilities: {
-              ...agent.capabilities,
-              supportsToolUse: 'unsupported',
-            },
-          },
-          tabId,
-        );
-
-        let fallbackTraceId: string | null = null;
-        try {
-          const fallbackTrace = createRequestTrace({
-            createId: this.createId,
-            now: this.now,
-            tab,
-            agent,
-            mode: 'json',
-            fallback: true,
-            parentTraceId: trace.id,
-            triggeringMessageIds,
-            visibleMessageIds: visibleMessages.map((message) => message.id),
-            nonSelfVisibleMessageIds,
-          });
-          fallbackTraceId = fallbackTrace.id;
-          pushDebugLog({
-            now: this.now,
-            workspace: this.workspace,
-            payload: {
-              kind: 'turn-requested',
-              sweep: tab.execution.sweepCount,
-              agentId: agent.id,
-              agentName: agent.name,
-              mode: 'json',
-              fallback: true,
-              visibleMessageIds: visibleMessages.map((message) => message.id),
-              nonSelfVisibleMessageIds,
-              triggeringMessageIds,
-              contextKeyPrev: previousContextKey,
-              contextKeyNext: nextContextKey,
-              details: 'JSON fallback after tool failure',
-            },
-          });
-          const fallback = await this.config.transport.runAgentTurn({
-            apiKey,
-            context: {
-              agent: {
-                ...agent,
-                capabilities: {
-                  ...agent.capabilities,
-                  supportsToolUse: 'unsupported',
-                },
-              },
-              participants: deepClone(tab.participants),
-              visibleMessages,
-            },
-            mode: 'json',
-            signal: abortController.signal,
-          });
-
-          await this.handleSuccessfulAgentTurnResult({
-            agent,
-            result: fallback,
-            traceId: fallbackTrace.id,
-            tab,
-            tabId,
-            visibleMessages,
-            fallback: true,
-            updateToolSupport: false,
-          });
-        } catch (fallbackError) {
-          const fallbackMessage =
-            fallbackError instanceof Error
-              ? fallbackError.message
-              : 'Unknown JSON fallback error';
-          if (fallbackTraceId) {
-            completeRequestTrace({
-              now: this.now,
-              traceId: fallbackTraceId,
-              tab,
-              status:
-                fallbackError instanceof Error &&
-                fallbackError.name === 'AbortError'
-                  ? 'aborted'
-                  : 'failed',
-              error: fallbackMessage,
-              promptCostUsd: 0,
-            });
-          }
-          pushRuntimeError({
-            createId: this.createId,
-            now: this.now,
-            tab,
-            workspace: this.workspace,
-            participantName: this.participantName,
-            payload: {
-              agentId: agent.id,
-              message: 'JSON fallback failed',
-              details: fallbackMessage,
-              sourceTraceId: fallbackTraceId ?? undefined,
-            },
-          });
-          this.persistAndNotify();
-        }
-      } else {
-        this.persistAndNotify();
-      }
-    } finally {
-      if (this.abortControllers.get(tab.id) === abortController) {
-        this.abortControllers.delete(tab.id);
-      }
-    }
-  }
-
-  private async handleSuccessfulAgentTurnResult({
-    agent,
-    result,
-    traceId,
-    tab,
-    tabId,
-    visibleMessages,
-    fallback,
-    updateToolSupport,
-  }: {
-    agent: AgentConfig;
-    result: AgentTurnResult;
-    traceId: string;
-    tab: ChatTabState;
-    tabId: string;
-    visibleMessages: AgentContextMessage[];
-    fallback: boolean;
-    updateToolSupport: boolean;
-  }): Promise<void> {
-    this.markVisibleContextProcessed(agent.id, tab);
-    this.applyUsage(agent.id, result.usage, tab);
-    this.applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
-    if (updateToolSupport) {
-      this.updateToolSupport(agent.id, result.mode, tab);
-    }
-    completeRequestTrace({
-      now: this.now,
-      traceId,
-      tab,
-      status: 'succeeded',
-      usage: result.usage,
-      action: result.action,
-      promptCostUsd: this.getPromptCostUsd(agent, result.usage),
-    });
-
-    if (result.action.type === 'stay_silent') {
-      const requestCostUsd = result.usage?.estimatedCost;
-      const ownPromptCostUsd = this.getPromptCostUsd(agent, result.usage);
-      pushRuntimeEvent({
-        createId: this.createId,
-        now: this.now,
-        tab,
-        payload: {
-          type: 'silent-decision',
-          agentId: agent.id,
-          details: result.action.reason,
-          sourceTraceId: traceId,
-          requestCostUsd,
-          ownPromptCostUsd,
-          costUsd: requestCostUsd,
-        },
-      });
-      pushDebugLog({
-        now: this.now,
-        workspace: this.workspace,
-        payload: {
-          kind: 'turn-result',
-          sweep: tab.execution.sweepCount,
-          agentId: agent.id,
-          agentName: agent.name,
-          mode: result.mode,
-          fallback,
-          actionType: result.action.type,
-          details: result.action.reason,
-        },
-      });
-      this.persistAndNotify();
-      return;
-    }
-
-    const sentMessage = await this.sendMessage(
-      {
-        senderId: agent.id,
-        content: result.action.text,
-        target: result.action.type === 'speak_public' ? 'public' : 'private',
-        recipientId:
-          result.action.type === 'send_private' ? result.action.to : undefined,
-        requestCostUsd: result.usage?.estimatedCost,
-        ownPromptCostUsd: this.getPromptCostUsd(agent, result.usage),
-        createdInSweep: tab.execution.sweepCount,
-        sourceTraceId: traceId,
-        triggerSweep: false,
-      },
-      tabId,
-    );
-    attachProducedMessageToTrace(traceId, sentMessage.id, tab);
-    pushDebugLog({
-      now: this.now,
-      workspace: this.workspace,
-      payload: {
-        kind: 'turn-result',
-        sweep: tab.execution.sweepCount,
-        agentId: agent.id,
-        agentName: agent.name,
-        mode: result.mode,
-        fallback,
-        actionType: result.action.type,
-        messageId: sentMessage.id,
-        target: sentMessage.target,
-        recipientId: sentMessage.recipientId,
-        content: result.action.text,
-      },
-    });
-    tab.execution.queuedSweep = true;
-  }
-
-  private chooseAgentMode(agent: AgentConfig): AgentExecutionMode {
-    if (
-      agent.capabilities.prefersTools &&
-      agent.capabilities.supportsToolUse !== 'unsupported'
-    ) {
-      return 'tools';
-    }
-
-    return 'json';
-  }
-
-  private updateToolSupport(
-    agentId: string,
-    mode: AgentExecutionMode,
-    tab: ChatTabState,
-  ): void {
-    if (mode !== 'tools') {
-      return;
-    }
-
-    const agent = tab.agents.find((item) => item.id === agentId);
-    if (!agent) {
-      return;
-    }
-
-    agent.capabilities.supportsToolUse = 'supported';
-  }
-
-  private applyDownstreamPromptCost(
-    receivingAgent: AgentConfig,
-    visibleMessages: AgentContextMessage[],
-    usage: TransportUsage | undefined,
-    tab: ChatTabState,
-  ): void {
-    applyDownstreamPromptCost(receivingAgent, visibleMessages, usage, tab);
-  }
-
-  private getPromptCostUsd(agent: AgentConfig, usage?: TransportUsage): number {
-    return getPromptCostUsd(agent, usage);
+      lastProcessedKeys: this.lastProcessedVisibleContextKeys,
+      participantName: (participantId, tab) =>
+        this.participantName(participantId, tab),
+      sendMessage: (input, tabId) => this.sendMessage(input, tabId),
+      updateAgent: (agentId, patch, tabId) =>
+        this.updateAgent(agentId, patch, tabId),
+      persistAndNotify: () => this.persistAndNotify(),
+    };
   }
 
   getVisibleMessagesForAgent(
@@ -1271,57 +701,6 @@ export class MultiChatRuntime {
 
   isMessageVisibleToParticipant(message: ChatMessage, participantId: string): boolean {
     return isMessageVisibleToParticipantFn(message, participantId);
-  }
-
-  private getNonSelfVisibleMessageIds(agentId: string, tab: ChatTabState): string[] {
-    return getNonSelfVisibleMessageIds(agentId, tab, this.maxContextMessages);
-  }
-
-  private getVisibleContextKey(agentId: string, tab: ChatTabState): string {
-    return getVisibleContextKey(agentId, tab, this.maxContextMessages);
-  }
-
-  private hasNewVisibleInputForAgent(
-    agentId: string,
-    tab: ChatTabState,
-  ): boolean {
-    return hasNewVisibleInputForAgent(
-      agentId,
-      tab,
-      this.lastProcessedKeysForTab(tab.id),
-      this.maxContextMessages,
-    );
-  }
-
-  private markVisibleContextProcessed(
-    agentId: string,
-    tab: ChatTabState,
-  ): void {
-    markVisibleContextProcessed(
-      agentId,
-      tab,
-      this.lastProcessedKeysForTab(tab.id),
-      this.maxContextMessages,
-    );
-  }
-
-  private getTriggeringMessageIds(
-    previousContextKey: string,
-    nextVisibleMessageIds: string[],
-  ): string[] {
-    return getTriggeringMessageIds(previousContextKey, nextVisibleMessageIds);
-  }
-
-  private getActiveAgents(tab: ChatTabState): AgentConfig[] {
-    return getActiveAgents(tab);
-  }
-
-  private applyUsage(
-    agentId: string,
-    usage: TransportUsage | undefined,
-    tab: ChatTabState,
-  ): void {
-    applyUsage(agentId, usage, tab);
   }
 
   private publishSystemMessage(
