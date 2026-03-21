@@ -7,7 +7,6 @@ import type {
   ChatTabState,
   OpenRouterTransport,
   SendMessageInput,
-  TransportUsage,
   WorkspaceState,
 } from './types';
 import {
