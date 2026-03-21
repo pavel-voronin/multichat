@@ -6,7 +6,6 @@ import type {
   AgentTurnResult,
   ChatMessage,
   ChatTabState,
-  ContextCutoffAnchor,
   DiagnosticsState,
   OpenRouterModel,
   RequestTrace,
