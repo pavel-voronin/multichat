@@ -60,7 +60,6 @@ export function reorderEntriesForDragPreview(
  */
 export function resolveContextWindowSizeFromDropTarget(
   entries: VisibleTimelineEntry[],
-  _targetEntryId: string | null | undefined,
 ): number | null {
   const previewEntry = entries.find(
     (entry): entry is TimelinePreviewCutoffEntry =>
@@ -169,10 +168,7 @@ function finishDrag(event: PointerEvent): void {
       draggedCutoffId.value,
       targetEntryId,
     );
-    const nextContextWindowSize = resolveContextWindowSizeFromDropTarget(
-      reorderedEntries,
-      targetEntryId,
-    );
+    const nextContextWindowSize = resolveContextWindowSizeFromDropTarget(reorderedEntries);
     if (nextContextWindowSize !== null) {
       session.updateContextWindowSize(nextContextWindowSize);
     }
@@ -200,6 +196,9 @@ export function useCutoffDrag() {
   const isDragging = computed(() => draggedCutoffId.value !== null);
 
   function startDrag(event: PointerEvent, cutoffId: string): void {
+    if (draggedCutoffId.value !== null) {
+      return;
+    }
     if (event.button !== 0) {
       return;
     }

@@ -68,17 +68,17 @@ describe('reorderEntriesForDragPreview', () => {
 describe('resolveContextWindowSizeFromDropTarget', () => {
   it('returns null when there is no preview cutoff in entries', () => {
     const entries = [makeMessage('m1'), makeManualCutoff('c1')];
-    expect(resolveContextWindowSizeFromDropTarget(entries, 'm1')).toBeNull();
+    expect(resolveContextWindowSizeFromDropTarget(entries)).toBeNull();
   });
 
   it('counts messages after the preview cutoff', () => {
     const entries = [makeMessage('m1'), makePreviewCutoff('p1'), makeMessage('m2'), makeMessage('m3')];
     // targetId doesn't matter here — entries already contain preview in the right position
-    expect(resolveContextWindowSizeFromDropTarget(entries, null)).toBe(2);
+    expect(resolveContextWindowSizeFromDropTarget(entries)).toBe(2);
   });
 
   it('returns 1 (minimum) when no messages come after the preview cutoff', () => {
     const entries = [makeMessage('m1'), makeMessage('m2'), makePreviewCutoff('p1')];
-    expect(resolveContextWindowSizeFromDropTarget(entries, null)).toBe(1);
+    expect(resolveContextWindowSizeFromDropTarget(entries)).toBe(1);
   });
 });
