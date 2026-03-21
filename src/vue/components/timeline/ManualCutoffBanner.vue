@@ -35,7 +35,7 @@
       >
         Remove cut-off
       </button>
-      <span class="cutoff-link-gap" aria-hidden="true">&nbsp;&nbsp;</span>
+      <span class="cutoff-link-gap" aria-hidden="true">&nbsp;</span>
     </span>
     <span class="cutoff-tail" aria-hidden="true" />
   </div>
