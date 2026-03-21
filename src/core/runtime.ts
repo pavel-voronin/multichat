@@ -62,6 +62,10 @@ import {
   isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
   markVisibleContextProcessed,
 } from './context-routing';
+import {
+  publishMessageToTab,
+  publishSystemMessageToTab,
+} from './messaging';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
@@ -1340,16 +1344,16 @@ export class MultiChatRuntime {
     input: SendSystemMessageInput,
     tabId: string,
   ): { message: ChatMessage; triggersSweep: boolean } {
-    return this.publishMessage(
-      {
-        content: input.content,
-        target: 'public',
-        triggerSweep: input.triggerSweep,
-        kind: 'system',
-        system: input.system,
-      },
-      tabId,
+    const tab = this.requireTab(tabId);
+    const result = publishSystemMessageToTab(
+      input,
+      tab,
+      this.workspace,
+      this.now,
+      this.createId,
     );
+    this.persistAndNotify();
+    return result;
   }
 
   private publishMessage(
@@ -1361,71 +1365,15 @@ export class MultiChatRuntime {
     tabId: string,
   ): { message: ChatMessage; triggersSweep: boolean } {
     const tab = this.requireTab(tabId);
-    if (input.target === 'private' && !input.recipientId) {
-      throw new Error('Private message requires recipientId');
-    }
-    if (input.kind !== 'system' && !input.senderId) {
-      throw new Error('Participant message requires senderId');
-    }
-
-    const triggersSweep = input.triggerSweep ?? true;
-    const createdInSweep =
-      input.createdInSweep ??
-      (triggersSweep ? tab.execution.sweepCount + 1 : undefined);
-
-    const message: ChatMessage = {
-      id: this.createId(),
-      author:
-        input.kind === 'system'
-          ? { type: 'system' }
-          : { type: 'participant', participantId: input.senderId! },
-      kind: input.kind ?? 'participant',
-      target: input.target,
-      recipientId: input.recipientId,
-      content: input.content.trim(),
-      system: input.system,
-      createdAt: this.now().toISOString(),
-      requestCostUsd: input.requestCostUsd ?? input.costUsd,
-      ownPromptCostUsd: input.ownPromptCostUsd,
-      downstreamPromptCostUsd: input.downstreamPromptCostUsd,
-      downstreamPromptCostContributors: input.downstreamPromptCostContributors,
-      costUsd:
-        (input.requestCostUsd ?? input.costUsd ?? 0) +
-          (input.downstreamPromptCostUsd ?? 0) || undefined,
-      createdInSweep,
-      sourceTraceId: input.sourceTraceId,
-    };
-
-    tab.timeline.push({
-      id: message.id,
-      createdAt: message.createdAt,
-      kind: 'message',
-      message,
-    });
-    updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
-    pushDebugLog({
-      now: this.now,
-      workspace: this.workspace,
-      payload: {
-        kind: 'message-created',
-        sweep: message.createdInSweep,
-        messageId: message.id,
-        agentId: input.kind === 'system' ? undefined : input.senderId,
-        agentName:
-          input.kind === 'system'
-            ? SYSTEM_AUTHOR_NAME
-            : this.participantName(input.senderId!, tab),
-        target: message.target,
-        recipientId: message.recipientId,
-        content: message.content,
-        details: triggersSweep
-          ? 'message triggers sweep'
-          : 'message does not trigger sweep',
-      },
-    });
+    const result = publishMessageToTab(
+      input,
+      tab,
+      this.workspace,
+      this.now,
+      this.createId,
+    );
     this.persistAndNotify();
-
-    return { message, triggersSweep };
+    return result;
   }
 
   private participantName(participantId: string, tab: ChatTabState): string {
