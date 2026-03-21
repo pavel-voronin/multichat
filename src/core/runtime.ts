@@ -35,6 +35,11 @@ import {
   updateMessageSourceTrace,
 } from './diagnostics';
 import {
+  applyDownstreamPromptCost,
+  applyUsage,
+  getPromptCostUsd,
+} from './accounting';
+import {
   getMessageSenderId,
   isSystemMessage,
   SYSTEM_AUTHOR_NAME,
@@ -1334,61 +1339,11 @@ export class MultiChatRuntime {
     usage: TransportUsage | undefined,
     tab: ChatTabState,
   ): void {
-    const promptCostUsd = this.getPromptCostUsd(receivingAgent, usage);
-    if (promptCostUsd <= 0) {
-      return;
-    }
-
-    const listenedMessages = visibleMessages.filter(
-      (message) => message.senderId !== receivingAgent.id,
-    );
-    if (!listenedMessages.length) {
-      return;
-    }
-
-    const promptCostPerMessage = promptCostUsd / listenedMessages.length;
-    for (const visibleMessage of listenedMessages) {
-      const entry = findMessageEntryById(visibleMessage.id, tab);
-      if (!entry) {
-        continue;
-      }
-      const message = entry.message;
-
-      message.downstreamPromptCostUsd =
-        (message.downstreamPromptCostUsd ?? 0) + promptCostPerMessage;
-      const existingContributors =
-        message.downstreamPromptCostContributors ?? [];
-      const existingContributor = existingContributors.find(
-        (contributor) => contributor.agentId === receivingAgent.id,
-      );
-      if (existingContributor) {
-        existingContributor.promptCostUsd += promptCostPerMessage;
-        existingContributor.listenCount += 1;
-      } else {
-        existingContributors.push({
-          agentId: receivingAgent.id,
-          promptCostUsd: promptCostPerMessage,
-          listenCount: 1,
-        });
-      }
-      message.downstreamPromptCostContributors = existingContributors;
-      const requestCostUsd = message.requestCostUsd ?? 0;
-      message.costUsd = requestCostUsd + message.downstreamPromptCostUsd;
-    }
+    applyDownstreamPromptCost(receivingAgent, visibleMessages, usage, tab);
   }
 
   private getPromptCostUsd(agent: AgentConfig, usage?: TransportUsage): number {
-    const promptTokens = usage?.promptTokens;
-    if (!promptTokens) {
-      return 0;
-    }
-
-    const promptPrice = Number(agent.pricing?.prompt);
-    if (!Number.isFinite(promptPrice) || promptPrice <= 0) {
-      return 0;
-    }
-
-    return promptTokens * promptPrice;
+    return getPromptCostUsd(agent, usage);
   }
 
   getVisibleMessagesForAgent(
@@ -1466,17 +1421,7 @@ export class MultiChatRuntime {
     usage: TransportUsage | undefined,
     tab: ChatTabState,
   ): void {
-    if (!usage) {
-      return;
-    }
-
-    const metrics = tab.metrics[agentId] ?? emptyMetrics();
-    metrics.requestCount += 1;
-    metrics.promptTokens += usage.promptTokens ?? 0;
-    metrics.completionTokens += usage.completionTokens ?? 0;
-    metrics.totalTokens += usage.totalTokens ?? 0;
-    metrics.estimatedCost += usage.estimatedCost ?? 0;
-    tab.metrics[agentId] = metrics;
+    applyUsage(agentId, usage, tab);
   }
 
   private publishSystemMessage(
