@@ -45,8 +45,7 @@ export type DebugLogKind =
   | 'turn-result'
   | 'runtime-error'
   | 'runtime-reset';
-export type AgentExecutionMode = 'tools' | 'json';
-export type ToolSupport = 'unknown' | 'supported' | 'unsupported';
+export type AgentExecutionMode = 'tools';
 export type RequestTraceStatus = 'running' | 'succeeded' | 'failed' | 'aborted';
 export type RequestTraceLinkKind =
   | 'parent'
@@ -61,11 +60,6 @@ export interface Participant {
   role: ParticipantRole;
 }
 
-export interface AgentCapabilities {
-  prefersTools: boolean;
-  supportsToolUse: ToolSupport;
-}
-
 export interface AgentConfig {
   id: string;
   name: string;
@@ -78,7 +72,6 @@ export interface AgentConfig {
     completion?: string;
   };
   systemPrompt: string;
-  capabilities: AgentCapabilities;
 }
 
 export interface ChatMessage {
@@ -384,7 +377,6 @@ export interface OpenRouterTransport {
   runAgentTurn(input: {
     apiKey: string;
     context: AgentTurnContext;
-    mode: AgentExecutionMode;
     signal?: AbortSignal;
   }): Promise<AgentTurnResult>;
 }

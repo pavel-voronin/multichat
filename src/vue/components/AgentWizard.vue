@@ -283,10 +283,6 @@ function save() {
   } else {
     agentsStore.createAgent({
       ...payload,
-      capabilities: {
-        prefersTools: true,
-        supportsToolUse: 'unknown',
-      },
     });
   }
 

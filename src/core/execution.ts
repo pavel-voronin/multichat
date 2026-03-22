@@ -68,27 +68,6 @@ function lastProcessedKeysForTab(
   return keys;
 }
 
-export function chooseAgentMode(agent: AgentConfig): AgentExecutionMode {
-  if (
-    agent.capabilities.prefersTools &&
-    agent.capabilities.supportsToolUse !== 'unsupported'
-  ) {
-    return 'tools';
-  }
-  return 'json';
-}
-
-export function updateToolSupportOnTab(
-  agentId: string,
-  mode: AgentExecutionMode,
-  tab: ChatTabState,
-): void {
-  if (mode !== 'tools') return;
-  const agent = tab.agents.find((item) => item.id === agentId);
-  if (!agent) return;
-  agent.capabilities.supportsToolUse = 'supported';
-}
-
 export async function handleSuccessfulAgentTurnResultFn({
   agent,
   result,
@@ -97,7 +76,6 @@ export async function handleSuccessfulAgentTurnResultFn({
   tabId,
   visibleMessages,
   fallback,
-  updateToolSupport,
   ctx,
 }: {
   agent: AgentConfig;
@@ -107,7 +85,6 @@ export async function handleSuccessfulAgentTurnResultFn({
   tabId: string;
   visibleMessages: AgentContextMessage[];
   fallback: boolean;
-  updateToolSupport: boolean;
   ctx: ExecutionContext;
 }): Promise<void> {
   markVisibleContextProcessed(
@@ -117,9 +94,6 @@ export async function handleSuccessfulAgentTurnResultFn({
   );
   applyUsage(agent.id, result.usage, tab);
   applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
-  if (updateToolSupport) {
-    updateToolSupportOnTab(agent.id, result.mode, tab);
-  }
   completeRequestTrace({
     now: ctx.now,
     traceId,
@@ -280,7 +254,7 @@ export async function runAgentTurnFn(
     return;
   }
 
-  const mode = chooseAgentMode(agent);
+  const mode: AgentExecutionMode = 'tools';
   const abortController = new AbortController();
   ctx.abortControllers.set(tab.id, abortController);
   const previousContextKey = processedKeys.get(agent.id) ?? '';
@@ -328,7 +302,6 @@ export async function runAgentTurnFn(
         participants: deepClone(tab.participants),
         visibleMessages,
       },
-      mode,
       signal: abortController.signal,
     });
 
@@ -340,7 +313,6 @@ export async function runAgentTurnFn(
       tabId,
       visibleMessages,
       fallback: false,
-      updateToolSupport: true,
       ctx,
     });
   } catch (error) {
@@ -402,116 +374,7 @@ export async function runAgentTurnFn(
       },
     });
 
-    if (mode === 'tools') {
-      ctx.updateAgent(
-        agent.id,
-        {
-          capabilities: {
-            ...agent.capabilities,
-            supportsToolUse: 'unsupported',
-          },
-        },
-        tabId,
-      );
-
-      let fallbackTraceId: string | null = null;
-      try {
-        const fallbackTrace = createRequestTrace({
-          createId: ctx.createId,
-          now: ctx.now,
-          tab,
-          agent,
-          mode: 'json',
-          fallback: true,
-          parentTraceId: trace.id,
-          triggeringMessageIds,
-          visibleMessageIds: visibleMessages.map((m) => m.id),
-          nonSelfVisibleMessageIds,
-        });
-        fallbackTraceId = fallbackTrace.id;
-        pushDebugLog({
-          now: ctx.now,
-          workspace: ctx.workspace,
-          payload: {
-            kind: 'turn-requested',
-            sweep: tab.execution.sweepCount,
-            agentId: agent.id,
-            agentName: agent.name,
-            mode: 'json',
-            fallback: true,
-            visibleMessageIds: visibleMessages.map((m) => m.id),
-            nonSelfVisibleMessageIds,
-            triggeringMessageIds,
-            contextKeyPrev: previousContextKey,
-            contextKeyNext: nextContextKey,
-            details: 'JSON fallback after tool failure',
-          },
-        });
-        const fallback = await ctx.transport.runAgentTurn({
-          apiKey,
-          context: {
-            agent: {
-              ...agent,
-              capabilities: {
-                ...agent.capabilities,
-                supportsToolUse: 'unsupported',
-              },
-            },
-            participants: deepClone(tab.participants),
-            visibleMessages,
-          },
-          mode: 'json',
-          signal: abortController.signal,
-        });
-
-        await handleSuccessfulAgentTurnResultFn({
-          agent,
-          result: fallback,
-          traceId: fallbackTrace.id,
-          tab,
-          tabId,
-          visibleMessages,
-          fallback: true,
-          updateToolSupport: false,
-          ctx,
-        });
-      } catch (fallbackError) {
-        const fallbackMessage =
-          fallbackError instanceof Error
-            ? fallbackError.message
-            : 'Unknown JSON fallback error';
-        if (fallbackTraceId) {
-          completeRequestTrace({
-            now: ctx.now,
-            traceId: fallbackTraceId,
-            tab,
-            status:
-              fallbackError instanceof Error &&
-              fallbackError.name === 'AbortError'
-                ? 'aborted'
-                : 'failed',
-            error: fallbackMessage,
-            promptCostUsd: 0,
-          });
-        }
-        pushRuntimeError({
-          createId: ctx.createId,
-          now: ctx.now,
-          tab,
-          workspace: ctx.workspace,
-          participantName: ctx.participantName,
-          payload: {
-            agentId: agent.id,
-            message: 'JSON fallback failed',
-            details: fallbackMessage,
-            sourceTraceId: fallbackTraceId ?? undefined,
-          },
-        });
-        ctx.persistAndNotify();
-      }
-    } else {
-      ctx.persistAndNotify();
-    }
+    ctx.persistAndNotify();
   } finally {
     if (ctx.abortControllers.get(tab.id) === abortController) {
       ctx.abortControllers.delete(tab.id);

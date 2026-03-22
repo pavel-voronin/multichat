@@ -1,12 +1,10 @@
 import type {
-  AgentExecutionMode,
   AgentToolCall,
   AgentTurnContext,
 } from './types';
 
 export function buildMessages(
   context: AgentTurnContext,
-  mode: AgentExecutionMode,
 ) {
   const selfParticipant = context.participants.find(
     (participant) => participant.id === context.agent.id,
@@ -79,25 +77,6 @@ Visibility rules:
 - You only receive the subset of conversation that is visible to you.
 
 Prefer concise responses.`;
-
-  if (mode === 'json') {
-    return [
-      {
-        role: 'user',
-        content: `${sharedInstructions}
-
-Visible conversation history:
-${visibleHistory}
-
-Return exactly one JSON object with one of these shapes:
-- {"action":"speak_public","text":"..."}
-- {"action":"send_private","to":"participant-id","text":"..."}
-- {"action":"stay_silent","reason":"..."}
-
-Return raw JSON only.`,
-      },
-    ];
-  }
 
   return [
     {
@@ -192,42 +171,3 @@ export function parseToolAction(toolCall: {
   throw new Error('Invalid tool call payload');
 }
 
-export function parseJsonAction(content: string): AgentToolCall {
-  const normalizedContent = content
-    .trim()
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/, '');
-
-  const jsonPayload = normalizedContent.startsWith('{')
-    ? normalizedContent
-    : normalizedContent.slice(
-        normalizedContent.indexOf('{'),
-        normalizedContent.lastIndexOf('}') + 1,
-      );
-
-  const parsed = JSON.parse(jsonPayload) as {
-    action?: string;
-    text?: string;
-    to?: string;
-    reason?: string;
-  };
-
-  if (parsed.action === 'speak_public' && typeof parsed.text === 'string') {
-    return { type: 'speak_public', text: parsed.text };
-  }
-
-  if (
-    parsed.action === 'send_private' &&
-    typeof parsed.text === 'string' &&
-    typeof parsed.to === 'string'
-  ) {
-    return { type: 'send_private', to: parsed.to, text: parsed.text };
-  }
-
-  if (parsed.action === 'stay_silent' && typeof parsed.reason === 'string') {
-    return { type: 'stay_silent', reason: parsed.reason };
-  }
-
-  throw new Error('Invalid JSON fallback payload');
-}

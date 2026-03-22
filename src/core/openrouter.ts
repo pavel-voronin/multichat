@@ -1,5 +1,4 @@
 import type {
-  AgentExecutionMode,
   AgentTurnContext,
   AgentTurnResult,
   OpenRouterModel,
@@ -8,7 +7,6 @@ import type {
 import {
   buildMessages,
   buildTools,
-  parseJsonAction,
   parseToolAction,
 } from './agentProtocol';
 
@@ -17,16 +15,14 @@ const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 async function callChatCompletion(
   apiKey: string,
   context: AgentTurnContext,
-  mode: AgentExecutionMode,
   signal?: AbortSignal,
 ): Promise<AgentTurnResult> {
   const requestPayload = {
     model: context.agent.modelId,
-    messages: buildMessages(context, mode),
-    tools: mode === 'tools' ? buildTools() : undefined,
-    tool_choice: mode === 'tools' ? 'required' : undefined,
-    parallel_tool_calls: mode === 'tools' ? false : undefined,
-    response_format: undefined,
+    messages: buildMessages(context),
+    tools: buildTools(),
+    tool_choice: 'required',
+    parallel_tool_calls: false,
   };
   let response: Response;
 
@@ -80,13 +76,10 @@ async function callChatCompletion(
     throw new Error('OpenRouter returned no choices');
   }
 
-  const action =
-    mode === 'tools'
-      ? parseToolAction(message.tool_calls?.[0] ?? {})
-      : parseJsonAction(message.content ?? '{}');
+  const action = parseToolAction(message.tool_calls?.[0] ?? {});
 
   return {
-    mode,
+    mode: 'tools',
     action,
     usage: {
       promptTokens: payload.usage?.prompt_tokens,
@@ -98,7 +91,7 @@ async function callChatCompletion(
       transportMeta: {
         provider: 'openrouter',
         modelId: context.agent.modelId,
-        executionMode: mode,
+        executionMode: 'tools',
       },
     },
   };
@@ -140,14 +133,8 @@ export class OpenRouterHttpTransport implements OpenRouterTransport {
   async runAgentTurn(input: {
     apiKey: string;
     context: AgentTurnContext;
-    mode: AgentExecutionMode;
     signal?: AbortSignal;
   }): Promise<AgentTurnResult> {
-    return callChatCompletion(
-      input.apiKey,
-      input.context,
-      input.mode,
-      input.signal,
-    );
+    return callChatCompletion(input.apiKey, input.context, input.signal);
   }
 }
