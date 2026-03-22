@@ -43,7 +43,6 @@ export function createRuntime(options?: {
         completion: '0.01',
       },
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
   }
 

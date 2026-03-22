@@ -90,7 +90,6 @@ describe('MultiChatRuntime tabs', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     await runtime.sendMessage({
       senderId: 'human',
@@ -105,7 +104,6 @@ describe('MultiChatRuntime tabs', () => {
       name: 'Beta',
       modelId: 'model-b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     await runtime.sendMessage({
       senderId: 'human',
@@ -199,7 +197,6 @@ describe('MultiChatRuntime tabs', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const firstTabId = runtime.getWorkspaceState().activeTabId;
     runtime.createTab();

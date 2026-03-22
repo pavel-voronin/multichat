@@ -35,13 +35,11 @@ describe('MultiAgentChat request inspection', () => {
       name: 'Alpha',
       modelId: 'model-a:free',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b:free',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'key' });
@@ -70,7 +68,6 @@ describe('MultiAgentChat request inspection', () => {
       name: 'Alpha',
       modelId: 'model-a:free',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'key' });
@@ -99,7 +96,6 @@ describe('MultiAgentChat request inspection', () => {
       name: 'Alpha',
       modelId: 'model-a:free',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'key' });

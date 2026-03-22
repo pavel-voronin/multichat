@@ -11,17 +11,14 @@ import type {
 } from '../../../src/core';
 
 export function createTransport(
-  handler: (
-    agentId: string,
-    mode: 'tools' | 'json',
-  ) => Promise<AgentTurnResult>,
+  handler: (agentId: string) => Promise<AgentTurnResult>,
 ): OpenRouterTransport {
   return {
     async listModels() {
       return [];
     },
     async runAgentTurn(input) {
-      return handler(input.context.agent.id, input.mode);
+      return handler(input.context.agent.id);
     },
   };
 }

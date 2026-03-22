@@ -105,7 +105,6 @@ describe('MultiAgentChat technical info', () => {
     };
 
     const runtime = createRuntime({ transport });
-    runtime.getState().agents[0]!.capabilities.supportsToolUse = 'unsupported';
 
     await runtime.sendMessage({
       senderId: 'human',

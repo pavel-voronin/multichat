@@ -9,13 +9,11 @@ describe('MultiChatRuntime history cutoffs', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const beta = runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     await runtime.sendMessage({
@@ -211,13 +209,11 @@ describe('MultiChatRuntime history cutoffs', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const beta = runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     for (const content of ['one', 'two', 'three']) {
@@ -343,13 +339,11 @@ describe('MultiChatRuntime history cutoffs', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const beta = runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
     runtime.removeAgent(beta.id);

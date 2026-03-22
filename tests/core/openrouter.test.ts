@@ -41,7 +41,6 @@ describe('OpenRouterHttpTransport', () => {
         name: 'Masha',
         modelId: 'test-model',
         systemPrompt: 'You are concise.',
-        capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
       },
       participants: [
         { id: 'human', name: 'Pavel', role: 'human' },
@@ -76,7 +75,6 @@ describe('OpenRouterHttpTransport', () => {
     await transport.runAgentTurn({
       apiKey: 'test-key',
       context,
-      mode: 'tools',
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);

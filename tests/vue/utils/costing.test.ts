@@ -79,7 +79,6 @@ describe('costing utils', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
       pricing: { prompt: '0.002', completion: '0.01' },
     };
     expect(

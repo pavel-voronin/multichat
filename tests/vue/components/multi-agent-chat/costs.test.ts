@@ -18,7 +18,6 @@ describe('MultiAgentChat cost display', () => {
         completion: '0.02',
       },
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     await runtime.sendMessage({
       senderId: alphaId ?? 'unknown-agent',
@@ -198,14 +197,12 @@ describe('MultiAgentChat cost display', () => {
       modelId: 'model-a:free',
       pricing: { prompt: '0.001', completion: '0.01' },
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b:free',
       pricing: { prompt: '0.002', completion: '0.02' },
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'key' });

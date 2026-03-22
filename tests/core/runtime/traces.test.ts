@@ -35,7 +35,6 @@ describe('MultiChatRuntime request traces', () => {
       pricing: {
         prompt: '0.01',
       },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -78,13 +77,11 @@ describe('MultiChatRuntime request traces', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -135,13 +132,11 @@ describe('MultiChatRuntime request traces', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -160,92 +155,12 @@ describe('MultiChatRuntime request traces', () => {
     );
   });
 
-  it('creates a linked fallback trace when tools fail', async () => {
-    const runtime = createRuntime({
-      transport: createTransport(async (_agentId, mode) => {
-        if (mode === 'tools') {
-          throw new Error('tool unsupported');
-        }
-
-        return {
-          mode: 'json',
-          action: { type: 'stay_silent', reason: 'fallback ok' },
-        };
-      }),
-    });
-
-    runtime.createAgent({
-      name: 'Fallback',
-      modelId: 'model-a',
-      systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
-    });
-    runtime.updateSettings({ openRouterApiKey: 'test-key' });
-
-    await runtime.sendMessage({
-      senderId: 'human',
-      content: 'force fallback',
-      target: 'public',
-    });
-
-    const traces = Object.values(runtime.getDiagnosticsState().requestTraces);
-    const toolsTrace = traces.find((trace) => trace.mode === 'tools');
-    const fallbackTrace = traces.find((trace) => trace.mode === 'json');
-
-    expect(toolsTrace?.status).toBe('failed');
-    expect(fallbackTrace?.parentTraceId).toBe(toolsTrace?.id);
-    expect(toolsTrace?.childTraceIds).toContain(fallbackTrace?.id);
-  });
-
-  it('completes the fallback trace when json fallback fails', async () => {
-    const runtime = createRuntime({
-      transport: createTransport(async (_agentId, mode) => {
-        if (mode === 'tools') {
-          throw new Error('tool unsupported');
-        }
-
-        throw new Error('json fallback broke');
-      }),
-    });
-
-    runtime.createAgent({
-      name: 'Fallback',
-      modelId: 'model-a',
-      systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
-    });
-    runtime.updateSettings({ openRouterApiKey: 'test-key' });
-
-    await runtime.sendMessage({
-      senderId: 'human',
-      content: 'force fallback failure',
-      target: 'public',
-    });
-
-    const traces = Object.values(runtime.getDiagnosticsState().requestTraces);
-    const fallbackTrace = traces.find((trace) => trace.mode === 'json');
-    const fallbackError = runtime
-      .getDiagnosticsState()
-      .errors.find((error) => error.message === 'JSON fallback failed');
-
-    expect(fallbackTrace).toEqual(
-      expect.objectContaining({
-        status: 'failed',
-        transport: expect.objectContaining({
-          error: 'json fallback broke',
-        }),
-      }),
-    );
-    expect(fallbackError?.sourceTraceId).toBe(fallbackTrace?.id);
-  });
-
   it('links silent technical events back to the request trace', async () => {
     const runtime = createRuntime();
     runtime.createAgent({
       name: 'Silent',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 

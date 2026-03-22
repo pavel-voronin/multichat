@@ -20,7 +20,6 @@ describe('MultiChatRuntime accounting and logs', () => {
       name: 'Meter',
       modelId: 'm',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -57,13 +56,11 @@ describe('MultiChatRuntime accounting and logs', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const [alphaId, betaId] = runtime
       .getState()
@@ -128,13 +125,11 @@ describe('MultiChatRuntime accounting and logs', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });

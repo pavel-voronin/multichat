@@ -8,13 +8,11 @@ describe('MultiChatRuntime context routing', () => {
       name: 'Alpha',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'model-b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const betaId = runtime
       .getState()
@@ -46,7 +44,6 @@ describe('MultiChatRuntime context routing', () => {
       name: 'Selfless',
       modelId: 'm',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
 
@@ -76,7 +73,6 @@ describe('MultiChatRuntime context routing', () => {
       name: 'Windowed',
       modelId: 'm',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     runtime.resetAgentHistoryContext();

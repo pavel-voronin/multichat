@@ -25,7 +25,6 @@ describe('MultiChatRuntime cost attribution', () => {
       name: 'Priced',
       modelId: 'm',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -56,7 +55,6 @@ describe('MultiChatRuntime cost attribution', () => {
       modelId: 'm',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.01', completion: '0.08' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -109,14 +107,12 @@ describe('MultiChatRuntime cost attribution', () => {
       modelId: 'author-model',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.01', completion: '0.08' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Reader',
       modelId: 'reader-model',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.002', completion: '0.02' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
@@ -176,14 +172,12 @@ describe('MultiChatRuntime cost attribution', () => {
       modelId: 'reader-a',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.001', completion: '0.01' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Reader B',
       modelId: 'reader-b',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.002', completion: '0.02' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
@@ -234,7 +228,6 @@ describe('MultiChatRuntime cost attribution', () => {
       modelId: 'reader-model',
       systemPrompt: 'prompt',
       pricing: { prompt: '0.002', completion: '0.02' },
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });

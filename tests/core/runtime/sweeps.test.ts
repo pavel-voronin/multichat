@@ -8,38 +8,27 @@ import {
 } from './helpers';
 
 describe('MultiChatRuntime sweeps', () => {
-  it('falls back to json mode when tools fail', async () => {
+  it('reports error when agent turn fails, no fallback', async () => {
     const runtime = createRuntime({
-      transport: createTransport(async (_agentId, mode) => {
-        if (mode === 'tools') {
-          throw new Error('tool unsupported');
-        }
-
-        return {
-          mode: 'json',
-          action: { type: 'speak_public', text: 'json hello' },
-          usage: { totalTokens: 10 },
-        };
+      transport: createTransport(async () => {
+        throw new Error('tool unsupported');
       }),
     });
-
     runtime.createAgent({
       name: 'Fallback',
       modelId: 'model-a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
     await runtime.runAgentSweep('manual');
 
-    expect(timelineMessages(runtime)[0]?.content).toBe('json hello');
-    expect(timelineMessages(runtime)[0]?.costUsd).toBeUndefined();
     expect(
       runtime
         .getDiagnosticsState()
         .errors.some((error) => error.message === 'Agent turn failed'),
     ).toBe(true);
+    expect(timelineMessages(runtime)).toHaveLength(0);
   });
 
   it('keeps sweep order deterministic', async () => {
@@ -58,13 +47,11 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'A',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'B',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const agentIds = runtime.getState().agents.map((agent) => agent.id);
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
@@ -135,13 +122,11 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     [alphaId, betaId] = runtime.getState().agents.map((agent) => agent.id);
     runtime.resetAgentHistoryContext();
@@ -189,13 +174,11 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     alphaId = runtime.getState().agents[0]!.id;
     runtime.resetAgentHistoryContext();
@@ -237,13 +220,11 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.createAgent({
       name: 'Beta',
       modelId: 'b',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     const agentIds = runtime.getState().agents.map((agent) => agent.id);
     alphaId = agentIds[0]!;
@@ -292,7 +273,6 @@ describe('MultiChatRuntime sweeps', () => {
       name: 'Slow',
       modelId: 'slow',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 

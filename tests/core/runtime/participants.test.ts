@@ -20,7 +20,6 @@ describe('MultiChatRuntime participant lifecycle', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     await runtime.sendMessage({
@@ -63,7 +62,6 @@ describe('MultiChatRuntime participant lifecycle', () => {
       name: 'Alpha',
       modelId: 'a',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     let messages = runtime

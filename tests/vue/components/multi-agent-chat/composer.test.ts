@@ -36,7 +36,6 @@ describe('MultiAgentChat composer', () => {
       name: 'Beta',
       modelId: 'model-b:free',
       systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
 
     const wrapper = mountChat(runtime);

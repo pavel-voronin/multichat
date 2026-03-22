@@ -1,7 +1,6 @@
 import type {
   AgentConfig,
   AgentContextMessage,
-  AgentExecutionMode,
   AgentTurnResult,
   ChatMessage,
   ChatTabState,
@@ -254,7 +253,6 @@ export async function runAgentTurnFn(
     return;
   }
 
-  const mode: AgentExecutionMode = 'tools';
   const abortController = new AbortController();
   ctx.abortControllers.set(tab.id, abortController);
   const previousContextKey = processedKeys.get(agent.id) ?? '';
@@ -269,7 +267,7 @@ export async function runAgentTurnFn(
     now: ctx.now,
     tab,
     agent,
-    mode,
+    mode: 'tools',
     fallback: false,
     parentTraceId: null,
     triggeringMessageIds,
@@ -284,7 +282,7 @@ export async function runAgentTurnFn(
       sweep: tab.execution.sweepCount,
       agentId: agent.id,
       agentName: agent.name,
-      mode,
+      mode: 'tools',
       fallback: false,
       visibleMessageIds: visibleMessages.map((m) => m.id),
       nonSelfVisibleMessageIds,
