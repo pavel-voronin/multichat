@@ -17,6 +17,7 @@ export interface UiStateSnapshot {
   showDeleteAgentConfirm: boolean;
   showLogsPanel: boolean;
   editingAgentId: string | null;
+  preselectedModelId: string | null;
   pendingDeleteAgentId: string | null;
   pendingDeleteAgentName: string;
   reopenAgentWizardAfterSettings: boolean;
@@ -32,6 +33,7 @@ export interface ChatScopedUiStateSnapshot {
   showHumanNameModal: boolean;
   showDeleteAgentConfirm: boolean;
   editingAgentId: string | null;
+  preselectedModelId: string | null;
   pendingDeleteAgentId: string | null;
   pendingDeleteAgentName: string;
   reopenAgentWizardAfterSettings: boolean;
@@ -50,6 +52,7 @@ function defaultUiState(): UiStateSnapshot {
     showDeleteAgentConfirm: false,
     showLogsPanel: false,
     editingAgentId: null,
+    preselectedModelId: null,
     pendingDeleteAgentId: null,
     pendingDeleteAgentName: '',
     reopenAgentWizardAfterSettings: false,
@@ -68,6 +71,7 @@ export const useUiStore = defineStore('ui', () => {
   const showDeleteAgentConfirm = ref(false);
   const showLogsPanel = ref(false);
   const editingAgentId = ref<string | null>(null);
+  const preselectedModelId = ref<string | null>(null);
   const pendingDeleteAgentId = ref<string | null>(null);
   const pendingDeleteAgentName = ref('');
   const reopenAgentWizardAfterSettings = ref(false);
@@ -85,6 +89,7 @@ export const useUiStore = defineStore('ui', () => {
     showDeleteAgentConfirm.value = defaults.showDeleteAgentConfirm;
     showLogsPanel.value = defaults.showLogsPanel;
     editingAgentId.value = defaults.editingAgentId;
+    preselectedModelId.value = defaults.preselectedModelId;
     pendingDeleteAgentId.value = defaults.pendingDeleteAgentId;
     pendingDeleteAgentName.value = defaults.pendingDeleteAgentName;
     reopenAgentWizardAfterSettings.value =
@@ -102,6 +107,7 @@ export const useUiStore = defineStore('ui', () => {
     showHumanNameModal.value = defaults.showHumanNameModal;
     showDeleteAgentConfirm.value = defaults.showDeleteAgentConfirm;
     editingAgentId.value = defaults.editingAgentId;
+    preselectedModelId.value = defaults.preselectedModelId;
     pendingDeleteAgentId.value = defaults.pendingDeleteAgentId;
     pendingDeleteAgentName.value = defaults.pendingDeleteAgentName;
     reopenAgentWizardAfterSettings.value =
@@ -120,6 +126,7 @@ export const useUiStore = defineStore('ui', () => {
     showDeleteAgentConfirm,
     showLogsPanel,
     editingAgentId,
+    preselectedModelId,
     pendingDeleteAgentId,
     pendingDeleteAgentName,
     reopenAgentWizardAfterSettings,
