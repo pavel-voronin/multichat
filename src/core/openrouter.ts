@@ -116,18 +116,30 @@ export class OpenRouterHttpTransport implements OpenRouterTransport {
       data?: Array<{
         id: string;
         name?: string;
-        pricing?: {
-          prompt?: string;
-          completion?: string;
-        };
+        pricing?: { prompt?: string; completion?: string };
+        context_length?: number;
+        supported_parameters?: string[];
+        architecture?: { modality?: string };
       }>;
     };
 
-    return (payload.data ?? []).map((model) => ({
-      id: model.id,
-      name: model.name ?? model.id,
-      pricing: model.pricing,
-    }));
+    return (payload.data ?? [])
+      .filter((model) => {
+        // Must support tools
+        if (!(model.supported_parameters ?? []).includes('tools')) return false;
+        // Output must include text
+        const modality = model.architecture?.modality ?? '';
+        const outputPart = modality.includes('->') ? modality.split('->')[1] : modality;
+        if (outputPart && !outputPart.includes('text')) return false;
+        return true;
+      })
+      .map((model) => ({
+        id: model.id,
+        name: model.name ?? model.id,
+        pricing: model.pricing,
+        context_length: model.context_length ?? 0,
+        supported_parameters: model.supported_parameters ?? [],
+      }));
   }
 
   async runAgentTurn(input: {

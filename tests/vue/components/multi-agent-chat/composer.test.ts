@@ -74,7 +74,7 @@ describe('MultiAgentChat composer', () => {
   it('renders an agent reply after sending a human message', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
+        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
       },
       async runAgentTurn() {
         return {

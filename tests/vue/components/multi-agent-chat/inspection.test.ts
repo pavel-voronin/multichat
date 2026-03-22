@@ -159,7 +159,7 @@ describe('MultiAgentChat request inspection', () => {
   it('opens source trace inspection for an agent message from the timestamp', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
+        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
       },
       async runAgentTurn() {
         return {

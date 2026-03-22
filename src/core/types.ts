@@ -71,6 +71,7 @@ export interface AgentConfig {
     prompt?: string;
     completion?: string;
   };
+  modelSnapshot?: ModelSnapshot;
   systemPrompt: string;
 }
 
@@ -331,6 +332,13 @@ export interface OpenRouterModel {
     prompt?: string;
     completion?: string;
   };
+  context_length: number;
+  supported_parameters: string[];
+}
+
+export interface ModelSnapshot {
+  contextLength: number;
+  supportedParameters: string[];
 }
 
 export interface TransportUsage {

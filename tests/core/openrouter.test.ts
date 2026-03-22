@@ -2,6 +2,68 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OpenRouterHttpTransport } from '../../src/core/openrouter';
 import type { AgentTurnContext } from '../../src/core/types';
 
+describe('OpenRouterHttpTransport.listModels', () => {
+  function makeModel(overrides: {
+    id?: string;
+    supportedParameters?: string[];
+    modality?: string;
+    contextLength?: number;
+  }) {
+    return {
+      id: overrides.id ?? 'provider/model',
+      name: 'Model Name',
+      pricing: { prompt: '0.000001', completion: '0.000002' },
+      context_length: overrides.contextLength ?? 128000,
+      supported_parameters: overrides.supportedParameters ?? ['tools'],
+      architecture: { modality: overrides.modality ?? 'text->text' },
+    };
+  }
+
+  function stubListModels(models: ReturnType<typeof makeModel>[]) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ data: models }),
+      })),
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns context_length and supported_parameters', async () => {
+    stubListModels([makeModel({ contextLength: 200000 })]);
+    const transport = new OpenRouterHttpTransport();
+    const result = await transport.listModels('key');
+    expect(result[0]?.context_length).toBe(200000);
+    expect(result[0]?.supported_parameters).toEqual(['tools']);
+  });
+
+  it('filters out models without tools in supported_parameters', async () => {
+    stubListModels([
+      makeModel({ id: 'a/with-tools', supportedParameters: ['tools'] }),
+      makeModel({ id: 'a/no-tools', supportedParameters: [] }),
+      makeModel({ id: 'a/tools-and-more', supportedParameters: ['tools', 'response_format'] }),
+    ]);
+    const transport = new OpenRouterHttpTransport();
+    const result = await transport.listModels('key');
+    expect(result.map((m) => m.id)).toEqual(['a/with-tools', 'a/tools-and-more']);
+  });
+
+  it('filters out models with non-text output modality', async () => {
+    stubListModels([
+      makeModel({ id: 'a/text-model', modality: 'text->text' }),
+      makeModel({ id: 'a/image-model', modality: 'text->image' }),
+      makeModel({ id: 'a/multimodal', modality: 'text+image->text' }),
+    ]);
+    const transport = new OpenRouterHttpTransport();
+    const result = await transport.listModels('key');
+    expect(result.map((m) => m.id)).toEqual(['a/text-model', 'a/multimodal']);
+  });
+});
+
 describe('OpenRouterHttpTransport', () => {
   afterEach(() => {
     vi.unstubAllGlobals();

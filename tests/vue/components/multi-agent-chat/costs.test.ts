@@ -100,7 +100,7 @@ describe('MultiAgentChat cost display', () => {
   it('shows accumulated prompt and completion costs from request traces next to participant name when money is enabled', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
+        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
       },
       async runAgentTurn() {
         return {
@@ -139,7 +139,7 @@ describe('MultiAgentChat cost display', () => {
   it('keeps participant breakdown aligned with total when provider total differs from token-price multiplication', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
+        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
       },
       async runAgentTurn() {
         return {
@@ -171,7 +171,7 @@ describe('MultiAgentChat cost display', () => {
   it('shows net cost for a system message when other agents read it', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free' }];
+        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
       },
       async runAgentTurn() {
         return {
