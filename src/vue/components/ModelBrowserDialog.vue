@@ -181,7 +181,7 @@ const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return modelsStore.models.filter((model) => {
     if (freeOnly.value && pricingOf(model).kind !== 'free') return false;
-    if (minContext.value && model.context_length < minContext.value) return false;
+    if (minContext.value && (model.context_length ?? 0) < minContext.value) return false;
     if (q) {
       const inId = model.id.toLowerCase().includes(q);
       const inName = model.name.toLowerCase().includes(q);
