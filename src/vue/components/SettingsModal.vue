@@ -5,7 +5,17 @@
         <h2 class="modal-title">Settings</h2>
 
         <label class="modal-field">
-          <span class="modal-label">OpenRouter API key</span>
+          <span class="modal-label-row">
+            <span class="modal-label">OpenRouter API key</span>
+            <a
+              href="https://pavelvoronin.com/openrouter-api-key"
+              class="modal-help-link"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How to get it
+            </a>
+          </span>
           <UiInput
             v-model="draftKey"
             class="modal-input"
@@ -95,8 +105,16 @@ function reset() {
   @apply mt-4 grid gap-2;
 }
 
+.modal-label-row {
+  @apply flex items-center gap-2;
+}
+
 .modal-label {
   @apply text-[12px] text-neutral-600;
+}
+
+.modal-help-link {
+  @apply shrink-0 text-[12px] text-neutral-500 underline decoration-neutral-300 underline-offset-2 hover:text-neutral-900 hover:decoration-neutral-500;
 }
 
 .modal-actions {
