@@ -2,9 +2,12 @@
   <Teleport to="body">
     <div v-if="ui.showAgentWizard" class="wizard-backdrop" @click.self="close">
       <div class="wizard-card">
-        <h2 class="wizard-title">
-          {{ agent ? 'Edit agent' : 'Create agent' }}
-        </h2>
+        <div class="wizard-titlebar">
+          <h2 class="wizard-title">
+            {{ agent ? 'Edit agent' : 'Create agent' }}
+          </h2>
+          <button class="wizard-close" @click="close" aria-label="Close">✕</button>
+        </div>
 
         <div v-if="!isApiKeyPresent" class="wizard-blocked">
           <p class="wizard-copy">
@@ -142,6 +145,10 @@ watch(
     if (isOpen && isApiKeyPresent.value) {
       await modelsStore.fetchModels();
     }
+    if (isOpen && !agent.value && ui.preselectedModelId) {
+      modelId.value = ui.preselectedModelId;
+      ui.preselectedModelId = null;
+    }
   },
 );
 
@@ -233,8 +240,16 @@ function openSettings() {
   @apply max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-auto rounded-md border border-neutral-300 bg-white p-5 font-mono text-[13px] text-neutral-900 shadow-xl;
 }
 
+.wizard-titlebar {
+  @apply flex items-center justify-between;
+}
+
 .wizard-title {
   @apply m-0 text-base font-semibold;
+}
+
+.wizard-close {
+  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .wizard-delete-button {

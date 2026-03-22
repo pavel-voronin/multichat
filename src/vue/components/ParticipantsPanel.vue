@@ -45,25 +45,50 @@
         </div>
       </li>
     </ul>
+    <ModelBrowserDialog
+      v-if="showModelBrowser"
+      @select="onModelSelected"
+      @close="onBrowserClosed"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
+import { useAgentsStore } from '../stores/agents';
 import { useMessageInputStore } from '../stores/messageInput';
 import { useParticipantsStore } from '../stores/participants';
 import { useUiStore } from '../stores/ui';
 import { useOverlayControls } from '../useOverlayControls';
+import ModelBrowserDialog from './ModelBrowserDialog.vue';
 import UiButton from './ui/UiButton.vue';
 
 const { participantRows } = storeToRefs(useParticipantsStore());
 const ui = useUiStore();
+const { isApiKeyPresent } = storeToRefs(useAgentsStore());
 const messageInput = useMessageInputStore();
 const overlayControls = useOverlayControls();
 
+const showModelBrowser = ref(false);
+
 function openCreateAgentWizard() {
   ui.editingAgentId = null;
+  if (!isApiKeyPresent.value) {
+    ui.showAgentWizard = true;
+    return;
+  }
+  showModelBrowser.value = true;
+}
+
+function onModelSelected(modelId: string) {
+  showModelBrowser.value = false;
+  ui.preselectedModelId = modelId;
   ui.showAgentWizard = true;
+}
+
+function onBrowserClosed() {
+  showModelBrowser.value = false;
 }
 
 function openParticipantEditor(participantId: string) {

@@ -6,7 +6,10 @@
       @click.self="close"
     >
       <div class="delete-agent-modal-card">
-        <h2 class="delete-agent-modal-title">Hide agent?</h2>
+        <div class="delete-agent-modal-titlebar">
+          <h2 class="delete-agent-modal-title">Hide agent?</h2>
+          <button class="delete-agent-modal-close" @click="close" aria-label="Close">✕</button>
+        </div>
         <p class="delete-agent-modal-copy">
           {{ modalCopy }}
         </p>
@@ -69,8 +72,16 @@ function confirm() {
   @apply w-full max-w-md rounded-md border border-neutral-300 bg-white p-5 font-mono text-[13px] text-neutral-900 shadow-xl;
 }
 
+.delete-agent-modal-titlebar {
+  @apply flex items-center justify-between;
+}
+
 .delete-agent-modal-title {
   @apply m-0 text-base font-semibold;
+}
+
+.delete-agent-modal-close {
+  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .delete-agent-modal-copy {
