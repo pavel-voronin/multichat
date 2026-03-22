@@ -1,10 +1,6 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import type {
-  AgentConfig,
-  MultiChatRuntime,
-  OpenRouterModel,
-} from '../../core';
+import type { AgentConfig, MultiChatRuntime } from '../../core';
 import { useRuntimeStore } from './runtime';
 import { useUiStore } from './ui';
 
@@ -25,10 +21,6 @@ export const useAgentsStore = defineStore('agents', () => {
     Boolean(state.value.settings.openRouterApiKey),
   );
 
-  async function listModels(): Promise<OpenRouterModel[]> {
-    return runtime.value.listModels();
-  }
-
   function createAgent(input: Omit<AgentConfig, 'id'> & { id?: string }) {
     return runtime.value.createAgent(input);
   }
@@ -48,7 +40,6 @@ export const useAgentsStore = defineStore('agents', () => {
     state,
     selectedAgent,
     isApiKeyPresent,
-    listModels,
     createAgent,
     updateAgent,
     removeAgent,

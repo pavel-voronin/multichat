@@ -25,36 +25,20 @@
             <UiInput v-model="name" class="wizard-input" type="text" />
           </label>
 
-          <label class="wizard-field">
+          <div class="wizard-field">
             <span class="wizard-label">Model</span>
-            <UiInput
-              v-model="modelSearch"
-              class="wizard-input"
-              type="text"
-              placeholder="Search by provider, model id, or name"
+            <ModelCard
+              :model-id="modelId"
+              :snapshot="agent?.modelSnapshot"
+              @change="showBrowser = true"
             />
-            <UiSelect v-model="modelId" class="wizard-input">
-              <optgroup
-                v-for="group in groupedModels"
-                :key="group.provider"
-                :label="group.provider"
-              >
-                <option
-                  v-for="model in group.models"
-                  :key="model.id"
-                  :value="model.id"
-                >
-                  {{ model.name }}
-                </option>
-              </optgroup>
-            </UiSelect>
-            <UiCheckbox v-model="showFreeOnly" class="wizard-checkbox">
-              Show free models only
-            </UiCheckbox>
-          </label>
+          </div>
 
-          <p v-if="isLoadingModels" class="wizard-copy">Loading models…</p>
-          <p v-else-if="modelsError" class="wizard-error">{{ modelsError }}</p>
+          <ModelBrowserDialog
+            v-if="showBrowser"
+            @select="onModelSelect"
+            @close="showBrowser = false"
+          />
 
           <label class="wizard-field">
             <span class="wizard-label">System prompt</span>
@@ -113,13 +97,14 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, onMounted, ref, watch } from 'vue';
-import type { OpenRouterModel } from '../../core';
+import { onMounted, ref, watch } from 'vue';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
 import { useAgentsStore } from '../stores/agents';
+import { useModelsStore } from '../stores/models';
 import { useUiStore } from '../stores/ui';
+import ModelBrowserDialog from './ModelBrowserDialog.vue';
+import ModelCard from './ModelCard.vue';
 import UiButton from './ui/UiButton.vue';
-import UiCheckbox from './ui/UiCheckbox.vue';
 import UiInput from './ui/UiInput.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
@@ -128,53 +113,17 @@ const agentsStore = useAgentsStore();
 const { selectedAgent: agent, isApiKeyPresent } = storeToRefs(agentsStore);
 const ui = useUiStore();
 
-const models = ref<OpenRouterModel[]>([]);
-const isLoadingModels = ref(false);
-const modelsError = ref('');
-const showFreeOnly = ref(false);
-const modelSearch = ref('');
+const modelsStore = useModelsStore();
+const showBrowser = ref(false);
 const name = ref('');
 const modelId = ref('');
 const systemPrompt = ref('');
 const selectedPresetId = ref(defaultPromptPreset.id);
 
-const visibleModels = computed(() => {
-  const query = modelSearch.value.trim().toLowerCase();
-  return models.value.filter((model) => {
-    if (showFreeOnly.value && !model.id.endsWith(':free')) {
-      return false;
-    }
-
-    if (!query) {
-      return true;
-    }
-
-    return (
-      model.id.toLowerCase().includes(query) ||
-      model.name.toLowerCase().includes(query)
-    );
-  });
-});
-
-const groupedModels = computed(() => {
-  const groups = new Map<string, OpenRouterModel[]>();
-
-  for (const model of visibleModels.value) {
-    const provider = model.id.includes('/') ? model.id.split('/')[0] : 'other';
-    const current = groups.get(provider) ?? [];
-    current.push(model);
-    groups.set(provider, current);
-  }
-
-  return Array.from(groups.entries())
-    .map(([provider, providerModels]) => ({
-      provider,
-      models: [...providerModels].sort((left, right) =>
-        left.name.localeCompare(right.name),
-      ),
-    }))
-    .sort((left, right) => left.provider.localeCompare(right.provider));
-});
+function onModelSelect(selectedId: string) {
+  modelId.value = selectedId;
+  showBrowser.value = false;
+}
 
 watch(
   agent,
@@ -191,7 +140,7 @@ watch(
   () => ui.showAgentWizard,
   async (isOpen) => {
     if (isOpen && isApiKeyPresent.value) {
-      await loadModels();
+      await modelsStore.fetchModels();
     }
   },
 );
@@ -210,36 +159,9 @@ watch(
 
 onMounted(async () => {
   if (ui.showAgentWizard && isApiKeyPresent.value) {
-    await loadModels();
+    await modelsStore.fetchModels();
   }
 });
-
-async function loadModels() {
-  isLoadingModels.value = true;
-  modelsError.value = '';
-  try {
-    models.value = await agentsStore.listModels();
-    models.value.sort((left, right) => {
-      const leftProvider = left.id.split('/')[0] ?? left.id;
-      const rightProvider = right.id.split('/')[0] ?? right.id;
-      const providerDiff = leftProvider.localeCompare(rightProvider);
-      if (providerDiff !== 0) {
-        return providerDiff;
-      }
-
-      return left.name.localeCompare(right.name);
-    });
-
-    if (!modelId.value && models.value[0]) {
-      modelId.value = models.value[0].id;
-    }
-  } catch (error) {
-    modelsError.value =
-      error instanceof Error ? error.message : 'Failed to load models';
-  } finally {
-    isLoadingModels.value = false;
-  }
-}
 
 function applyPreset() {
   const preset = promptPresets.find(
@@ -268,22 +190,26 @@ function requestDeleteAgent() {
 }
 
 function save() {
-  const selectedModel = models.value.find(
-    (model) => model.id === modelId.value,
-  );
+  const liveModel = modelsStore.findById(modelId.value);
+  const modelSnapshot = liveModel
+    ? {
+        contextLength: liveModel.context_length,
+        supportedParameters: liveModel.supported_parameters,
+      }
+    : agent.value?.modelSnapshot;
+
   const payload = {
     name: name.value.trim(),
     modelId: modelId.value,
-    pricing: selectedModel?.pricing ?? agent.value?.pricing,
+    pricing: liveModel?.pricing ?? agent.value?.pricing,
+    modelSnapshot,
     systemPrompt: systemPrompt.value.trim(),
   };
 
   if (agent.value?.id) {
     agentsStore.updateAgent(agent.value.id, payload);
   } else {
-    agentsStore.createAgent({
-      ...payload,
-    });
+    agentsStore.createAgent(payload);
   }
 
   close();
@@ -335,16 +261,8 @@ function openSettings() {
   @apply flex flex-wrap gap-2;
 }
 
-.wizard-checkbox {
-  @apply self-start;
-}
-
 .wizard-copy {
   @apply m-0 text-[12px] leading-5 text-neutral-500;
-}
-
-.wizard-error {
-  @apply m-0 text-[12px] leading-5 text-red-600;
 }
 
 .wizard-actions {
