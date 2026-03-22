@@ -68,9 +68,9 @@ describe('formatPricePerM', () => {
 describe('formatContextLength', () => {
   it('formats millions', () => {
     expect(formatContextLength(1_000_000)).toBe('1M');
-    expect(formatContextLength(200_000)).toBe('200k');
   });
   it('formats thousands', () => {
+    expect(formatContextLength(200_000)).toBe('200k');
     expect(formatContextLength(128_000)).toBe('128k');
     expect(formatContextLength(8_000)).toBe('8k');
   });

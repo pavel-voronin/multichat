@@ -54,6 +54,7 @@ export function formatPricePerM(raw: string | undefined): string {
   if (!raw) return '—';
   const perM = parseFloat(raw) * 1_000_000;
   if (isNaN(perM)) return '—';
+  // Use 4 decimal places for prices below $1/M to preserve meaningful precision
   return `$${perM.toFixed(perM < 1 ? 4 : 2)}`;
 }
 
