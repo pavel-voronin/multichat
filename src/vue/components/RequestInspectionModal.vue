@@ -14,7 +14,7 @@
               {{ currentSubjectMeta }}
             </p>
           </div>
-          <UiButton size="sm" @click="inspection.close">Close</UiButton>
+          <button class="inspection-close" @click="inspection.close" aria-label="Close">✕</button>
         </header>
 
         <div class="inspection-body">
@@ -603,6 +603,10 @@ async function copyRawJson() {
 
 .inspection-header {
   @apply flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4;
+}
+
+.inspection-close {
+  @apply flex h-7 w-7 shrink-0 items-center justify-center self-start rounded text-[14px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .inspection-header-copy {

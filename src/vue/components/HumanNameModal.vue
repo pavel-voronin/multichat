@@ -6,7 +6,10 @@
       @click.self="close"
     >
       <div class="human-modal-card">
-        <h2 class="human-modal-title">Edit human</h2>
+        <div class="human-modal-titlebar">
+          <h2 class="human-modal-title">Edit human</h2>
+          <button class="human-modal-close" @click="close" aria-label="Close">✕</button>
+        </div>
 
         <label class="human-modal-field">
           <span class="human-modal-label">Display name</span>
@@ -91,8 +94,16 @@ function save() {
   @apply w-full max-w-md rounded-md border border-neutral-300 bg-white p-5 font-mono text-[13px] text-neutral-900 shadow-xl;
 }
 
+.human-modal-titlebar {
+  @apply flex items-center justify-between;
+}
+
 .human-modal-title {
   @apply m-0 text-base font-semibold;
+}
+
+.human-modal-close {
+  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .human-modal-field {
