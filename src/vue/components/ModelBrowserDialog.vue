@@ -61,7 +61,7 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="model in sorted"
+                  v-for="{ model, pricing } in sorted"
                   :key="model.id"
                   class="browser-tr"
                   @click="$emit('select', model.id)"
@@ -69,19 +69,19 @@
                   <td class="browser-td browser-td-provider">{{ providerOf(model.id) }}</td>
                   <td class="browser-td browser-td-name">
                     {{ cleanModelName(model.name, model.id) }}
-                    <span v-if="pricingOf(model).kind === 'free'" class="browser-badge-free">Free</span>
+                    <span v-if="pricing.kind === 'free'" class="browser-badge-free">Free</span>
                   </td>
                   <td class="browser-td browser-td-right">{{ formatContextLength(model.context_length) }}</td>
-                  <template v-if="pricingOf(model).kind === 'variable'">
+                  <template v-if="pricing.kind === 'variable'">
                     <td class="browser-td browser-td-right browser-td-variable" colspan="2">variable</td>
                   </template>
-                  <template v-else-if="pricingOf(model).kind === 'free'">
+                  <template v-else-if="pricing.kind === 'free'">
                     <td class="browser-td browser-td-right">—</td>
                     <td class="browser-td browser-td-right">—</td>
                   </template>
                   <template v-else>
-                    <td class="browser-td browser-td-right">{{ (pricingOf(model) as { kind: 'price'; input: string; output: string }).input }}</td>
-                    <td class="browser-td browser-td-right">{{ (pricingOf(model) as { kind: 'price'; input: string; output: string }).output }}</td>
+                    <td class="browser-td browser-td-right">{{ priceInput(pricing) }}</td>
+                    <td class="browser-td browser-td-right">{{ priceOutput(pricing) }}</td>
                   </template>
                 </tr>
               </tbody>
@@ -101,6 +101,7 @@ import {
   cleanModelName,
   classifyPricing,
   formatContextLength,
+  type PricingDisplay,
 } from '../utils/modelFormatting';
 import UiCheckbox from './ui/UiCheckbox.vue';
 import UiInput from './ui/UiInput.vue';
@@ -145,6 +146,13 @@ function pricingOf(model: OpenRouterModel) {
   return classifyPricing(model.pricing?.prompt, model.pricing?.completion, model.id);
 }
 
+function priceInput(pricing: PricingDisplay): string {
+  return pricing.kind === 'price' ? pricing.input : '—';
+}
+function priceOutput(pricing: PricingDisplay): string {
+  return pricing.kind === 'price' ? pricing.output : '—';
+}
+
 function sortValue(model: OpenRouterModel, key: SortKey): string | number {
   switch (key) {
     case 'provider': return providerOf(model.id).toLowerCase();
@@ -186,19 +194,21 @@ const filtered = computed(() => {
 const sorted = computed(() => {
   const dir = sortDir.value === 'asc' ? 1 : -1;
   const key = sortKey.value;
-  return [...filtered.value].sort((a, b) => {
-    const av = sortValue(a, key);
-    const bv = sortValue(b, key);
-    if (typeof av === 'string' && typeof bv === 'string') {
-      const diff = av.localeCompare(bv);
-      if (diff !== 0) return diff * dir;
-      if (key === 'provider') {
-        return cleanModelName(a.name, a.id).localeCompare(cleanModelName(b.name, b.id));
+  return [...filtered.value]
+    .sort((a, b) => {
+      const av = sortValue(a, key);
+      const bv = sortValue(b, key);
+      if (typeof av === 'string' && typeof bv === 'string') {
+        const diff = av.localeCompare(bv);
+        if (diff !== 0) return diff * dir;
+        if (key === 'provider') {
+          return cleanModelName(a.name, a.id).localeCompare(cleanModelName(b.name, b.id));
+        }
+        return 0;
       }
-      return 0;
-    }
-    return ((av as number) - (bv as number)) * dir;
-  });
+      return ((av as number) - (bv as number)) * dir;
+    })
+    .map((model) => ({ model, pricing: pricingOf(model) }));
 });
 </script>
 
