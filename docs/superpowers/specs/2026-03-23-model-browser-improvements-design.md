@@ -76,7 +76,7 @@ All six modal windows receive a title bar with a ✕ button on the right:
 
 ### Pattern
 
-Each modal's title bar becomes a flex row: `<title text>` on the left, `<✕ button>` on the right. The button triggers the same close action as clicking the backdrop or pressing Esc. The visual style is consistent across all modals.
+Each modal already has a title. The existing title element's container becomes a flex row (if it isn't already): title text on the left, ✕ button pinned to the right edge. The button triggers the same close action as clicking the backdrop or pressing Esc. The visual style is consistent across all modals.
 
 ---
 
