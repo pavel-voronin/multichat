@@ -24,7 +24,11 @@
       <span class="cutoff-manual-copy">
         Messages above stay visible but are excluded from agent context.
       </span>
-      <button type="button" class="cutoff-link" @click="session.clearHistoryBeforeAgentCutoff()">
+      <button
+        type="button"
+        class="cutoff-link"
+        @click="session.clearHistoryBeforeAgentCutoff()"
+      >
         Delete messages above
       </button>
       <span class="cutoff-link-gap" aria-hidden="true">&nbsp;&nbsp;</span>

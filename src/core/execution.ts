@@ -51,7 +51,10 @@ export interface ExecutionContext {
   persistAndNotify: () => void;
 }
 
-function getTab(tabId: string, ctx: ExecutionContext): ChatTabState | undefined {
+function getTab(
+  tabId: string,
+  ctx: ExecutionContext,
+): ChatTabState | undefined {
   return ctx.workspace.tabs.find((tab) => tab.id === tabId);
 }
 
@@ -198,10 +201,7 @@ export async function runAgentTurnFn(
   }
 
   const processedKeys = lastProcessedKeysForTab(tab.id, ctx);
-  const visibleMessages = getVisibleMessagesForAgent(
-    agent.id,
-    tab,
-  );
+  const visibleMessages = getVisibleMessagesForAgent(agent.id, tab);
 
   if (!hasNewVisibleInputForAgent(agent.id, tab, processedKeys)) {
     pushDebugLog({

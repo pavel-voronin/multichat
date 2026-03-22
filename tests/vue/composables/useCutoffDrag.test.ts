@@ -11,7 +11,13 @@ afterEach(() => {
 });
 
 function makeMessage(id: string): VisibleTimelineEntry {
-  return { kind: 'message', id, sortAt: 0, isMuted: false, createdAt: '2024-01-01T00:00:00.000Z' } as VisibleTimelineEntry;
+  return {
+    kind: 'message',
+    id,
+    sortAt: 0,
+    isMuted: false,
+    createdAt: '2024-01-01T00:00:00.000Z',
+  } as VisibleTimelineEntry;
 }
 
 function makeManualCutoff(id: string): VisibleTimelineEntry {
@@ -26,7 +32,11 @@ function makeManualCutoff(id: string): VisibleTimelineEntry {
 
 describe('reorderEntriesForDrag', () => {
   it('returns entries unchanged when cutoffId is null (no drag active)', () => {
-    const entries = [makeMessage('m1'), makeManualCutoff('c1'), makeMessage('m2')];
+    const entries = [
+      makeMessage('m1'),
+      makeManualCutoff('c1'),
+      makeMessage('m2'),
+    ];
     expect(reorderEntriesForDrag(entries, null, undefined)).toEqual(entries);
   });
 

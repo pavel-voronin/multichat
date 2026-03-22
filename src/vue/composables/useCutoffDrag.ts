@@ -24,11 +24,16 @@ export function reorderEntriesForDrag(
   }
 
   const draggedEntry = entries[draggedIndex];
-  if (draggedEntry?.kind !== 'history-cutoff' || draggedEntry.cutoff.source !== 'manual') {
+  if (
+    draggedEntry?.kind !== 'history-cutoff' ||
+    draggedEntry.cutoff.source !== 'manual'
+  ) {
     return entries;
   }
 
-  const entriesWithoutDragged = entries.filter((entry) => entry.id !== cutoffId);
+  const entriesWithoutDragged = entries.filter(
+    (entry) => entry.id !== cutoffId,
+  );
 
   if (targetEntryId === undefined) {
     return entriesWithoutDragged;
@@ -38,7 +43,9 @@ export function reorderEntriesForDrag(
     return [...entriesWithoutDragged, draggedEntry];
   }
 
-  const targetIndex = entriesWithoutDragged.findIndex((entry) => entry.id === targetEntryId);
+  const targetIndex = entriesWithoutDragged.findIndex(
+    (entry) => entry.id === targetEntryId,
+  );
   if (targetIndex === -1) {
     return entries;
   }
@@ -72,7 +79,9 @@ function resolveCutoffDropTarget(
   }
 
   const dropTargets = Array.from(
-    chatLog.querySelectorAll<HTMLElement>('[data-manual-cutoff-drop-target="true"]'),
+    chatLog.querySelectorAll<HTMLElement>(
+      '[data-manual-cutoff-drop-target="true"]',
+    ),
   ).filter((element) => element.dataset.timelineEntryId !== cutoffId);
 
   for (const element of dropTargets) {
@@ -92,7 +101,9 @@ function updateDrag(event: PointerEvent): void {
 
   event.preventDefault();
   const entries = useTimelineStore().visibleTimelineEntries;
-  const draggedEntry = entries.find((entry) => entry.id === draggedCutoffId.value);
+  const draggedEntry = entries.find(
+    (entry) => entry.id === draggedCutoffId.value,
+  );
   if (draggedEntry?.kind !== 'history-cutoff') {
     return;
   }
@@ -110,7 +121,9 @@ function finishDrag(event: PointerEvent): void {
   }
 
   const entries = useTimelineStore().visibleTimelineEntries;
-  const draggedEntry = entries.find((entry) => entry.id === draggedCutoffId.value);
+  const draggedEntry = entries.find(
+    (entry) => entry.id === draggedCutoffId.value,
+  );
   if (draggedEntry?.kind !== 'history-cutoff') {
     stopDrag();
     return;
@@ -168,7 +181,11 @@ export function useCutoffDrag() {
     draggedCutoffId.value = cutoffId;
     activePointerId = event.pointerId;
     const handle = event.currentTarget as HTMLElement | null;
-    dragPreviewTargetId.value = resolveCutoffDropTarget(event.clientX, event.clientY, cutoffId);
+    dragPreviewTargetId.value = resolveCutoffDropTarget(
+      event.clientX,
+      event.clientY,
+      cutoffId,
+    );
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'grabbing';
     handle?.setPointerCapture?.(event.pointerId);

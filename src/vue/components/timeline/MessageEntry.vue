@@ -11,13 +11,16 @@
       :class="{ 'message-time-trigger-active': canInspect }"
       :disabled="!canInspect"
       @click="handleInspect"
-    >[{{ formatMessageTime(entry.message.createdAt) }}]</button><template v-if="!isSystem">
+    >
+      [{{ formatMessageTime(entry.message.createdAt) }}]</button
+    ><template v-if="!isSystem">
       <span class="message-separator">{{ ' ' }}</span
       ><span
         class="message-sender"
         @dblclick="messageInput.mentionMessageSender(entry.message)"
-      >{{ authorLabel }}</span>
-    </template><CostBadge
+        >{{ authorLabel }}</span
+      > </template
+    ><CostBadge
       :item="entry.message"
       :item-id="entry.message.id"
       :cost-display-mode="costDisplayMode"
@@ -53,10 +56,14 @@ const timeline = useTimelineStore();
 const isSystem = computed(() => isSystemMessage(props.entry.message));
 
 const authorLabel = computed(() =>
-  formatMessageAuthor(props.entry.message, { byId: timeline.participantNameById }),
+  formatMessageAuthor(props.entry.message, {
+    byId: timeline.participantNameById,
+  }),
 );
 
-const canInspect = computed(() => inspection.canInspectMessage(props.entry.message));
+const canInspect = computed(() =>
+  inspection.canInspectMessage(props.entry.message),
+);
 
 const entryClasses = computed(() => {
   const base = isSystem.value
@@ -71,9 +78,14 @@ function handleInspect() {
   if (!canInspect.value) return;
 
   if (getMessageSenderId(props.entry.message) === 'human') {
-    const subject = inspection.getInspectionSubjectForMessage(props.entry.message.id);
+    const subject = inspection.getInspectionSubjectForMessage(
+      props.entry.message.id,
+    );
     if (subject.downstreamTraces.length === 1) {
-      inspection.openForTrace(subject.downstreamTraces[0]!.id, props.entry.message.id);
+      inspection.openForTrace(
+        subject.downstreamTraces[0]!.id,
+        props.entry.message.id,
+      );
       return;
     }
     inspection.openForMessage(props.entry.message.id);
@@ -81,7 +93,10 @@ function handleInspect() {
   }
 
   if (props.entry.message.sourceTraceId) {
-    inspection.openForTrace(props.entry.message.sourceTraceId, props.entry.message.id);
+    inspection.openForTrace(
+      props.entry.message.sourceTraceId,
+      props.entry.message.id,
+    );
   }
 }
 </script>

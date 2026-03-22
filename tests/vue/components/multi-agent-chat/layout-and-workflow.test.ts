@@ -11,7 +11,14 @@ describe('MultiAgentChat layout and workflow', () => {
   it('switches from blocked agent wizard to settings instead of stacking modals', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
-        return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
+        return [
+          {
+            id: 'model-a:free',
+            name: 'Model A Free',
+            context_length: 128000,
+            supported_parameters: ['tools'],
+          },
+        ];
       },
       async runAgentTurn() {
         return {

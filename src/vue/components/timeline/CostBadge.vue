@@ -7,7 +7,8 @@
         :class="costClass"
         @mouseenter="overlayControls.openCostBubble(itemId, $event)"
         @mouseleave="overlayControls.scheduleCostBubbleClose()"
-      >{{ formattedCost }}</span>
+        >{{ formattedCost }}</span
+      >
     </span>
   </template>
 </template>
@@ -31,10 +32,16 @@ const props = defineProps<{
 
 const overlayControls = useOverlayControls();
 
-const shouldShow = computed(() => shouldShowMessageCost(props.item, props.costDisplayMode));
-const cost = computed(() => displayedMessageCost(props.item, props.costDisplayMode));
+const shouldShow = computed(() =>
+  shouldShowMessageCost(props.item, props.costDisplayMode),
+);
+const cost = computed(() =>
+  displayedMessageCost(props.item, props.costDisplayMode),
+);
 const formattedCost = computed(() => formatMessageCost(cost.value));
-const costClass = computed(() => messageCostSummaryClass(props.item, props.costDisplayMode));
+const costClass = computed(() =>
+  messageCostSummaryClass(props.item, props.costDisplayMode),
+);
 </script>
 
 <style scoped>

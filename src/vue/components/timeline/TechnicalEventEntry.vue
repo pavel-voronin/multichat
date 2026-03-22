@@ -11,8 +11,11 @@
       :class="{ 'message-time-trigger-active': canInspect }"
       :disabled="!canInspect"
       @click="handleInspect"
-    >[{{ formatMessageTime(entry.event.createdAt) }}]</button><span class="message-separator">{{ ' ' }}</span
-    ><span class="runtime-label">{{ eventLabel }}</span><CostBadge
+    >
+      [{{ formatMessageTime(entry.event.createdAt) }}]</button
+    ><span class="message-separator">{{ ' ' }}</span
+    ><span class="runtime-label">{{ eventLabel }}</span
+    ><CostBadge
       :item="entry.event"
       :item-id="entry.event.id"
       :cost-display-mode="costDisplayMode"
@@ -23,7 +26,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { CostDisplayMode, VisibleTimelineTechnicalEventEntry } from '../../types';
+import type {
+  CostDisplayMode,
+  VisibleTimelineTechnicalEventEntry,
+} from '../../types';
 import { useInspectionStore } from '../../stores/inspection';
 import { useTimelineStore } from '../../stores/timeline';
 import {
@@ -48,7 +54,9 @@ const canInspect = computed(() => timeline.canInspectEvent(props.entry.event));
 const entryClasses = computed(() => technicalEventClasses(props.entry.event));
 
 const eventLabel = computed(() =>
-  formatTechnicalEventLabel(props.entry.event, { byId: timeline.participantNameById }),
+  formatTechnicalEventLabel(props.entry.event, {
+    byId: timeline.participantNameById,
+  }),
 );
 
 const eventText = computed(() => formatTechnicalEventText(props.entry.event));

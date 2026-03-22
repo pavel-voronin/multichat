@@ -21,14 +21,14 @@ Expected: `Tests 46 passed (46)`
 
 ## File Map
 
-| File | Action | Lines (approx) |
-|------|--------|----------------|
-| `src/core/context-routing.ts` | **Create** | ~160 |
-| `src/core/accounting.ts` | **Create** | ~85 |
-| `src/core/traces.ts` | **Create** | ~120 |
-| `src/core/messaging.ts` | **Create** | ~100 |
-| `src/core/execution.ts` | **Create** | ~460 |
-| `src/core/runtime.ts` | **Modify** (remove extracted code, add imports+delegation) | ~900 |
+| File                          | Action                                                     | Lines (approx) |
+| ----------------------------- | ---------------------------------------------------------- | -------------- |
+| `src/core/context-routing.ts` | **Create**                                                 | ~160           |
+| `src/core/accounting.ts`      | **Create**                                                 | ~85            |
+| `src/core/traces.ts`          | **Create**                                                 | ~120           |
+| `src/core/messaging.ts`       | **Create**                                                 | ~100           |
+| `src/core/execution.ts`       | **Create**                                                 | ~460           |
+| `src/core/runtime.ts`         | **Modify** (remove extracted code, add imports+delegation) | ~900           |
 
 Each task: create one module → update `runtime.ts` → green tests → commit.
 
@@ -37,6 +37,7 @@ Each task: create one module → update `runtime.ts` → green tests → commit.
 ## Task 1: Extract `context-routing.ts`
 
 **Files:**
+
 - Create: `src/core/context-routing.ts`
 - Modify: `src/core/runtime.ts`
 
@@ -45,6 +46,7 @@ Each task: create one module → update `runtime.ts` → green tests → commit.
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 2: Create `src/core/context-routing.ts`**
@@ -58,10 +60,7 @@ import type {
   ChatTabState,
   ContextCutoffAnchor,
 } from './types';
-import {
-  getActiveManualCutoffIndex,
-  getTimelineMessages,
-} from './diagnostics';
+import { getActiveManualCutoffIndex, getTimelineMessages } from './diagnostics';
 import {
   getMessageSenderId,
   isSystemMessage,
@@ -86,8 +85,7 @@ export function isMessageVisibleToAgent(
 ): boolean {
   if (message.target === 'public') return true;
   return (
-    getMessageSenderId(message) === agentId ||
-    message.recipientId === agentId
+    getMessageSenderId(message) === agentId || message.recipientId === agentId
   );
 }
 
@@ -150,7 +148,9 @@ export function getVisibleContextKey(
   tab: ChatTabState,
   maxContextMessages: number,
 ): string {
-  return getNonSelfVisibleMessageIds(agentId, tab, maxContextMessages).join('|');
+  return getNonSelfVisibleMessageIds(agentId, tab, maxContextMessages).join(
+    '|',
+  );
 }
 
 export function hasNewVisibleInputForAgent(
@@ -173,7 +173,10 @@ export function markVisibleContextProcessed(
   processedKeys: Map<string, string>,
   maxContextMessages: number,
 ): void {
-  processedKeys.set(agentId, getVisibleContextKey(agentId, tab, maxContextMessages));
+  processedKeys.set(
+    agentId,
+    getVisibleContextKey(agentId, tab, maxContextMessages),
+  );
 }
 
 export function getTriggeringMessageIds(
@@ -200,10 +203,13 @@ export function getAgentContextCutoffs(
 ): AgentContextCutoff[] {
   const activeAgents = getActiveAgents(tab);
   const contextWindowSize = tab.contextWindowSize ?? maxContextMessages;
-  const contextMessages = getContextWindowMessages(tab).slice(-contextWindowSize);
+  const contextMessages =
+    getContextWindowMessages(tab).slice(-contextWindowSize);
   const anchor = contextMessages[0]
-    ? ({ kind: 'before-message' as const, messageId: contextMessages[0].id })
-    : ({ kind: getTimelineMessages(tab).length ? 'end' : 'start' } as ContextCutoffAnchor);
+    ? { kind: 'before-message' as const, messageId: contextMessages[0].id }
+    : ({
+        kind: getTimelineMessages(tab).length ? 'end' : 'start',
+      } as ContextCutoffAnchor);
 
   return [
     {
@@ -215,10 +221,10 @@ export function getAgentContextCutoffs(
 }
 ```
 
-
 - [ ] **Step 3: Update `runtime.ts` — add import, replace methods with delegating calls**
 
 Add to imports at top of `runtime.ts`:
+
 ```ts
 import {
   getActiveAgents,
@@ -263,6 +269,7 @@ isMessageVisibleToParticipant(message: ChatMessage, participantId: string): bool
 ```
 
 Replace the private methods with delegating private methods:
+
 ```ts
 private getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
   return getContextWindowMessages(tab);
@@ -311,6 +318,7 @@ private getActiveAgents(tab: ChatTabState): AgentConfig[] {
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 5: Commit**
@@ -325,6 +333,7 @@ git commit -m "refactor: extract context-routing module from runtime"
 ## Task 2: Extract `accounting.ts`
 
 **Files:**
+
 - Create: `src/core/accounting.ts`
 - Modify: `src/core/runtime.ts`
 
@@ -388,8 +397,7 @@ export function applyDownstreamPromptCost(
 
     message.downstreamPromptCostUsd =
       (message.downstreamPromptCostUsd ?? 0) + promptCostPerMessage;
-    const existingContributors =
-      message.downstreamPromptCostContributors ?? [];
+    const existingContributors = message.downstreamPromptCostContributors ?? [];
     const existingContributor = existingContributors.find(
       (c) => c.agentId === receivingAgent.id,
     );
@@ -413,6 +421,7 @@ export function applyDownstreamPromptCost(
 - [ ] **Step 2: Update `runtime.ts` — add import, replace private methods**
 
 Add to imports:
+
 ```ts
 import {
   applyDownstreamPromptCost,
@@ -422,6 +431,7 @@ import {
 ```
 
 Replace the three private methods with delegating wrappers:
+
 ```ts
 private getPromptCostUsd(agent: AgentConfig, usage?: TransportUsage): number {
   return getPromptCostUsd(agent, usage);
@@ -450,6 +460,7 @@ private applyDownstreamPromptCost(
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 4: Commit**
@@ -464,6 +475,7 @@ git commit -m "refactor: extract accounting module from runtime"
 ## Task 3: Extract `traces.ts`
 
 **Files:**
+
 - Create: `src/core/traces.ts`
 - Modify: `src/core/runtime.ts`
 
@@ -586,6 +598,7 @@ export function getMessageInspectionGraph(
 - [ ] **Step 2: Update `runtime.ts` — add import, replace method bodies**
 
 Add to imports:
+
 ```ts
 import {
   getInspectionSubjectForMessage as getInspectionSubjectFn,
@@ -595,6 +608,7 @@ import {
 ```
 
 Replace the three method bodies (keep signatures, delegate):
+
 ```ts
 getRelatedRequestTraces(
   traceId: string,
@@ -623,6 +637,7 @@ getMessageInspectionGraph(
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 4: Commit**
@@ -637,6 +652,7 @@ git commit -m "refactor: extract traces inspection module from runtime"
 ## Task 4: Extract `messaging.ts`
 
 **Files:**
+
 - Create: `src/core/messaging.ts`
 - Modify: `src/core/runtime.ts`
 
@@ -761,14 +777,13 @@ export function publishSystemMessageToTab(
 - [ ] **Step 2: Update `runtime.ts` — add import, replace private methods**
 
 Add to imports:
+
 ```ts
-import {
-  publishMessageToTab,
-  publishSystemMessageToTab,
-} from './messaging';
+import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
 ```
 
 Replace the two private methods:
+
 ```ts
 private publishMessage(
   input: Omit<SendMessageInput, 'senderId'> & {
@@ -814,6 +829,7 @@ Also remove the now-unused `participantName` private method reference from `publ
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 4: Commit**
@@ -832,6 +848,7 @@ This is the largest extraction. The execution engine calls back into the runtime
 **Important:** `sendMessage` in `ExecutionContext` routes through `MultiChatRuntime.sendMessage`, which calls `persistAndNotify` and fires all listeners immediately — each agent message is visible to subscribers mid-sweep. This is intentional.
 
 **Files:**
+
 - Create: `src/core/execution.ts`
 - Modify: `src/core/runtime.ts`
 
@@ -894,7 +911,10 @@ export interface ExecutionContext {
   persistAndNotify: () => void;
 }
 
-function getTab(tabId: string, ctx: ExecutionContext): ChatTabState | undefined {
+function getTab(
+  tabId: string,
+  ctx: ExecutionContext,
+): ChatTabState | undefined {
   return ctx.workspace.tabs.find((tab) => tab.id === tabId);
 }
 
@@ -1074,7 +1094,14 @@ export async function runAgentTurnFn(
     ctx.maxContextMessages,
   );
 
-  if (!hasNewVisibleInputForAgent(agent.id, tab, processedKeys, ctx.maxContextMessages)) {
+  if (
+    !hasNewVisibleInputForAgent(
+      agent.id,
+      tab,
+      processedKeys,
+      ctx.maxContextMessages,
+    )
+  ) {
     pushDebugLog({
       now: ctx.now,
       workspace: ctx.workspace,
@@ -1091,7 +1118,11 @@ export async function runAgentTurnFn(
           ctx.maxContextMessages,
         ),
         contextKeyPrev: processedKeys.get(agent.id) ?? '',
-        contextKeyNext: getVisibleContextKey(agent.id, tab, ctx.maxContextMessages),
+        contextKeyNext: getVisibleContextKey(
+          agent.id,
+          tab,
+          ctx.maxContextMessages,
+        ),
       },
     });
     return;
@@ -1115,7 +1146,11 @@ export async function runAgentTurnFn(
           ctx.maxContextMessages,
         ),
         contextKeyPrev: processedKeys.get(agent.id) ?? '',
-        contextKeyNext: getVisibleContextKey(agent.id, tab, ctx.maxContextMessages),
+        contextKeyNext: getVisibleContextKey(
+          agent.id,
+          tab,
+          ctx.maxContextMessages,
+        ),
       },
     });
     pushRuntimeError({
@@ -1136,7 +1171,11 @@ export async function runAgentTurnFn(
   const abortController = new AbortController();
   ctx.abortControllers.set(tab.id, abortController);
   const previousContextKey = processedKeys.get(agent.id) ?? '';
-  const nextContextKey = getVisibleContextKey(agent.id, tab, ctx.maxContextMessages);
+  const nextContextKey = getVisibleContextKey(
+    agent.id,
+    tab,
+    ctx.maxContextMessages,
+  );
   const nonSelfVisibleMessageIds = getNonSelfVisibleMessageIds(
     agent.id,
     tab,
@@ -1481,6 +1520,7 @@ export async function runAgentSweepFn(
 - [ ] **Step 2: Update `runtime.ts` — add imports, add `buildExecutionContext`, replace private methods**
 
 Add to imports:
+
 ```ts
 import {
   chooseAgentMode,
@@ -1493,6 +1533,7 @@ import {
 ```
 
 Add `buildExecutionContext` private method:
+
 ```ts
 private buildExecutionContext(): ExecutionContext {
   return {
@@ -1516,6 +1557,7 @@ private buildExecutionContext(): ExecutionContext {
 ```
 
 Replace `runAgentSweep` public method body:
+
 ```ts
 async runAgentSweep(
   trigger: string,
@@ -1526,6 +1568,7 @@ async runAgentSweep(
 ```
 
 Replace `runAgentTurn` private method body:
+
 ```ts
 private async runAgentTurn(
   agent: AgentConfig,
@@ -1536,6 +1579,7 @@ private async runAgentTurn(
 ```
 
 Replace `handleSuccessfulAgentTurnResult` private method body:
+
 ```ts
 private async handleSuccessfulAgentTurnResult(params: {
   agent: AgentConfig;
@@ -1555,6 +1599,7 @@ private async handleSuccessfulAgentTurnResult(params: {
 ```
 
 Replace `chooseAgentMode` and `updateToolSupport` private methods:
+
 ```ts
 private chooseAgentMode(agent: AgentConfig): AgentExecutionMode {
   return chooseAgentMode(agent);
@@ -1578,6 +1623,7 @@ You can remove `runAgentTurn` and `handleSuccessfulAgentTurnResult` private meth
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 4: Check TypeScript**
@@ -1585,6 +1631,7 @@ Expected: `Tests 46 passed (46)`
 ```bash
 npx tsc --noEmit
 ```
+
 Expected: no errors
 
 - [ ] **Step 5: Commit**
@@ -1607,6 +1654,7 @@ After the extractions, some private methods in `runtime.ts` are single-line dele
 ```bash
 wc -l src/core/runtime.ts
 ```
+
 Expected: under 1000 lines (target ~850–950)
 
 - [ ] **Step 3: Run full core test suite one final time**
@@ -1614,6 +1662,7 @@ Expected: under 1000 lines (target ~850–950)
 ```bash
 npm test -- tests/core
 ```
+
 Expected: `Tests 46 passed (46)`
 
 - [ ] **Step 4: Final commit**

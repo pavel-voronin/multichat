@@ -55,8 +55,7 @@ export function applyDownstreamPromptCost(
 
     message.downstreamPromptCostUsd =
       (message.downstreamPromptCostUsd ?? 0) + promptCostPerMessage;
-    const existingContributors =
-      message.downstreamPromptCostContributors ?? [];
+    const existingContributors = message.downstreamPromptCostContributors ?? [];
     const existingContributor = existingContributors.find(
       (c) => c.agentId === receivingAgent.id,
     );

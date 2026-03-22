@@ -17,6 +17,7 @@
 ## File Map
 
 **Modified:**
+
 - `src/core/types.ts` — remove `ToolSupport`, `AgentCapabilities`, simplify `AgentExecutionMode`; add `context_length`/`supported_parameters` to `OpenRouterModel`; add `ModelSnapshot`; add `modelSnapshot?` to `AgentConfig`
 - `src/core/agentProtocol.ts` — remove `parseJsonAction`, remove `mode` param from `buildMessages`
 - `src/core/execution.ts` — remove `chooseAgentMode`, `updateToolSupportOnTab`, entire fallback block
@@ -41,6 +42,7 @@
 - `src/vue/components/AgentWizard.vue` — remove select/search/checkbox, add `<ModelCard>` + `<ModelBrowserDialog>`
 
 **Created:**
+
 - `src/vue/stores/models.ts` — new Pinia store: `models`, `isLoading`, `error`, `lastFetchedAt`, `fetchModels()`, `findById()`
 - `src/vue/components/ModelCard.vue` — compact row: provider/name · ctx · price · Free badge · Change button
 - `src/vue/components/ModelBrowserDialog.vue` — sidebar filters + searchable list, Teleport to body
@@ -50,17 +52,20 @@
 ## Task 1: Remove `AgentCapabilities` and `'json'` mode from types
 
 **Files:**
+
 - Modify: `src/core/types.ts`
 
 - [ ] **Step 1: Make these changes to `src/core/types.ts`**
 
   Remove the `ToolSupport` type entirely:
+
   ```ts
   // DELETE this line:
   export type ToolSupport = 'unknown' | 'supported' | 'unsupported';
   ```
 
   Change `AgentExecutionMode`:
+
   ```ts
   // BEFORE:
   export type AgentExecutionMode = 'tools' | 'json';
@@ -69,6 +74,7 @@
   ```
 
   Remove `mode` from `OpenRouterTransport.runAgentTurn` input shape in `types.ts`. Since `mode` is now always `'tools'`, it is redundant on the interface:
+
   ```ts
   // BEFORE:
   export interface OpenRouterTransport {
@@ -93,6 +99,7 @@
   ```
 
   Remove `AgentCapabilities` interface and `capabilities` field from `AgentConfig`:
+
   ```ts
   // DELETE this interface entirely:
   export interface AgentCapabilities {
@@ -105,6 +112,7 @@
   ```
 
   The final `AgentConfig` shape after removal:
+
   ```ts
   export interface AgentConfig {
     id: string;
@@ -132,6 +140,7 @@
 ## Task 2: Simplify `agentProtocol.ts` (remove JSON mode)
 
 **Files:**
+
 - Modify: `src/core/agentProtocol.ts`
 
 - [ ] **Step 1: Remove `mode` param from `buildMessages` and delete the JSON branch**
@@ -141,13 +150,14 @@
   export function buildMessages(
     context: AgentTurnContext,
     mode: AgentExecutionMode,
-  )
+  );
 
   // AFTER signature:
-  export function buildMessages(context: AgentTurnContext)
+  export function buildMessages(context: AgentTurnContext);
   ```
 
   Delete the entire `if (mode === 'json') { ... }` block (lines 83–100 approximately). Keep only the tools-format return at the end:
+
   ```ts
   return [
     {
@@ -166,6 +176,7 @@
   Delete the entire `parseJsonAction` function (export function parseJsonAction ...) from the file.
 
   Also remove `AgentExecutionMode` from the import at the top since `buildMessages` no longer needs it:
+
   ```ts
   // BEFORE:
   import type {
@@ -189,11 +200,13 @@
 ## Task 3: Clean up `execution.ts` (remove fallback logic)
 
 **Files:**
+
 - Modify: `src/core/execution.ts`
 
 - [ ] **Step 1: Remove `chooseAgentMode` and `updateToolSupportOnTab` functions**
 
   Delete the `chooseAgentMode` function (lines 71–79):
+
   ```ts
   // DELETE entirely:
   export function chooseAgentMode(agent: AgentConfig): AgentExecutionMode {
@@ -208,6 +221,7 @@
   ```
 
   Delete the `updateToolSupportOnTab` function (lines 81–90):
+
   ```ts
   // DELETE entirely:
   export function updateToolSupportOnTab(...) { ... }
@@ -216,10 +230,13 @@
 - [ ] **Step 2: Replace `chooseAgentMode` call, remove `updateToolSupport` everywhere**
 
   Find the line:
+
   ```ts
   const mode = chooseAgentMode(agent);
   ```
+
   Replace with:
+
   ```ts
   const mode: AgentExecutionMode = 'tools';
   ```
@@ -229,6 +246,7 @@
 - [ ] **Step 3: Remove the entire JSON fallback block from the catch handler**
 
   In the `catch (error)` block of the agent turn execution, find the section starting with:
+
   ```ts
   if (mode === 'tools') {
     ctx.updateAgent(
@@ -244,6 +262,7 @@
     // ... ~90 lines of fallback logic ...
   }
   ```
+
   Delete this entire `if (mode === 'tools') { ... }` block. The catch handler should only log the error and push a runtime error — no fallback attempt.
 
 - [ ] **Step 4: Clean up imports in execution.ts**
@@ -251,6 +270,7 @@
   Remove any now-unused imports: `AgentExecutionMode` (if it was imported), `chooseAgentMode` is defined in the file (already deleted). Remove `updateToolSupportOnTab` from exports if it was re-exported.
 
   Also remove the `updateToolSupport` parameter from `handleSuccessfulAgentTurnResultFn`:
+
   ```ts
   // Remove from the parameter object:
   //   updateToolSupport: boolean;
@@ -269,33 +289,38 @@
 ## Task 4: Clean up `openrouter.ts` (remove JSON mode from `runAgentTurn`)
 
 **Files:**
+
 - Modify: `src/core/openrouter.ts`
 
 - [ ] **Step 1: Remove `mode` param handling from `callChatCompletion`**
 
   Change the function signature from:
+
   ```ts
   async function callChatCompletion(
     apiKey: string,
     context: AgentTurnContext,
     mode: AgentExecutionMode,
     signal?: AbortSignal,
-  )
+  );
   ```
+
   To:
+
   ```ts
   async function callChatCompletion(
     apiKey: string,
     context: AgentTurnContext,
     signal?: AbortSignal,
-  )
+  );
   ```
 
   Remove the `mode === 'tools'` / `mode === 'json'` conditional branches in the request payload. The payload always includes tools:
+
   ```ts
   const requestPayload = {
     model: context.agent.modelId,
-    messages: buildMessages(context),  // no mode arg now
+    messages: buildMessages(context), // no mode arg now
     tools: buildTools(),
     tool_choice: 'required',
     parallel_tool_calls: false,
@@ -307,6 +332,7 @@
 - [ ] **Step 2: Update `runAgentTurn` to not pass `mode`**
 
   In the `runAgentTurn` method, the call to `callChatCompletion` no longer passes `mode`:
+
   ```ts
   return callChatCompletion(input.apiKey, input.context, input.signal);
   ```
@@ -324,6 +350,7 @@
 ## Task 5: Update all test fixtures (remove `capabilities`)
 
 **Files:**
+
 - Modify: `tests/core/runtime/helpers.ts`
 - Modify: `tests/core/runtime/context-routing.test.ts`
 - Modify: `tests/core/runtime/history.test.ts`
@@ -345,6 +372,7 @@
 - [ ] **Step 1: Fix `tests/core/runtime/helpers.ts`**
 
   Simplify `createTransport` — remove the `mode` param since it's always `'tools'`:
+
   ```ts
   export function createTransport(
     handler: (agentId: string) => Promise<AgentTurnResult>,
@@ -363,6 +391,7 @@
   Remove `AgentExecutionMode` from imports if present.
 
   **Important:** After changing the `createTransport` signature, every test file that calls it with a two-argument handler `(agentId, mode) => ...` will break. Go through **all** test files in `tests/core/runtime/` that call `createTransport` and drop the `mode` parameter from the handler argument. For example in `sweeps.test.ts`:
+
   ```ts
   // BEFORE:
   createTransport(async (_agentId, mode) => { ... })
@@ -373,12 +402,15 @@
 - [ ] **Step 2: Remove `capabilities` from every `createAgent` call in test files**
 
   In every file listed above, find all occurrences of:
+
   ```ts
   capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
   ```
+
   and delete that line. The `createAgent` call should just have `name`, `modelId`, `systemPrompt` (and optionally `pricing`).
 
   Example — a `createAgent` call before and after:
+
   ```ts
   // BEFORE:
   runtime.createAgent({
@@ -401,6 +433,7 @@
   Delete the entire `'falls back to json mode when tools fail'` test case (it tests behavior that no longer exists).
 
   Replace it with a test that verifies a failing tools call is reported as an error (no fallback):
+
   ```ts
   it('reports error when agent turn fails, no fallback', async () => {
     const runtime = createRuntime({
@@ -431,6 +464,7 @@
 - [ ] **Step 4: Update `tests/core/openrouter.test.ts`**
 
   Remove `capabilities` from the `agent` in the fixture:
+
   ```ts
   agent: {
     id: 'masha',
@@ -442,6 +476,7 @@
   ```
 
   Remove `mode: 'tools'` from the `runAgentTurn` call (the interface no longer has that field):
+
   ```ts
   // BEFORE:
   await transport.runAgentTurn({ apiKey: 'test-key', context, mode: 'tools' });
@@ -450,9 +485,11 @@
   ```
 
 - [ ] **Step 5: Run all tests**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm test 2>&1 | tail -30
   ```
+
   Expected: all tests pass. Fix any remaining `capabilities`-related failures.
 
 - [ ] **Step 6: Commit**
@@ -465,6 +502,7 @@
 ## Task 6: Extend `OpenRouterModel`, add `ModelSnapshot` to types
 
 **Files:**
+
 - Modify: `src/core/types.ts`
 
 - [ ] **Step 1: Extend `OpenRouterModel`**
@@ -485,6 +523,7 @@
 - [ ] **Step 2: Add `ModelSnapshot` and update `AgentConfig`**
 
   Add after `OpenRouterModel`:
+
   ```ts
   export interface ModelSnapshot {
     contextLength: number;
@@ -493,6 +532,7 @@
   ```
 
   Add `modelSnapshot?` to `AgentConfig`:
+
   ```ts
   export interface AgentConfig {
     id: string;
@@ -521,6 +561,7 @@
 ## Task 7: Update `listModels()` — filtering and new fields
 
 **Files:**
+
 - Modify: `src/core/openrouter.ts`
 - Modify: `tests/core/openrouter.test.ts`
 
@@ -572,11 +613,17 @@
       stubListModels([
         makeModel({ id: 'a/with-tools', supportedParameters: ['tools'] }),
         makeModel({ id: 'a/no-tools', supportedParameters: [] }),
-        makeModel({ id: 'a/tools-and-more', supportedParameters: ['tools', 'response_format'] }),
+        makeModel({
+          id: 'a/tools-and-more',
+          supportedParameters: ['tools', 'response_format'],
+        }),
       ]);
       const transport = new OpenRouterHttpTransport();
       const result = await transport.listModels('key');
-      expect(result.map((m) => m.id)).toEqual(['a/with-tools', 'a/tools-and-more']);
+      expect(result.map((m) => m.id)).toEqual([
+        'a/with-tools',
+        'a/tools-and-more',
+      ]);
     });
 
     it('filters out models with non-text output modality', async () => {
@@ -593,14 +640,17 @@
   ```
 
 - [ ] **Step 2: Run tests to confirm they fail**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm test -- tests/core/openrouter.test.ts 2>&1 | tail -20
   ```
+
   Expected: new tests FAIL.
 
 - [ ] **Step 3: Update `listModels()` in `openrouter.ts`**
 
   Extend the raw payload type to include the new fields:
+
   ```ts
   const payload = (await response.json()) as {
     data?: Array<{
@@ -615,6 +665,7 @@
   ```
 
   Apply filters and map new fields:
+
   ```ts
   return (payload.data ?? [])
     .filter((model) => {
@@ -622,7 +673,9 @@
       if (!(model.supported_parameters ?? []).includes('tools')) return false;
       // Hard filter 2: output must include text
       const modality = model.architecture?.modality ?? '';
-      const outputPart = modality.includes('->') ? modality.split('->')[1] : modality;
+      const outputPart = modality.includes('->')
+        ? modality.split('->')[1]
+        : modality;
       if (outputPart && !outputPart.includes('text')) return false;
       return true;
     })
@@ -636,9 +689,11 @@
   ```
 
 - [ ] **Step 4: Run tests**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm test -- tests/core/openrouter.test.ts 2>&1 | tail -20
   ```
+
   Expected: all tests PASS.
 
 - [ ] **Step 5: Update test helpers that mock `listModels`**
@@ -646,14 +701,17 @@
   The `OpenRouterModel` type now requires `context_length` and `supported_parameters`. Update any mock `listModels` returns in test helpers that return model objects without these fields:
 
   In `tests/core/runtime/helpers.ts`:
+
   ```ts
   async listModels() {
     return [];
   },
   ```
+
   This returns an empty array — no change needed.
 
   In `tests/vue/components/multi-agent-chat/helpers.ts`:
+
   ```ts
   async listModels() {
     return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
@@ -670,6 +728,7 @@
 ## Task 8: Create `useModelsStore`
 
 **Files:**
+
 - Create: `src/vue/stores/models.ts`
 
 - [ ] **Step 1: Create the store**
@@ -730,9 +789,11 @@
   ```
 
 - [ ] **Step 2: Run typecheck**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm run typecheck 2>&1 | grep "models.ts" | head -10
   ```
+
   Expected: no errors in models.ts.
 
 - [ ] **Step 3: Commit**
@@ -745,6 +806,7 @@
 ## Task 9: Create `ModelCard.vue`
 
 **Files:**
+
 - Create: `src/vue/components/ModelCard.vue`
 
 This is a presentational component that reads live model data from `useModelsStore` and falls back to the `snapshot` prop.
@@ -757,7 +819,9 @@ This is a presentational component that reads live model data from `useModelsSto
       <div class="model-card-info">
         <span class="model-card-name">{{ displayName }}</span>
         <span v-if="contextLabel" class="model-card-sep">·</span>
-        <span v-if="contextLabel" class="model-card-meta">{{ contextLabel }}</span>
+        <span v-if="contextLabel" class="model-card-meta">{{
+          contextLabel
+        }}</span>
         <span v-if="priceLabel" class="model-card-sep">·</span>
         <span v-if="priceLabel" class="model-card-meta">{{ priceLabel }}</span>
         <span v-if="isFree" class="model-card-badge-free">Free</span>
@@ -849,9 +913,11 @@ This is a presentational component that reads live model data from `useModelsSto
   ```
 
 - [ ] **Step 2: Run typecheck**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm run typecheck 2>&1 | grep "ModelCard" | head -10
   ```
+
   Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -864,6 +930,7 @@ This is a presentational component that reads live model data from `useModelsSto
 ## Task 10: Create `ModelBrowserDialog.vue`
 
 **Files:**
+
 - Create: `src/vue/components/ModelBrowserDialog.vue`
 
 Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plus a scrollable list with search. Emits `select(modelId)` and `close`.
@@ -891,7 +958,11 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```vue
   <template>
     <Teleport to="body">
-      <div class="browser-backdrop" @click.self="$emit('close')" @keydown.esc.window="$emit('close')">
+      <div
+        class="browser-backdrop"
+        @click.self="$emit('close')"
+        @keydown.esc.window="$emit('close')"
+      >
         <div class="browser-dialog">
           <div class="browser-header">
             <h2 class="browser-title">Select Model</h2>
@@ -945,13 +1016,20 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
                 >
                   <div class="browser-row-main">
                     <span class="browser-row-name">{{ model.name }}</span>
-                    <span class="browser-row-provider">{{ providerOf(model.id) }}</span>
+                    <span class="browser-row-provider">{{
+                      providerOf(model.id)
+                    }}</span>
                   </div>
                   <div class="browser-row-meta">
                     <span>{{ formatCtx(model.context_length) }}</span>
-                    <span v-if="model.id.endsWith(':free')" class="browser-badge-free">Free</span>
+                    <span
+                      v-if="model.id.endsWith(':free')"
+                      class="browser-badge-free"
+                      >Free</span
+                    >
                     <span v-else class="browser-row-price">
-                      {{ formatPricePerM(model.pricing?.prompt) }} / {{ formatPricePerM(model.pricing?.completion) }}
+                      {{ formatPricePerM(model.pricing?.prompt) }} /
+                      {{ formatPricePerM(model.pricing?.completion) }}
                     </span>
                   </div>
                 </button>
@@ -1007,7 +1085,8 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
     const q = search.value.trim().toLowerCase();
     return modelsStore.models.filter((model) => {
       if (freeOnly.value && !model.id.endsWith(':free')) return false;
-      if (minContext.value && model.context_length < minContext.value) return false;
+      if (minContext.value && model.context_length < minContext.value)
+        return false;
       if (q) {
         const inId = model.id.toLowerCase().includes(q);
         const inName = model.name.toLowerCase().includes(q);
@@ -1108,9 +1187,11 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```
 
 - [ ] **Step 2: Run typecheck**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm run typecheck 2>&1 | grep "ModelBrowserDialog" | head -10
   ```
+
   Expected: no errors.
 
 - [ ] **Step 3: Commit**
@@ -1123,6 +1204,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
 ## Task 11: Update `AgentWizard.vue` — integrate ModelCard and ModelBrowserDialog
 
 **Files:**
+
 - Modify: `src/vue/components/AgentWizard.vue`
 
 - [ ] **Step 1: Remove old model selection UI from the template**
@@ -1147,6 +1229,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```
 
   Also remove the loading/error messages that were below the select:
+
   ```html
   <!-- DELETE: -->
   <p v-if="isLoadingModels" class="wizard-copy">Loading models…</p>
@@ -1156,12 +1239,14 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
 - [ ] **Step 2: Update `<script setup>` — replace old model state with new**
 
   Remove these imports:
+
   ```ts
   // DELETE:
   import type { OpenRouterModel } from '../../core';
   ```
 
   Add new imports:
+
   ```ts
   import { useModelsStore } from '../stores/models';
   import ModelBrowserDialog from './ModelBrowserDialog.vue';
@@ -1169,6 +1254,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```
 
   Remove these local refs (no longer needed):
+
   ```ts
   // DELETE:
   const models = ref<OpenRouterModel[]>([]);
@@ -1179,6 +1265,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```
 
   Remove these computed properties:
+
   ```ts
   // DELETE:
   const visibleModels = computed(() => { ... });
@@ -1188,6 +1275,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   Remove the `loadModels()` function.
 
   Add:
+
   ```ts
   const modelsStore = useModelsStore();
   const showBrowser = ref(false);
@@ -1214,6 +1302,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   ```
 
   Similarly in `onMounted`:
+
   ```ts
   onMounted(async () => {
     if (ui.showAgentWizard && isApiKeyPresent.value) {
@@ -1257,6 +1346,7 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
 - [ ] **Step 5: Remove unused imports and UI components**
 
   Remove these imports no longer used in the template:
+
   ```ts
   // DELETE:
   import UiCheckbox from './ui/UiCheckbox.vue';
@@ -1266,10 +1356,12 @@ Layout: Teleport to `body`. Sidebar with Free checkbox + context size radio, plu
   Keep: `UiButton`, `UiInput` (for name field), `UiTextarea`.
 
 - [ ] **Step 6: Run typecheck and tests**
+
   ```bash
   cd /Users/pavel/projects/multichat && npm run typecheck 2>&1 | grep -v "runtime.ts" | head -20
   cd /Users/pavel/projects/multichat && npm test 2>&1 | tail -20
   ```
+
   Expected: no new errors, all tests pass.
 
 - [ ] **Step 7: Final commit**

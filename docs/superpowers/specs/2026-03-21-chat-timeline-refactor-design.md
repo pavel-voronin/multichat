@@ -46,6 +46,7 @@ Becomes a thin coordinator: reads `visibleTimelineEntries`, calls `useCutoffDrag
 **Test impact:** `history.test.ts` uses `.chat-log > *` selectors to assert entry ordering. With the new wrapper div, `.chat-log > *` matches only the `timeline-root` div instead of individual entries. Update these selectors to `[data-timeline-entry-id]` or `.timeline-root > *` as part of this task.
 
 **Template:** A `v-for` loop inside the wrapper with three branches:
+
 - `entry.kind === 'message'` → `<MessageEntry>`
 - `entry.kind === 'technical-event'` → `<TechnicalEventEntry>`
 - `entry.kind === 'history-cutoff'` → `<ManualCutoffBanner>` or `<PreviewCutoffBanner>` based on `entry.cutoff.source`
@@ -67,6 +68,7 @@ Renders one `<article>` for a message timeline entry.
 **Props:** `entry` (message timeline entry), `dragPreviewTargetId: string | null | undefined`, `costDisplayMode`
 
 **Required data attributes on root `<article>`:**
+
 - `data-manual-cutoff-drop-target="true"` — marks this element as a valid drag drop target
 - `:data-timeline-entry-id="entry.id"` — used by `resolveCutoffDropTarget` to identify the entry
 - `:data-cutoff-drop-active="dragPreviewTargetId === entry.id"` — triggers drop-indicator styling
@@ -74,6 +76,7 @@ Renders one `<article>` for a message timeline entry.
 **Stores used directly:** `useInspectionStore`, `useMessageInputStore` (double-click mention), `useTimelineStore` (for `participantNameById` lookup via `state.participants`)
 
 **Responsibilities:**
+
 - Time button (clickable if inspectable → `openInspection`)
 - Sender span (double-click to mention)
 - `<CostBadge>` child component
@@ -81,11 +84,15 @@ Renders one `<article>` for a message timeline entry.
 - `messageClasses` logic (system / private / muted)
 - `participantNameById(id)` — reads from timeline store `state.participants`
 
-**Styles:** message-line-*, message-time, message-sender, message-text, message-separator in `<style scoped>`.
+**Styles:** message-line-\*, message-time, message-sender, message-text, message-separator in `<style scoped>`.
 The drop-indicator rule:
+
 ```css
-[data-cutoff-drop-active='true']::before { @apply ...; }
+[data-cutoff-drop-active='true']::before {
+  @apply ...;
+}
 ```
+
 lives in this component's `<style scoped>` (targets the component's own root element; Vue scoped attribute ensures it doesn't leak).
 
 ---
@@ -101,13 +108,14 @@ Renders one `<article>` for a technical event timeline entry.
 **Stores used directly:** `useInspectionStore`, `useTimelineStore` (for both `canInspectEvent` and `participantNameById` lookup)
 
 **Responsibilities:**
+
 - Time button (clickable if inspectable → `openEventInspection`)
 - Runtime label (`formatTechnicalEventLabel(event, { byId: participantNameById })`)
 - `<CostBadge>` child component
 - Runtime text (`formatTechnicalEventText`)
 - `technicalEventClasses` logic
 
-**Styles:** runtime-line-*, runtime-label, runtime-text, message-separator in `<style scoped>`. Same `[data-cutoff-drop-active='true']::before` rule as `MessageEntry`.
+**Styles:** runtime-line-\*, runtime-label, runtime-text, message-separator in `<style scoped>`. Same `[data-cutoff-drop-active='true']::before` rule as `MessageEntry`.
 
 ---
 
@@ -116,6 +124,7 @@ Renders one `<article>` for a technical event timeline entry.
 Shared component used by both `MessageEntry` and `TechnicalEventEntry`. Renders the cost span with hover trigger for the cost bubble.
 
 **Props:**
+
 - `item: CostTrackedItem` — the type defined in `src/vue/types.ts` (a `Pick` that both `ChatMessage` and `RuntimeEvent` satisfy)
 - `itemId: string` — the `.id` of the message or event, passed separately because `CostTrackedItem` does not include `id`
 - `costDisplayMode`
@@ -135,14 +144,16 @@ Renders the amber manual cutoff banner with drag handle, "Context starts below" 
 **Props:** `entry` (manual cutoff timeline entry), `draggedCutoffId: string | null`, `dragPreviewTargetId: string | null | undefined`
 
 **Required data attributes on root element:**
+
 - `data-manual-cutoff-drop-target="true"`
 - `:data-timeline-entry-id="entry.id"`
 - `:data-cutoff-drop-active="dragPreviewTargetId === entry.id"`
 
 **Stores used directly:** `useSessionStore` — two usages:
+
 1. "Delete messages above" button → `session.clearHistoryBeforeAgentCutoff()`
 2. "Remove cut-off" button → `session.removeManualCutoff()`
-(The composable also calls `session.removeManualCutoff()` during drag completion when dropped outside the list — both usages are correct and independent.)
+   (The composable also calls `session.removeManualCutoff()` during drag completion when dropped outside the list — both usages are correct and independent.)
 
 **Composables:** `useCutoffDrag()` — calls `startDrag(event, entry.id)` on `@pointerdown` of the drag handle.
 
@@ -173,21 +184,25 @@ Singleton pattern: state refs declared at **module scope** (outside the composab
 **Consequence for tests:** State persists across mounts. `ChatTimeline.vue` calls `stopDrag()` in `onBeforeUnmount` to reset state. Tests that mount `ChatTimeline` will get a clean state after each unmount. If tests need isolation without mounting `ChatTimeline`, they can call `stopDrag()` directly in test teardown.
 
 **Exported state (readonly):**
+
 - `draggedCutoffId: Ref<string | null>`
 - `dragPreviewTargetId: Ref<string | null | undefined>`
 - `isDragging: ComputedRef<boolean>`
 
 **Exported functions:**
+
 - `startDrag(event: PointerEvent, cutoffId: string): void` — called by banners on pointerdown
 - `stopDrag(): void` — resets all state, removes window listeners; called by ChatTimeline in `onBeforeUnmount`
 - `reorderEntriesForDragPreview(entries: VisibleTimelineEntry[], cutoffId: string | null, targetId: string | null | undefined): VisibleTimelineEntry[]`
 
 **`targetId` semantics** (non-obvious, used throughout):
+
 - `undefined` — cursor is outside the chat log; drag is "cancelled" visually
 - `null` — cursor is past the last entry; drop appends the cutoff at the end
 - `string` — the `entry.id` of the entry the cutoff should be inserted before
 
 **Internal logic:**
+
 - `updateDrag`, `finishDrag`, `cancelDrag`, `stopDrag` — pointer event handlers attached/detached on window
 - `resolveCutoffDropTarget(clientX, clientY, cutoffId): string | null | undefined` — DOM scan using `[data-manual-cutoff-drop-target]` and `[data-timeline-entry-id]`
 - `resolveContextWindowSizeFromDropTarget(entries, targetId): number | null` — counts messages after the preview cutoff in the reordered list; returns `null` if no preview cutoff exists

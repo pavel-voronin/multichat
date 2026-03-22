@@ -34,10 +34,12 @@ src/core/
 Pure functions. All accept explicit `tab`/`agentId` parameters — no shared state except `processedKeys` which is passed by reference.
 
 Notes:
+
 - `participants` is **not** a separate parameter — functions read `tab.participants` directly (it's already on the tab)
 - `maxContextMessages` is a fallback; functions use `tab.contextWindowSize ?? maxContextMessages`, preserving per-tab overrides
 
 Exports:
+
 - `getContextWindowMessages(tab: ChatTabState): ChatMessage[]`
 - `getVisibleMessagesForAgent(agentId, tab, maxContextMessages): AgentContextMessage[]`
 - `isMessageVisibleToAgent(message, agentId): boolean`
@@ -55,6 +57,7 @@ Exports:
 Functions that mutate `tab` directly (tab passed by reference).
 
 Exports:
+
 - `getPromptCostUsd(agent: AgentConfig, usage?: TransportUsage): number`
 - `applyUsage(agentId: string, usage: TransportUsage | undefined, tab: ChatTabState): void`
 - `applyDownstreamPromptCost(receivingAgent, visibleMessages, usage, tab): void`
@@ -66,6 +69,7 @@ Creates and appends messages to `tab.timeline`. Does **not** call `persistAndNot
 Dependencies: imports `pushDebugLog`, `updateMessageSourceTrace` from `diagnostics.ts` and `SYSTEM_AUTHOR_NAME` from `messages.ts`.
 
 Exports:
+
 - `publishMessageToTab(input, tab, workspace, now, createId): { message: ChatMessage; triggersSweep: boolean }`
 - `publishSystemMessageToTab` is a trivial adapter over `publishMessageToTab` (sets `kind: 'system'`, `target: 'public'`). May be inlined at call sites rather than exported separately.
 - Participant name resolution (for debug log content) is inlined inside `publishMessageToTab` via `tab.participants` — no callback needed, avoids circular dependency with `execution.ts`.
@@ -75,6 +79,7 @@ Exports:
 Pure read-only functions over `tab.requestTraces` and `tab.messageInspectionIndex`.
 
 Exports:
+
 - `getRelatedRequestTraces(traceId, tab): RequestTrace[]`
 - `getInspectionSubjectForMessage(messageId, tab): { message, sourceTrace, triggeringTraces, visibleOnlyTraces, downstreamTraces }`
 - `getMessageInspectionGraph(messageId, tab): { ...subject, relatedMessages }`
@@ -96,7 +101,11 @@ interface ExecutionContext {
   lastProcessedKeys: Map<string, Map<string, string>>;
   participantName: (participantId: string, tab: ChatTabState) => string;
   sendMessage: (input: SendMessageInput, tabId: string) => Promise<ChatMessage>;
-  updateAgent: (agentId: string, patch: Partial<Omit<AgentConfig, 'id'>>, tabId: string) => AgentConfig;
+  updateAgent: (
+    agentId: string,
+    patch: Partial<Omit<AgentConfig, 'id'>>,
+    tabId: string,
+  ) => AgentConfig;
   persistAndNotify: () => void;
 }
 ```
@@ -104,6 +113,7 @@ interface ExecutionContext {
 **Re-entrancy note:** `sendMessage` in `ExecutionContext` calls back into `MultiChatRuntime.sendMessage`, which calls `persistAndNotify` and fires all listeners immediately. This means subscribers receive reactive updates as each agent message is produced mid-sweep — this is intentional (agents should see each other's output as it arrives).
 
 Exports:
+
 - `runAgentSweepFn(trigger, tabId, ctx: ExecutionContext): Promise<void>`
 - `runAgentTurnFn(agent, tabId, ctx: ExecutionContext): Promise<void>`
 - `handleSuccessfulAgentTurnResultFn(params, ctx: ExecutionContext): Promise<void>`

@@ -17,8 +17,10 @@
         :cost-display-mode="preferences.costDisplayMode"
       />
       <ManualCutoffBanner
-        v-else-if="entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'"
-        :entry="(entry as VisibleTimelineManualCutoffEntry)"
+        v-else-if="
+          entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'
+        "
+        :entry="entry as VisibleTimelineManualCutoffEntry"
         :dragged-cutoff-id="drag.draggedCutoffId.value"
         :drag-preview-target-id="drag.dragPreviewTargetId.value"
       />

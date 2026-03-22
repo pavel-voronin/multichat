@@ -13,6 +13,7 @@
 ## File Map
 
 **Create:**
+
 - `src/vue/composables/useCutoffDrag.ts` — singleton drag composable
 - `src/vue/components/timeline/CostBadge.vue` — cost display, shared by entries
 - `src/vue/components/timeline/MessageEntry.vue` — renders one message article
@@ -22,6 +23,7 @@
 - `tests/vue/composables/useCutoffDrag.test.ts` — unit tests for composable logic
 
 **Modify:**
+
 - `src/vue/components/ChatTimeline.vue` — rewrite as thin coordinator
 - `tests/vue/components/multi-agent-chat/history.test.ts` — update `.chat-log > *` selectors
 
@@ -39,6 +41,7 @@
 ## Task 1: Create `useCutoffDrag.ts`
 
 **Files:**
+
 - Create: `src/vue/composables/useCutoffDrag.ts`
 - Create: `tests/vue/composables/useCutoffDrag.test.ts`
 
@@ -63,7 +66,12 @@ afterEach(() => {
 });
 
 function makeMessage(id: string): VisibleTimelineEntry {
-  return { kind: 'message', id, sortAt: 0, isMuted: false } as VisibleTimelineEntry;
+  return {
+    kind: 'message',
+    id,
+    sortAt: 0,
+    isMuted: false,
+  } as VisibleTimelineEntry;
 }
 
 function makeManualCutoff(id: string): VisibleTimelineEntry {
@@ -80,14 +88,26 @@ function makePreviewCutoff(id: string): VisibleTimelineEntry {
     kind: 'history-cutoff',
     id,
     sortAt: 0,
-    cutoff: { source: 'preview', label: 'preview', anchor: { kind: 'end' }, agentIds: [], agentNames: [] },
+    cutoff: {
+      source: 'preview',
+      label: 'preview',
+      anchor: { kind: 'end' },
+      agentIds: [],
+      agentNames: [],
+    },
   } as VisibleTimelineEntry;
 }
 
 describe('reorderEntriesForDragPreview', () => {
   it('returns entries unchanged when cutoffId is null (no drag active)', () => {
-    const entries = [makeMessage('m1'), makeManualCutoff('c1'), makeMessage('m2')];
-    expect(reorderEntriesForDragPreview(entries, null, undefined)).toEqual(entries);
+    const entries = [
+      makeMessage('m1'),
+      makeManualCutoff('c1'),
+      makeMessage('m2'),
+    ];
+    expect(reorderEntriesForDragPreview(entries, null, undefined)).toEqual(
+      entries,
+    );
   });
 
   it('hides the manual cutoff from the list when targetId is undefined (dragged outside)', () => {
@@ -123,13 +143,22 @@ describe('resolveContextWindowSizeFromDropTarget', () => {
   });
 
   it('counts messages after the preview cutoff', () => {
-    const entries = [makeMessage('m1'), makePreviewCutoff('p1'), makeMessage('m2'), makeMessage('m3')];
+    const entries = [
+      makeMessage('m1'),
+      makePreviewCutoff('p1'),
+      makeMessage('m2'),
+      makeMessage('m3'),
+    ];
     // targetId doesn't matter here — entries already contain preview in the right position
     expect(resolveContextWindowSizeFromDropTarget(entries, null)).toBe(2);
   });
 
   it('returns 1 (minimum) when no messages come after the preview cutoff', () => {
-    const entries = [makeMessage('m1'), makeMessage('m2'), makePreviewCutoff('p1')];
+    const entries = [
+      makeMessage('m1'),
+      makeMessage('m2'),
+      makePreviewCutoff('p1'),
+    ];
     expect(resolveContextWindowSizeFromDropTarget(entries, null)).toBe(1);
   });
 });
@@ -140,13 +169,17 @@ describe('resolveContextWindowSizeFromDropTarget', () => {
 ```bash
 npx vitest run tests/vue/composables/useCutoffDrag.test.ts
 ```
+
 Expected: FAIL with "Cannot find module"
 
 - [ ] **Step 3: Create `src/vue/composables/useCutoffDrag.ts`**
 
 ```typescript
 import { computed, readonly, ref } from 'vue';
-import type { VisibleTimelineEntry, TimelinePreviewCutoffEntry } from '../types';
+import type {
+  VisibleTimelineEntry,
+  TimelinePreviewCutoffEntry,
+} from '../types';
 import { useSessionStore } from '../stores/session';
 import { useTimelineStore } from '../stores/timeline';
 
@@ -173,22 +206,29 @@ export function reorderEntriesForDragPreview(
   const draggedEntry = entries[draggedIndex];
   if (
     draggedEntry?.kind !== 'history-cutoff' ||
-    (draggedEntry.cutoff.source !== 'manual' && draggedEntry.cutoff.source !== 'preview')
+    (draggedEntry.cutoff.source !== 'manual' &&
+      draggedEntry.cutoff.source !== 'preview')
   ) {
     return entries;
   }
 
-  const entriesWithoutDragged = entries.filter((entry) => entry.id !== cutoffId);
+  const entriesWithoutDragged = entries.filter(
+    (entry) => entry.id !== cutoffId,
+  );
 
   if (targetEntryId === undefined) {
-    return draggedEntry.cutoff.source === 'manual' ? entriesWithoutDragged : entries;
+    return draggedEntry.cutoff.source === 'manual'
+      ? entriesWithoutDragged
+      : entries;
   }
 
   if (targetEntryId === null) {
     return [...entriesWithoutDragged, draggedEntry];
   }
 
-  const targetIndex = entriesWithoutDragged.findIndex((entry) => entry.id === targetEntryId);
+  const targetIndex = entriesWithoutDragged.findIndex(
+    (entry) => entry.id === targetEntryId,
+  );
   if (targetIndex === -1) {
     return entries;
   }
@@ -217,7 +257,9 @@ export function resolveContextWindowSizeFromDropTarget(
     return null;
   }
 
-  const previewIndex = entries.findIndex((entry) => entry.id === previewEntry.id);
+  const previewIndex = entries.findIndex(
+    (entry) => entry.id === previewEntry.id,
+  );
   const messagesAfterPreview = entries
     .slice(previewIndex + 1)
     .filter((entry) => entry.kind === 'message').length;
@@ -247,7 +289,9 @@ function resolveCutoffDropTarget(
   }
 
   const dropTargets = Array.from(
-    chatLog.querySelectorAll<HTMLElement>('[data-manual-cutoff-drop-target="true"]'),
+    chatLog.querySelectorAll<HTMLElement>(
+      '[data-manual-cutoff-drop-target="true"]',
+    ),
   ).filter((element) => element.dataset.timelineEntryId !== cutoffId);
 
   for (const element of dropTargets) {
@@ -267,7 +311,9 @@ function updateDrag(event: PointerEvent): void {
 
   event.preventDefault();
   const entries = useTimelineStore().visibleTimelineEntries;
-  const draggedEntry = entries.find((entry) => entry.id === draggedCutoffId.value);
+  const draggedEntry = entries.find(
+    (entry) => entry.id === draggedCutoffId.value,
+  );
   if (draggedEntry?.kind !== 'history-cutoff') {
     return;
   }
@@ -285,7 +331,9 @@ function finishDrag(event: PointerEvent): void {
   }
 
   const entries = useTimelineStore().visibleTimelineEntries;
-  const draggedEntry = entries.find((entry) => entry.id === draggedCutoffId.value);
+  const draggedEntry = entries.find(
+    (entry) => entry.id === draggedCutoffId.value,
+  );
   if (draggedEntry?.kind !== 'history-cutoff') {
     stopDrag();
     return;
@@ -355,7 +403,11 @@ export function useCutoffDrag() {
     draggedCutoffId.value = cutoffId;
     activePointerId = event.pointerId;
     const handle = event.currentTarget as HTMLElement | null;
-    dragPreviewTargetId.value = resolveCutoffDropTarget(event.clientX, event.clientY, cutoffId);
+    dragPreviewTargetId.value = resolveCutoffDropTarget(
+      event.clientX,
+      event.clientY,
+      cutoffId,
+    );
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'grabbing';
     handle?.setPointerCapture?.(event.pointerId);
@@ -380,6 +432,7 @@ export function useCutoffDrag() {
 ```bash
 npx vitest run tests/vue/composables/useCutoffDrag.test.ts
 ```
+
 Expected: all tests PASS
 
 - [ ] **Step 5: Commit**
@@ -394,6 +447,7 @@ git commit -m "feat: extract useCutoffDrag composable from ChatTimeline"
 ## Task 2: Create `CostBadge.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/CostBadge.vue`
 
 Shared cost display used by both message and event entries. Renders nothing when cost is zero or mode is off.
@@ -410,7 +464,8 @@ Shared cost display used by both message and event entries. Renders nothing when
         :class="costClass"
         @mouseenter="overlayControls.openCostBubble(itemId, $event)"
         @mouseleave="overlayControls.scheduleCostBubbleClose()"
-      >{{ formattedCost }}</span>
+        >{{ formattedCost }}</span
+      >
     </span>
   </template>
 </template>
@@ -434,10 +489,16 @@ const props = defineProps<{
 
 const overlayControls = useOverlayControls();
 
-const shouldShow = computed(() => shouldShowMessageCost(props.item, props.costDisplayMode));
-const cost = computed(() => displayedMessageCost(props.item, props.costDisplayMode));
+const shouldShow = computed(() =>
+  shouldShowMessageCost(props.item, props.costDisplayMode),
+);
+const cost = computed(() =>
+  displayedMessageCost(props.item, props.costDisplayMode),
+);
 const formattedCost = computed(() => formatMessageCost(cost.value));
-const costClass = computed(() => messageCostSummaryClass(props.item, props.costDisplayMode));
+const costClass = computed(() =>
+  messageCostSummaryClass(props.item, props.costDisplayMode),
+);
 </script>
 
 <style scoped>
@@ -474,6 +535,7 @@ const costClass = computed(() => messageCostSummaryClass(props.item, props.costD
 ```bash
 npx vitest run
 ```
+
 Expected: same results as before this task (no regressions — `CostBadge` is unused so far)
 
 - [ ] **Step 3: Commit**
@@ -488,11 +550,13 @@ git commit -m "feat: add CostBadge component"
 ## Task 3: Create `MessageEntry.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/MessageEntry.vue`
 
 Renders one `<article>` for a message timeline entry. Owns its inspection, mention, cost display, and formatting logic.
 
 **Important data attributes** (required for drag-and-drop to work):
+
 - `data-manual-cutoff-drop-target="true"` — marks this as a valid drop target
 - `:data-timeline-entry-id="entry.id"` — used by `resolveCutoffDropTarget` DOM scan
 - `:data-cutoff-drop-active="dragPreviewTargetId === entry.id"` — triggers the amber drop indicator line via `::before` pseudo-element in scoped CSS
@@ -513,13 +577,16 @@ Renders one `<article>` for a message timeline entry. Owns its inspection, menti
       :class="{ 'message-time-trigger-active': canInspect }"
       :disabled="!canInspect"
       @click="handleInspect"
-    >[{{ formatMessageTime(entry.message.createdAt) }}]</button><template v-if="!isSystem">
+    >
+      [{{ formatMessageTime(entry.message.createdAt) }}]</button
+    ><template v-if="!isSystem">
       <span class="message-separator">{{ ' ' }}</span
       ><span
         class="message-sender"
         @dblclick="messageInput.mentionMessageSender(entry.message)"
-      >{{ authorLabel }}</span>
-    </template><CostBadge
+        >{{ authorLabel }}</span
+      > </template
+    ><CostBadge
       :item="entry.message"
       :item-id="entry.message.id"
       :cost-display-mode="costDisplayMode"
@@ -555,10 +622,14 @@ const timeline = useTimelineStore();
 const isSystem = computed(() => isSystemMessage(props.entry.message));
 
 const authorLabel = computed(() =>
-  formatMessageAuthor(props.entry.message, { byId: timeline.participantNameById }),
+  formatMessageAuthor(props.entry.message, {
+    byId: timeline.participantNameById,
+  }),
 );
 
-const canInspect = computed(() => inspection.canInspectMessage(props.entry.message));
+const canInspect = computed(() =>
+  inspection.canInspectMessage(props.entry.message),
+);
 
 const entryClasses = computed(() => {
   const base = isSystem.value
@@ -573,9 +644,14 @@ function handleInspect() {
   if (!canInspect.value) return;
 
   if (getMessageSenderId(props.entry.message) === 'human') {
-    const subject = inspection.getInspectionSubjectForMessage(props.entry.message.id);
+    const subject = inspection.getInspectionSubjectForMessage(
+      props.entry.message.id,
+    );
     if (subject.downstreamTraces.length === 1) {
-      inspection.openForTrace(subject.downstreamTraces[0]!.id, props.entry.message.id);
+      inspection.openForTrace(
+        subject.downstreamTraces[0]!.id,
+        props.entry.message.id,
+      );
       return;
     }
     inspection.openForMessage(props.entry.message.id);
@@ -583,7 +659,10 @@ function handleInspect() {
   }
 
   if (props.entry.message.sourceTraceId) {
-    inspection.openForTrace(props.entry.message.sourceTraceId, props.entry.message.id);
+    inspection.openForTrace(
+      props.entry.message.sourceTraceId,
+      props.entry.message.id,
+    );
   }
 }
 </script>
@@ -645,6 +724,7 @@ Note: the `[data-cutoff-drop-active='true']::before` rule uses `position: absolu
 ```bash
 npx vitest run
 ```
+
 Expected: same as before (component is unused so far)
 
 - [ ] **Step 3: Commit**
@@ -659,6 +739,7 @@ git commit -m "feat: add MessageEntry component"
 ## Task 4: Create `TechnicalEventEntry.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/TechnicalEventEntry.vue`
 
 Renders one `<article>` for a technical event (silent decision or runtime error).
@@ -679,8 +760,11 @@ Renders one `<article>` for a technical event (silent decision or runtime error)
       :class="{ 'message-time-trigger-active': canInspect }"
       :disabled="!canInspect"
       @click="handleInspect"
-    >[{{ formatMessageTime(entry.event.createdAt) }}]</button><span class="message-separator">{{ ' ' }}</span
-    ><span class="runtime-label">{{ eventLabel }}</span><CostBadge
+    >
+      [{{ formatMessageTime(entry.event.createdAt) }}]</button
+    ><span class="message-separator">{{ ' ' }}</span
+    ><span class="runtime-label">{{ eventLabel }}</span
+    ><CostBadge
       :item="entry.event"
       :item-id="entry.event.id"
       :cost-display-mode="costDisplayMode"
@@ -691,7 +775,10 @@ Renders one `<article>` for a technical event (silent decision or runtime error)
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { CostDisplayMode, VisibleTimelineTechnicalEventEntry } from '../../types';
+import type {
+  CostDisplayMode,
+  VisibleTimelineTechnicalEventEntry,
+} from '../../types';
 import { useInspectionStore } from '../../stores/inspection';
 import { useTimelineStore } from '../../stores/timeline';
 import {
@@ -716,7 +803,9 @@ const canInspect = computed(() => timeline.canInspectEvent(props.entry.event));
 const entryClasses = computed(() => technicalEventClasses(props.entry.event));
 
 const eventLabel = computed(() =>
-  formatTechnicalEventLabel(props.entry.event, { byId: timeline.participantNameById }),
+  formatTechnicalEventLabel(props.entry.event, {
+    byId: timeline.participantNameById,
+  }),
 );
 
 const eventText = computed(() => formatTechnicalEventText(props.entry.event));
@@ -782,6 +871,7 @@ function handleInspect() {
 ```bash
 npx vitest run
 ```
+
 Expected: all pass (still unused)
 
 - [ ] **Step 3: Commit**
@@ -796,6 +886,7 @@ git commit -m "feat: add TechnicalEventEntry component"
 ## Task 5: Create `ManualCutoffBanner.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/ManualCutoffBanner.vue`
 
 Renders the amber "Context starts below" banner with drag handle and action links. Owns drag initiation via `useCutoffDrag`.
@@ -829,7 +920,11 @@ Renders the amber "Context starts below" banner with drag handle and action link
       <span class="cutoff-manual-copy">
         Messages above stay visible but are excluded from agent context.
       </span>
-      <button type="button" class="cutoff-link" @click="session.clearHistoryBeforeAgentCutoff()">
+      <button
+        type="button"
+        class="cutoff-link"
+        @click="session.clearHistoryBeforeAgentCutoff()"
+      >
         Delete messages above
       </button>
       <span class="cutoff-link-gap" aria-hidden="true">&nbsp;&nbsp;</span>
@@ -947,6 +1042,7 @@ const drag = useCutoffDrag();
 ```bash
 npx vitest run
 ```
+
 Expected: all pass
 
 - [ ] **Step 3: Commit**
@@ -961,6 +1057,7 @@ git commit -m "feat: add ManualCutoffBanner component"
 ## Task 6: Create `PreviewCutoffBanner.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/PreviewCutoffBanner.vue`
 
 Renders the red dashed preview cutoff banner with drag handle and label. No direct store access — all mutations on drag completion are handled inside `useCutoffDrag`.
@@ -1078,6 +1175,7 @@ const drag = useCutoffDrag();
 ```bash
 npx vitest run
 ```
+
 Expected: all pass
 
 - [ ] **Step 3: Commit**
@@ -1092,6 +1190,7 @@ git commit -m "feat: add PreviewCutoffBanner component"
 ## Task 7: Rewrite `ChatTimeline.vue` and fix tests
 
 **Files:**
+
 - Modify: `src/vue/components/ChatTimeline.vue` — rewrite as thin coordinator
 - Modify: `tests/vue/components/multi-agent-chat/history.test.ts` — update `.chat-log > *` selectors
 
@@ -1103,7 +1202,10 @@ Replace the entire file with:
 
 ```vue
 <template>
-  <div class="timeline-root" :class="{ 'timeline-root--dragging': drag.isDragging }">
+  <div
+    class="timeline-root"
+    :class="{ 'timeline-root--dragging': drag.isDragging }"
+  >
     <template v-for="entry in renderedTimelineEntries" :key="entry.id">
       <MessageEntry
         v-if="entry.kind === 'message'"
@@ -1118,13 +1220,17 @@ Replace the entire file with:
         :cost-display-mode="preferences.costDisplayMode"
       />
       <ManualCutoffBanner
-        v-else-if="entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'"
+        v-else-if="
+          entry.kind === 'history-cutoff' && entry.cutoff.source === 'manual'
+        "
         :entry="entry"
         :dragged-cutoff-id="drag.draggedCutoffId"
         :drag-preview-target-id="drag.dragPreviewTargetId"
       />
       <PreviewCutoffBanner
-        v-else-if="entry.kind === 'history-cutoff' && entry.cutoff.source === 'preview'"
+        v-else-if="
+          entry.kind === 'history-cutoff' && entry.cutoff.source === 'preview'
+        "
         :entry="entry"
         :dragged-cutoff-id="drag.draggedCutoffId"
         :drag-preview-target-id="drag.dragPreviewTargetId"
@@ -1178,6 +1284,7 @@ onBeforeUnmount(() => {
 ```bash
 npx vitest run
 ```
+
 Expected: most tests pass, but `history.test.ts` fails on `.chat-log > *` selectors (5 occurrences)
 
 - [ ] **Step 3: Fix `.chat-log > *` selectors in `history.test.ts`**
@@ -1185,6 +1292,7 @@ Expected: most tests pass, but `history.test.ts` fails on `.chat-log > *` select
 Open `tests/vue/components/multi-agent-chat/history.test.ts`. Find all 5 occurrences of `.findAll('.chat-log > *')` (at lines 47, 162, 361, 419, 434) and replace each with `.findAll('[data-timeline-entry-id]')`.
 
 The pattern to replace in every occurrence:
+
 ```typescript
 // Before:
 .findAll('.chat-log > *')
@@ -1197,6 +1305,7 @@ The pattern to replace in every occurrence:
 ```bash
 npx vitest run
 ```
+
 Expected: all tests PASS. If any fail, read the error carefully — it likely points to a missing import, wrong prop name, or a class that was not moved to the right component.
 
 - [ ] **Step 5: Run typecheck**
@@ -1204,6 +1313,7 @@ Expected: all tests PASS. If any fail, read the error carefully — it likely po
 ```bash
 npx vue-tsc --noEmit
 ```
+
 Expected: no type errors. Fix any that appear before committing.
 
 - [ ] **Step 6: Commit everything**

@@ -31,14 +31,8 @@ import {
   isMessageVisibleToAgent as isMessageVisibleToAgentFn,
   isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
 } from './context-routing';
-import {
-  publishMessageToTab,
-  publishSystemMessageToTab,
-} from './messaging';
-import {
-  runAgentSweepFn,
-  type ExecutionContext,
-} from './execution';
+import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
+import { runAgentSweepFn, type ExecutionContext } from './execution';
 import { LocalStoragePersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
@@ -660,7 +654,10 @@ export class MultiChatRuntime {
     return isMessageVisibleToAgentFn(message, agentId);
   }
 
-  isMessageVisibleToParticipant(message: ChatMessage, participantId: string): boolean {
+  isMessageVisibleToParticipant(
+    message: ChatMessage,
+    participantId: string,
+  ): boolean {
     return isMessageVisibleToParticipantFn(message, participantId);
   }
 

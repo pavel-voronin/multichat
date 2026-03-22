@@ -1,11 +1,6 @@
-import type {
-  AgentToolCall,
-  AgentTurnContext,
-} from './types';
+import type { AgentToolCall, AgentTurnContext } from './types';
 
-export function buildMessages(
-  context: AgentTurnContext,
-) {
+export function buildMessages(context: AgentTurnContext) {
   const selfParticipant = context.participants.find(
     (participant) => participant.id === context.agent.id,
   );
@@ -170,4 +165,3 @@ export function parseToolAction(toolCall: {
 
   throw new Error('Invalid tool call payload');
 }
-

@@ -4,11 +4,7 @@ import type {
   OpenRouterModel,
   OpenRouterTransport,
 } from './types';
-import {
-  buildMessages,
-  buildTools,
-  parseToolAction,
-} from './agentProtocol';
+import { buildMessages, buildTools, parseToolAction } from './agentProtocol';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -129,7 +125,9 @@ export class OpenRouterHttpTransport implements OpenRouterTransport {
         if (!(model.supported_parameters ?? []).includes('tools')) return false;
         // Output must include text
         const modality = model.architecture?.modality ?? '';
-        const outputPart = modality.includes('->') ? modality.split('->')[1] : modality;
+        const outputPart = modality.includes('->')
+          ? modality.split('->')[1]
+          : modality;
         if (outputPart && !outputPart.includes('text')) return false;
         return true;
       })

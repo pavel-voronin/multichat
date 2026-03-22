@@ -18,7 +18,14 @@ export function createRuntime(options?: {
 }) {
   const transport: OpenRouterTransport = options?.transport ?? {
     async listModels() {
-      return [{ id: 'model-a:free', name: 'Model A Free', context_length: 128000, supported_parameters: ['tools'] }];
+      return [
+        {
+          id: 'model-a:free',
+          name: 'Model A Free',
+          context_length: 128000,
+          supported_parameters: ['tools'],
+        },
+      ];
     },
     async runAgentTurn() {
       return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };

@@ -4,10 +4,7 @@ import type {
   ChatMessage,
   ChatTabState,
 } from './types';
-import {
-  getActiveManualCutoffIndex,
-  getTimelineMessages,
-} from './diagnostics';
+import { getActiveManualCutoffIndex, getTimelineMessages } from './diagnostics';
 import {
   getMessageSenderId,
   isSystemMessage,
@@ -36,8 +33,7 @@ export function isMessageVisibleToAgent(
   }
 
   return (
-    getMessageSenderId(message) === agentId ||
-    message.recipientId === agentId
+    getMessageSenderId(message) === agentId || message.recipientId === agentId
   );
 }
 
@@ -66,7 +62,9 @@ export function getVisibleMessagesForAgent(
 
   return visibleMessages.map((message) => {
     const senderId = getMessageSenderId(message);
-    const sender = tab.participants.find((participant) => participant.id === senderId);
+    const sender = tab.participants.find(
+      (participant) => participant.id === senderId,
+    );
     const recipient = tab.participants.find(
       (participant) => participant.id === message.recipientId,
     );

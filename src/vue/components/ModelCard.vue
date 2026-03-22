@@ -3,7 +3,9 @@
     <div class="model-card-info">
       <span class="model-card-name">{{ displayName }}</span>
       <span v-if="contextLabel" class="model-card-sep">·</span>
-      <span v-if="contextLabel" class="model-card-meta">{{ contextLabel }}</span>
+      <span v-if="contextLabel" class="model-card-meta">{{
+        contextLabel
+      }}</span>
       <span v-if="priceLabel" class="model-card-sep">·</span>
       <span v-if="priceLabel" class="model-card-meta">{{ priceLabel }}</span>
       <span v-if="isFree" class="model-card-badge-free">Free</span>

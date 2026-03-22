@@ -3,7 +3,8 @@
     <div
       class="browser-backdrop"
       @click.self="$emit('close')"
-      @keydown.esc.window="$emit('close')">
+      @keydown.esc.window="$emit('close')"
+    >
       <div class="browser-dialog">
         <div class="browser-header">
           <h2 class="browser-title">Select Model</h2>
@@ -57,13 +58,20 @@
               >
                 <div class="browser-row-main">
                   <span class="browser-row-name">{{ model.name }}</span>
-                  <span class="browser-row-provider">{{ providerOf(model.id) }}</span>
+                  <span class="browser-row-provider">{{
+                    providerOf(model.id)
+                  }}</span>
                 </div>
                 <div class="browser-row-meta">
                   <span>{{ formatCtx(model.context_length) }}</span>
-                  <span v-if="model.id.endsWith(':free')" class="browser-badge-free">Free</span>
+                  <span
+                    v-if="model.id.endsWith(':free')"
+                    class="browser-badge-free"
+                    >Free</span
+                  >
                   <span v-else class="browser-row-price">
-                    {{ formatPricePerM(model.pricing?.prompt) }} / {{ formatPricePerM(model.pricing?.completion) }}
+                    {{ formatPricePerM(model.pricing?.prompt) }} /
+                    {{ formatPricePerM(model.pricing?.completion) }}
                   </span>
                 </div>
               </button>
@@ -120,7 +128,8 @@ const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return modelsStore.models.filter((model) => {
     if (freeOnly.value && !model.id.endsWith(':free')) return false;
-    if (minContext.value && model.context_length < minContext.value) return false;
+    if (minContext.value && model.context_length < minContext.value)
+      return false;
     if (q) {
       const inId = model.id.toLowerCase().includes(q);
       const inName = model.name.toLowerCase().includes(q);

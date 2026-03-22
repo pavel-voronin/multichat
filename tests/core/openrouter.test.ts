@@ -45,11 +45,17 @@ describe('OpenRouterHttpTransport.listModels', () => {
     stubListModels([
       makeModel({ id: 'a/with-tools', supportedParameters: ['tools'] }),
       makeModel({ id: 'a/no-tools', supportedParameters: [] }),
-      makeModel({ id: 'a/tools-and-more', supportedParameters: ['tools', 'response_format'] }),
+      makeModel({
+        id: 'a/tools-and-more',
+        supportedParameters: ['tools', 'response_format'],
+      }),
     ]);
     const transport = new OpenRouterHttpTransport();
     const result = await transport.listModels('key');
-    expect(result.map((m) => m.id)).toEqual(['a/with-tools', 'a/tools-and-more']);
+    expect(result.map((m) => m.id)).toEqual([
+      'a/with-tools',
+      'a/tools-and-more',
+    ]);
   });
 
   it('filters out models with non-text output modality', async () => {
