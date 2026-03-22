@@ -60,7 +60,6 @@ describe('MultiChatRuntime tabs', () => {
     const secondTab = runtime.createTab({ title: '#second' });
 
     runtime.renameTab(secondTab.id, '#renamed');
-    runtime.updateTabContextWindowSize(12, secondTab.id);
     runtime.moveTab(secondTab.id, 0);
     runtime.activateTab(firstTabId);
     runtime.closeTab(secondTab.id);
@@ -71,7 +70,6 @@ describe('MultiChatRuntime tabs', () => {
 
     expect(kinds).toContain('tab-created');
     expect(kinds).toContain('tab-renamed');
-    expect(kinds).toContain('tab-context-window-updated');
     expect(kinds).toContain('tab-closed');
   });
 
@@ -146,23 +144,18 @@ describe('MultiChatRuntime tabs', () => {
     ).toBe(false);
   });
 
-  it('keeps context window size isolated per tab', () => {
+  it('keeps tab state isolated per tab', () => {
     const runtime = createEmptyRuntime();
     const firstTabId = runtime.getWorkspaceState().activeTabId;
     const secondTab = runtime.createTab({ title: '#second' });
 
-    runtime.updateTabContextWindowSize(7, secondTab.id);
     runtime.activateTab(firstTabId);
 
-    expect(runtime.getState().contextWindowSize).toBe(40);
+    expect(runtime.getState().activeTabId).toBe(firstTabId);
 
     runtime.activateTab(secondTab.id);
 
-    expect(runtime.getState().contextWindowSize).toBe(7);
-    expect(
-      runtime.getWorkspaceState().tabs.find((tab) => tab.id === secondTab.id)
-        ?.contextWindowSize,
-    ).toBe(7);
+    expect(runtime.getState().activeTabId).toBe(secondTab.id);
   });
 
   it('keeps inactive tabs running while another tab is active', async () => {

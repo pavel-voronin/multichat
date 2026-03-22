@@ -1,9 +1,7 @@
 import type {
   AgentConfig,
   ChatMessage,
-  ContextCutoffAnchor,
   RuntimeEvent,
-  TimelineEntryBase,
   TimelineHistoryCutoffEntry,
   TimelineMessageEntry,
   TimelineTechnicalEventEntry,
@@ -12,7 +10,6 @@ import type {
 export type CostDisplayMode = 'off' | 'request' | 'net';
 
 export interface ChatViewPreferences {
-  showContextCutoffs: boolean;
   showSilentDecisions: boolean;
   costDisplayMode: CostDisplayMode;
 }
@@ -30,23 +27,10 @@ export type VisibleTimelineManualCutoffEntry = TimelineHistoryCutoffEntry & {
   sortAt: number;
 };
 
-export interface TimelinePreviewCutoffEntry extends TimelineEntryBase {
-  kind: 'history-cutoff';
-  cutoff: {
-    source: 'preview';
-    label: string;
-    anchor: ContextCutoffAnchor;
-    agentIds: string[];
-    agentNames: string[];
-  };
-  sortAt: number;
-}
-
 export type VisibleTimelineEntry =
   | VisibleTimelineMessageEntry
   | VisibleTimelineTechnicalEventEntry
-  | VisibleTimelineManualCutoffEntry
-  | TimelinePreviewCutoffEntry;
+  | VisibleTimelineManualCutoffEntry;
 
 export interface RenderedTab {
   id: string;

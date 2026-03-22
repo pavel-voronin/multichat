@@ -1,6 +1,5 @@
 import type {
   AgentConfig,
-  AgentContextCutoff,
   AgentContextMessage,
   ChatMessage,
   ChatTabState,
@@ -28,7 +27,6 @@ import {
   getRelatedRequestTraces as getRelatedRequestTracesFn,
 } from './traces';
 import {
-  getAgentContextCutoffs,
   getVisibleMessagesForAgent as getVisibleMessagesForAgentFn,
   isMessageVisibleToAgent as isMessageVisibleToAgentFn,
   isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
@@ -63,7 +61,6 @@ export class MultiChatRuntime {
   private readonly now: () => Date;
   private readonly createId: () => string;
   private readonly maxAutoSweeps: number;
-  private readonly maxContextMessages: number;
   private readonly storage;
   private readonly lastProcessedVisibleContextKeys = new Map<
     string,
@@ -77,7 +74,6 @@ export class MultiChatRuntime {
     this.now = config.now ?? (() => new Date());
     this.createId = config.idGenerator ?? createId;
     this.maxAutoSweeps = config.maxAutoSweeps ?? 12;
-    this.maxContextMessages = config.maxContextMessages ?? 40;
     this.storage = config.storage ?? new LocalStoragePersistenceAdapter();
     this.workspace = mergePersistedWorkspace(
       initialWorkspace(config),
@@ -310,31 +306,6 @@ export class MultiChatRuntime {
     this.persistAndNotify();
   }
 
-  updateTabContextWindowSize(
-    contextWindowSize: number,
-    tabId = this.workspace.activeTabId,
-  ): void {
-    const tab = this.requireTab(tabId);
-    const nextContextWindowSize = Math.max(
-      1,
-      Math.floor(contextWindowSize || 1),
-    );
-    if (tab.contextWindowSize === nextContextWindowSize) {
-      return;
-    }
-
-    tab.contextWindowSize = nextContextWindowSize;
-    pushDebugLog({
-      now: this.now,
-      workspace: this.workspace,
-      payload: {
-        kind: 'tab-context-window-updated',
-        details: `tabId=${tab.id} contextWindowSize=${nextContextWindowSize}`,
-      },
-    });
-    this.persistAndNotify();
-  }
-
   resetAgentHistoryContext(tabId = this.workspace.activeTabId): void {
     const tab = this.requireTab(tabId);
     tab.timeline = tab.timeline.filter(
@@ -495,7 +466,6 @@ export class MultiChatRuntime {
       id: this.createId(),
       title: resolveAutoTabTitle(this.workspace.tabs, input?.title),
       human,
-      contextWindowSize: this.maxContextMessages,
     });
     this.workspace.tabs.push(tab);
     if (input?.activate ?? true) {
@@ -667,7 +637,6 @@ export class MultiChatRuntime {
       abortControllers: this.abortControllers,
       activeSweepPromises: this.activeSweepPromises,
       maxAutoSweeps: this.maxAutoSweeps,
-      maxContextMessages: this.maxContextMessages,
       now: this.now,
       createId: this.createId,
       lastProcessedKeys: this.lastProcessedVisibleContextKeys,
@@ -684,15 +653,7 @@ export class MultiChatRuntime {
     agentId: string,
     tabId = this.workspace.activeTabId,
   ): AgentContextMessage[] {
-    return getVisibleMessagesForAgentFn(
-      agentId,
-      this.requireTab(tabId),
-      this.maxContextMessages,
-    );
-  }
-
-  getAgentContextCutoffs(tabId = this.workspace.activeTabId): AgentContextCutoff[] {
-    return getAgentContextCutoffs(this.requireTab(tabId), this.maxContextMessages);
+    return getVisibleMessagesForAgentFn(agentId, this.requireTab(tabId));
   }
 
   isMessageVisibleToAgent(message: ChatMessage, agentId: string): boolean {
@@ -774,7 +735,6 @@ export class MultiChatRuntime {
   private buildRuntimeState(tab: ChatTabState): RuntimeState {
     return deepClone({
       activeTabId: this.workspace.activeTabId,
-      contextWindowSize: tab.contextWindowSize,
       participants: tab.participants,
       agents: tab.agents,
       timeline: tab.timeline,

@@ -3,7 +3,7 @@ import { MultiChatRuntime } from '../../../src/core/runtime';
 import { createRuntime, createTransport, timelineMessages } from './helpers';
 
 describe('MultiChatRuntime history cutoffs', () => {
-  it('manual reset excludes earlier messages from all agent contexts', async () => {
+  it('manual reset excludes earlier messages from all agent contexts and keeps the full post-cutoff history', async () => {
     const runtime = createRuntime();
     const alpha = runtime.createAgent({
       name: 'Alpha',
@@ -33,17 +33,29 @@ describe('MultiChatRuntime history cutoffs', () => {
       target: 'public',
       triggerSweep: false,
     });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'after reset again',
+      target: 'public',
+      triggerSweep: false,
+    });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'after reset once more',
+      target: 'public',
+      triggerSweep: false,
+    });
 
     expect(
       runtime
         .getVisibleMessagesForAgent(alpha.id)
         .map((message) => message.content),
-    ).toEqual(['after reset']);
+    ).toEqual(['after reset', 'after reset again', 'after reset once more']);
     expect(
       runtime
         .getVisibleMessagesForAgent(beta.id)
         .map((message) => message.content),
-    ).toEqual(['after reset']);
+    ).toEqual(['after reset', 'after reset again', 'after reset once more']);
   });
 
   it('can permanently clear messages before the manual cutoff', async () => {
@@ -193,9 +205,8 @@ describe('MultiChatRuntime history cutoffs', () => {
     ).toEqual(['after second reset']);
   });
 
-  it('combines manual reset with tab windows in preview cutoffs', async () => {
+  it('uses the full post-cutoff history when building agent context', async () => {
     const runtime = createRuntime();
-    runtime.updateTabContextWindowSize(2);
     const alpha = runtime.createAgent({
       name: 'Alpha',
       modelId: 'a',
@@ -220,7 +231,7 @@ describe('MultiChatRuntime history cutoffs', () => {
 
     runtime.resetAgentHistoryContext();
 
-    for (const content of ['four', 'five']) {
+    for (const content of ['four', 'five', 'six', 'seven']) {
       await runtime.sendMessage({
         senderId: 'human',
         content,
@@ -233,24 +244,12 @@ describe('MultiChatRuntime history cutoffs', () => {
       runtime
         .getVisibleMessagesForAgent(alpha.id)
         .map((message) => message.content),
-    ).toEqual(['four', 'five']);
+    ).toEqual(['four', 'five', 'six', 'seven']);
     expect(
       runtime
         .getVisibleMessagesForAgent(beta.id)
         .map((message) => message.content),
-    ).toEqual(['four', 'five']);
-
-    const visibleMessages = runtime.getVisibleMessagesForAgent(alpha.id);
-    expect(runtime.getAgentContextCutoffs()).toEqual([
-      {
-        anchor: {
-          kind: 'before-message',
-          messageId: visibleMessages[0].id,
-        },
-        agentIds: [alpha.id, beta.id],
-        agentNames: ['Alpha', 'Beta'],
-      },
-    ]);
+    ).toEqual(['four', 'five', 'six', 'seven']);
   });
 
   it('persists manual cutoff state', () => {
@@ -272,7 +271,6 @@ describe('MultiChatRuntime history cutoffs', () => {
             {
               id: 'tab-1',
               title: '#default',
-              contextWindowSize: 5,
               participants: [{ id: 'human', name: 'Human', role: 'human' }],
               agents: [],
               timeline: [
@@ -326,11 +324,10 @@ describe('MultiChatRuntime history cutoffs', () => {
       id: 'cutoff-1',
       createdAt: '2026-03-16T10:01:00.000Z',
     });
-    expect(state.contextWindowSize).toBe(5);
     expect(save).toHaveBeenCalled();
   });
 
-  it('skips hidden disabled agents during sweeps and cutoff previews', async () => {
+  it('skips hidden disabled agents during sweeps', async () => {
     const seenAgentIds: string[] = [];
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
@@ -367,50 +364,5 @@ describe('MultiChatRuntime history cutoffs', () => {
     await runtime.runAgentSweep('manual');
 
     expect(seenAgentIds).toEqual([alpha.id]);
-    expect(runtime.getAgentContextCutoffs()).toEqual([
-      expect.objectContaining({
-        agentIds: [alpha.id],
-        agentNames: ['Alpha'],
-      }),
-    ]);
-  });
-
-  it('groups cutoff previews for all active agents when they share one cutoff', async () => {
-    const runtime = createRuntime();
-    runtime.updateTabContextWindowSize(1);
-    const alpha = runtime.createAgent({
-      name: 'Alpha',
-      modelId: 'a',
-      systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
-    });
-    const beta = runtime.createAgent({
-      name: 'Beta',
-      modelId: 'b',
-      systemPrompt: 'prompt',
-      capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
-    });
-
-    runtime.removeAgent(beta.id);
-
-    await runtime.sendMessage({
-      senderId: 'human',
-      content: 'one',
-      target: 'public',
-      triggerSweep: false,
-    });
-    await runtime.sendMessage({
-      senderId: 'human',
-      content: 'two',
-      target: 'public',
-      triggerSweep: false,
-    });
-
-    expect(runtime.getAgentContextCutoffs()).toEqual([
-      expect.objectContaining({
-        agentIds: [alpha.id],
-        agentNames: ['Alpha'],
-      }),
-    ]);
   });
 });

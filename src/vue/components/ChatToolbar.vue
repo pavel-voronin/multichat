@@ -11,13 +11,6 @@
     <UiButton
       class="toolbar-button"
       size="md"
-      @click="session.toggleContextCutoffs"
-    >
-      {{ preferences.showContextCutoffs ? 'Hide borders' : 'Show borders' }}
-    </UiButton>
-    <UiButton
-      class="toolbar-button"
-      size="md"
       @click="session.cycleCostDisplayMode"
     >
       {{

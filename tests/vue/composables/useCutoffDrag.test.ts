@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  reorderEntriesForDragPreview,
-  resolveContextWindowSizeFromDropTarget,
+  reorderEntriesForDrag,
   stopDrag,
 } from '../../../src/vue/composables/useCutoffDrag';
 import type { VisibleTimelineEntry } from '../../../src/vue/types';
@@ -25,27 +24,17 @@ function makeManualCutoff(id: string): VisibleTimelineEntry {
   } as VisibleTimelineEntry;
 }
 
-function makePreviewCutoff(id: string): VisibleTimelineEntry {
-  return {
-    kind: 'history-cutoff',
-    id,
-    createdAt: '2024-01-01T00:00:00.000Z',
-    sortAt: 0,
-    cutoff: { source: 'preview', label: 'preview', anchor: { kind: 'end' }, agentIds: [], agentNames: [] },
-  } as VisibleTimelineEntry;
-}
-
-describe('reorderEntriesForDragPreview', () => {
+describe('reorderEntriesForDrag', () => {
   it('returns entries unchanged when cutoffId is null (no drag active)', () => {
     const entries = [makeMessage('m1'), makeManualCutoff('c1'), makeMessage('m2')];
-    expect(reorderEntriesForDragPreview(entries, null, undefined)).toEqual(entries);
+    expect(reorderEntriesForDrag(entries, null, undefined)).toEqual(entries);
   });
 
   it('hides the manual cutoff from the list when targetId is undefined (dragged outside)', () => {
     const m1 = makeMessage('m1');
     const c1 = makeManualCutoff('c1');
     const m2 = makeMessage('m2');
-    const result = reorderEntriesForDragPreview([m1, c1, m2], 'c1', undefined);
+    const result = reorderEntriesForDrag([m1, c1, m2], 'c1', undefined);
     expect(result).toEqual([m1, m2]);
   });
 
@@ -53,7 +42,7 @@ describe('reorderEntriesForDragPreview', () => {
     const m1 = makeMessage('m1');
     const c1 = makeManualCutoff('c1');
     const m2 = makeMessage('m2');
-    const result = reorderEntriesForDragPreview([m1, c1, m2], 'c1', null);
+    const result = reorderEntriesForDrag([m1, c1, m2], 'c1', null);
     expect(result).toEqual([m1, m2, c1]);
   });
 
@@ -62,25 +51,7 @@ describe('reorderEntriesForDragPreview', () => {
     const c1 = makeManualCutoff('c1');
     const m2 = makeMessage('m2');
     const m3 = makeMessage('m3');
-    const result = reorderEntriesForDragPreview([m1, c1, m2, m3], 'c1', 'm3');
+    const result = reorderEntriesForDrag([m1, c1, m2, m3], 'c1', 'm3');
     expect(result).toEqual([m1, m2, c1, m3]);
-  });
-});
-
-describe('resolveContextWindowSizeFromDropTarget', () => {
-  it('returns null when there is no preview cutoff in entries', () => {
-    const entries = [makeMessage('m1'), makeManualCutoff('c1')];
-    expect(resolveContextWindowSizeFromDropTarget(entries)).toBeNull();
-  });
-
-  it('counts messages after the preview cutoff', () => {
-    const entries = [makeMessage('m1'), makePreviewCutoff('p1'), makeMessage('m2'), makeMessage('m3')];
-    // targetId doesn't matter here — entries already contain preview in the right position
-    expect(resolveContextWindowSizeFromDropTarget(entries)).toBe(2);
-  });
-
-  it('returns 1 (minimum) when no messages come after the preview cutoff', () => {
-    const entries = [makeMessage('m1'), makeMessage('m2'), makePreviewCutoff('p1')];
-    expect(resolveContextWindowSizeFromDropTarget(entries)).toBe(1);
   });
 });

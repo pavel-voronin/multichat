@@ -14,7 +14,6 @@ function createState(): WorkspaceState {
       {
         id: 'tab-1',
         title: '#default',
-        contextWindowSize: 40,
         participants: [{ id: 'human', name: 'You', role: 'human' }],
         agents: [],
         timeline: [],

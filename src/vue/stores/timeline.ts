@@ -15,7 +15,6 @@ export const useTimelineStore = defineStore('timeline', () => {
   );
 
   const preferences = computed<ChatViewPreferences>(() => ({
-    showContextCutoffs: preferencesStore.showContextCutoffs,
     showSilentDecisions: preferencesStore.showSilentDecisions,
     costDisplayMode: preferencesStore.costDisplayMode,
   }));

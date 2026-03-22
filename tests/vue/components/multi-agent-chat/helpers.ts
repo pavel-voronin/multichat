@@ -82,7 +82,3 @@ export function mountChat(
 export function setTechnicalInfoVisible(pinia: Pinia): void {
   usePreferencesStore(pinia).showSilentDecisions = true;
 }
-
-export function setContextPreviewVisible(pinia: Pinia): void {
-  usePreferencesStore(pinia).showContextCutoffs = true;
-}

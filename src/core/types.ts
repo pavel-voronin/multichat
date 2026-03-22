@@ -28,7 +28,6 @@ export type RuntimeEventType =
 export type DebugLogKind =
   | 'tab-created'
   | 'tab-renamed'
-  | 'tab-context-window-updated'
   | 'tab-closed'
   | 'agent-created'
   | 'agent-updated'
@@ -178,17 +177,6 @@ export interface AgentMetrics {
   estimatedCost: number;
 }
 
-export interface ContextCutoffAnchor {
-  kind: 'start' | 'before-message' | 'after-message' | 'end';
-  messageId?: string;
-}
-
-export interface AgentContextCutoff {
-  anchor: ContextCutoffAnchor;
-  agentIds: string[];
-  agentNames: string[];
-}
-
 export interface SettingsState {
   openRouterApiKey: string;
 }
@@ -283,7 +271,6 @@ export type TabMutationSource = 'user' | 'system' | 'future-event';
 export interface ChatTabState {
   id: string;
   title: string;
-  contextWindowSize: number;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];
@@ -303,7 +290,6 @@ export interface WorkspaceState {
 
 export interface RuntimeState {
   activeTabId: string;
-  contextWindowSize: number;
   participants: Participant[];
   agents: AgentConfig[];
   timeline: TimelineEntry[];
@@ -416,5 +402,4 @@ export interface RuntimeConfig {
   idGenerator?: () => string;
   humanParticipant?: Participant;
   maxAutoSweeps?: number;
-  maxContextMessages?: number;
 }

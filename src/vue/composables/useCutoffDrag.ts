@@ -1,5 +1,5 @@
 import { computed, readonly, ref } from 'vue';
-import type { VisibleTimelineEntry, TimelinePreviewCutoffEntry } from '../types';
+import type { VisibleTimelineEntry } from '../types';
 import { useSessionStore } from '../stores/session';
 import { useTimelineStore } from '../stores/timeline';
 
@@ -9,7 +9,7 @@ const dragPreviewTargetId = ref<string | null | undefined>(undefined);
 let activePointerId: number | null = null;
 
 // Exported pure helpers (also used in tests)
-export function reorderEntriesForDragPreview(
+export function reorderEntriesForDrag(
   entries: VisibleTimelineEntry[],
   cutoffId: string | null,
   targetEntryId: string | null | undefined,
@@ -24,17 +24,14 @@ export function reorderEntriesForDragPreview(
   }
 
   const draggedEntry = entries[draggedIndex];
-  if (
-    draggedEntry?.kind !== 'history-cutoff' ||
-    (draggedEntry.cutoff.source !== 'manual' && draggedEntry.cutoff.source !== 'preview')
-  ) {
+  if (draggedEntry?.kind !== 'history-cutoff' || draggedEntry.cutoff.source !== 'manual') {
     return entries;
   }
 
   const entriesWithoutDragged = entries.filter((entry) => entry.id !== cutoffId);
 
   if (targetEntryId === undefined) {
-    return draggedEntry.cutoff.source === 'manual' ? entriesWithoutDragged : entries;
+    return entriesWithoutDragged;
   }
 
   if (targetEntryId === null) {
@@ -51,30 +48,6 @@ export function reorderEntriesForDragPreview(
     draggedEntry,
     ...entriesWithoutDragged.slice(targetIndex),
   ];
-}
-
-/**
- * Counts messages after the preview cutoff in the given entries array.
- * IMPORTANT: The caller must pass already-reordered entries (i.e. call
- * `reorderEntriesForDragPreview` first). This function does not reorder internally.
- */
-export function resolveContextWindowSizeFromDropTarget(
-  entries: VisibleTimelineEntry[],
-): number | null {
-  const previewEntry = entries.find(
-    (entry): entry is TimelinePreviewCutoffEntry =>
-      entry.kind === 'history-cutoff' && entry.cutoff.source === 'preview',
-  );
-  if (!previewEntry) {
-    return null;
-  }
-
-  const previewIndex = entries.findIndex((entry) => entry.id === previewEntry.id);
-  const messagesAfterPreview = entries
-    .slice(previewIndex + 1)
-    .filter((entry) => entry.kind === 'message').length;
-
-  return Math.max(1, messagesAfterPreview);
 }
 
 function resolveCutoffDropTarget(
@@ -157,21 +130,9 @@ function finishDrag(event: PointerEvent): void {
     } else {
       session.moveManualCutoffBefore(targetEntryId);
     }
-  } else {
-    if (targetEntryId === undefined) {
-      stopDrag();
-      return;
-    }
-
-    const reorderedEntries = reorderEntriesForDragPreview(
-      entries,
-      draggedCutoffId.value,
-      targetEntryId,
-    );
-    const nextContextWindowSize = resolveContextWindowSizeFromDropTarget(reorderedEntries);
-    if (nextContextWindowSize !== null) {
-      session.updateContextWindowSize(nextContextWindowSize);
-    }
+  } else if (targetEntryId === undefined) {
+    stopDrag();
+    return;
   }
 
   stopDrag();
@@ -222,6 +183,6 @@ export function useCutoffDrag() {
     isDragging,
     startDrag,
     stopDrag,
-    reorderEntriesForDragPreview,
+    reorderEntriesForDrag,
   };
 }

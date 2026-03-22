@@ -1,10 +1,8 @@
 import type {
   AgentConfig,
-  AgentContextCutoff,
   AgentContextMessage,
   ChatMessage,
   ChatTabState,
-  ContextCutoffAnchor,
 } from './types';
 import {
   getActiveManualCutoffIndex,
@@ -17,11 +15,12 @@ import {
 } from './messages';
 import { DEFAULT_HUMAN } from './workspace';
 
-export function getContextWindowMessages(tab: ChatTabState): ChatMessage[] {
+export function getVisibleContextMessages(tab: ChatTabState): ChatMessage[] {
   const cutoffIndex = getActiveManualCutoffIndex(tab);
   if (cutoffIndex === null) {
     return getTimelineMessages(tab);
   }
+
   return tab.timeline
     .slice(cutoffIndex + 1)
     .filter((entry) => entry.kind === 'message')
@@ -32,7 +31,10 @@ export function isMessageVisibleToAgent(
   message: ChatMessage,
   agentId: string,
 ): boolean {
-  if (message.target === 'public') return true;
+  if (message.target === 'public') {
+    return true;
+  }
+
   return (
     getMessageSenderId(message) === agentId ||
     message.recipientId === agentId
@@ -43,9 +45,12 @@ export function isMessageVisibleToParticipant(
   message: ChatMessage,
   participantId: string,
 ): boolean {
-  if (message.target === 'public') return true;
-  if (participantId === DEFAULT_HUMAN.id) return true;
+  if (message.target === 'public') {
+    return true;
+  }
+
   return (
+    participantId === DEFAULT_HUMAN.id ||
     getMessageSenderId(message) === participantId ||
     message.recipientId === participantId
   );
@@ -54,19 +59,18 @@ export function isMessageVisibleToParticipant(
 export function getVisibleMessagesForAgent(
   agentId: string,
   tab: ChatTabState,
-  maxContextMessages: number,
 ): AgentContextMessage[] {
-  const contextWindowSize = tab.contextWindowSize ?? maxContextMessages;
-  const visibleMessages = getContextWindowMessages(tab)
-    .slice(-contextWindowSize)
-    .filter((message) => isMessageVisibleToAgent(message, agentId));
+  const visibleMessages = getVisibleContextMessages(tab).filter((message) =>
+    isMessageVisibleToAgent(message, agentId),
+  );
 
-  return visibleMessages.slice(-contextWindowSize).map((message) => {
+  return visibleMessages.map((message) => {
     const senderId = getMessageSenderId(message);
-    const sender = tab.participants.find((p) => p.id === senderId);
+    const sender = tab.participants.find((participant) => participant.id === senderId);
     const recipient = tab.participants.find(
-      (p) => p.id === message.recipientId,
+      (participant) => participant.id === message.recipientId,
     );
+
     return {
       id: message.id,
       authorType: message.author.type,
@@ -86,9 +90,8 @@ export function getVisibleMessagesForAgent(
 export function getNonSelfVisibleMessageIds(
   agentId: string,
   tab: ChatTabState,
-  maxContextMessages: number,
 ): string[] {
-  return getVisibleMessagesForAgent(agentId, tab, maxContextMessages)
+  return getVisibleMessagesForAgent(agentId, tab)
     .filter((message) => message.senderId !== agentId)
     .map((message) => message.id);
 }
@@ -96,22 +99,23 @@ export function getNonSelfVisibleMessageIds(
 export function getVisibleContextKey(
   agentId: string,
   tab: ChatTabState,
-  maxContextMessages: number,
 ): string {
-  return getNonSelfVisibleMessageIds(agentId, tab, maxContextMessages).join('|');
+  return getNonSelfVisibleMessageIds(agentId, tab).join('|');
 }
 
 export function hasNewVisibleInputForAgent(
   agentId: string,
   tab: ChatTabState,
   processedKeys: Map<string, string>,
-  maxContextMessages: number,
 ): boolean {
-  if (!processedKeys.has(agentId)) return true;
+  if (!processedKeys.has(agentId)) {
+    return true;
+  }
+
   const previousIds = new Set(
     (processedKeys.get(agentId) ?? '').split('|').filter(Boolean),
   );
-  const nextIds = getNonSelfVisibleMessageIds(agentId, tab, maxContextMessages);
+  const nextIds = getNonSelfVisibleMessageIds(agentId, tab);
   return nextIds.some((messageId) => !previousIds.has(messageId));
 }
 
@@ -119,9 +123,8 @@ export function markVisibleContextProcessed(
   agentId: string,
   tab: ChatTabState,
   processedKeys: Map<string, string>,
-  maxContextMessages: number,
 ): void {
-  processedKeys.set(agentId, getVisibleContextKey(agentId, tab, maxContextMessages));
+  processedKeys.set(agentId, getVisibleContextKey(agentId, tab));
 }
 
 export function getTriggeringMessageIds(
@@ -131,6 +134,7 @@ export function getTriggeringMessageIds(
   const previousMessageIds = new Set(
     previousContextKey ? previousContextKey.split('|').filter(Boolean) : [],
   );
+
   return nextVisibleMessageIds.filter(
     (messageId) => !previousMessageIds.has(messageId),
   );
@@ -140,24 +144,4 @@ export function getActiveAgents(tab: ChatTabState): AgentConfig[] {
   return tab.agents.filter(
     (agent) => agent.isEnabled !== false && agent.isHidden !== true,
   );
-}
-
-export function getAgentContextCutoffs(
-  tab: ChatTabState,
-  maxContextMessages: number,
-): AgentContextCutoff[] {
-  const activeAgents = getActiveAgents(tab);
-  const contextWindowSize = tab.contextWindowSize ?? maxContextMessages;
-  const contextMessages = getContextWindowMessages(tab).slice(-contextWindowSize);
-  const anchor = contextMessages[0]
-    ? ({ kind: 'before-message' as const, messageId: contextMessages[0].id })
-    : ({ kind: getTimelineMessages(tab).length ? 'end' : 'start' } as ContextCutoffAnchor);
-
-  return [
-    {
-      anchor,
-      agentIds: activeAgents.map((agent) => agent.id),
-      agentNames: activeAgents.map((agent) => agent.name),
-    },
-  ];
 }

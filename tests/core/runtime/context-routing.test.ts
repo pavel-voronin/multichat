@@ -70,15 +70,16 @@ describe('MultiChatRuntime context routing', () => {
     ).toEqual(['hello', 'my own reply']);
   });
 
-  it('uses the active tab context window for agent visibility', async () => {
+  it('uses the full post-cutoff history for agent visibility', async () => {
     const runtime = createRuntime();
-    runtime.updateTabContextWindowSize(2);
     const agent = runtime.createAgent({
       name: 'Windowed',
       modelId: 'm',
       systemPrompt: 'prompt',
       capabilities: { prefersTools: true, supportsToolUse: 'unknown' },
     });
+
+    runtime.resetAgentHistoryContext();
 
     await runtime.sendMessage({
       senderId: 'human',
@@ -103,6 +104,6 @@ describe('MultiChatRuntime context routing', () => {
       runtime
         .getVisibleMessagesForAgent(agent.id)
         .map((message) => message.content),
-    ).toEqual(['two', 'three']);
+    ).toEqual(['one', 'two', 'three']);
   });
 });

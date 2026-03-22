@@ -19,14 +19,6 @@ export const useSessionStore = defineStore('session', () => {
     runtime.value.updateSettings(patch);
   }
 
-  function updateContextWindowSize(contextWindowSize: number): void {
-    runtime.value.updateTabContextWindowSize(contextWindowSize);
-  }
-
-  function toggleContextCutoffs(): void {
-    preferencesStore.showContextCutoffs = !preferencesStore.showContextCutoffs;
-  }
-
   function toggleSilentDecisions(): void {
     preferencesStore.showSilentDecisions =
       !preferencesStore.showSilentDecisions;
@@ -75,8 +67,6 @@ export const useSessionStore = defineStore('session', () => {
 
   return {
     updateRuntimeSettings,
-    updateContextWindowSize,
-    toggleContextCutoffs,
     toggleSilentDecisions,
     cycleCostDisplayMode,
     resetAgentHistoryContext,

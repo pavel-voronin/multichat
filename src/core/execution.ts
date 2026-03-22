@@ -39,7 +39,6 @@ export interface ExecutionContext {
   abortControllers: Map<string, AbortController>;
   activeSweepPromises: Map<string, Promise<void>>;
   maxAutoSweeps: number;
-  maxContextMessages: number;
   now: () => Date;
   createId: () => string;
   lastProcessedKeys: Map<string, Map<string, string>>;
@@ -115,7 +114,6 @@ export async function handleSuccessfulAgentTurnResultFn({
     agent.id,
     tab,
     lastProcessedKeysForTab(tab.id, ctx),
-    ctx.maxContextMessages,
   );
   applyUsage(agent.id, result.usage, tab);
   applyDownstreamPromptCost(agent, visibleMessages, result.usage, tab);
@@ -230,10 +228,9 @@ export async function runAgentTurnFn(
   const visibleMessages = getVisibleMessagesForAgent(
     agent.id,
     tab,
-    ctx.maxContextMessages,
   );
 
-  if (!hasNewVisibleInputForAgent(agent.id, tab, processedKeys, ctx.maxContextMessages)) {
+  if (!hasNewVisibleInputForAgent(agent.id, tab, processedKeys)) {
     pushDebugLog({
       now: ctx.now,
       workspace: ctx.workspace,
@@ -244,13 +241,9 @@ export async function runAgentTurnFn(
         agentName: agent.name,
         skipReason: 'no_new_input',
         visibleMessageIds: visibleMessages.map((m) => m.id),
-        nonSelfVisibleMessageIds: getNonSelfVisibleMessageIds(
-          agent.id,
-          tab,
-          ctx.maxContextMessages,
-        ),
+        nonSelfVisibleMessageIds: getNonSelfVisibleMessageIds(agent.id, tab),
         contextKeyPrev: processedKeys.get(agent.id) ?? '',
-        contextKeyNext: getVisibleContextKey(agent.id, tab, ctx.maxContextMessages),
+        contextKeyNext: getVisibleContextKey(agent.id, tab),
       },
     });
     return;
@@ -268,13 +261,9 @@ export async function runAgentTurnFn(
         agentName: agent.name,
         skipReason: 'no_api_key',
         visibleMessageIds: visibleMessages.map((m) => m.id),
-        nonSelfVisibleMessageIds: getNonSelfVisibleMessageIds(
-          agent.id,
-          tab,
-          ctx.maxContextMessages,
-        ),
+        nonSelfVisibleMessageIds: getNonSelfVisibleMessageIds(agent.id, tab),
         contextKeyPrev: processedKeys.get(agent.id) ?? '',
-        contextKeyNext: getVisibleContextKey(agent.id, tab, ctx.maxContextMessages),
+        contextKeyNext: getVisibleContextKey(agent.id, tab),
       },
     });
     pushRuntimeError({
@@ -295,12 +284,8 @@ export async function runAgentTurnFn(
   const abortController = new AbortController();
   ctx.abortControllers.set(tab.id, abortController);
   const previousContextKey = processedKeys.get(agent.id) ?? '';
-  const nextContextKey = getVisibleContextKey(agent.id, tab, ctx.maxContextMessages);
-  const nonSelfVisibleMessageIds = getNonSelfVisibleMessageIds(
-    agent.id,
-    tab,
-    ctx.maxContextMessages,
-  );
+  const nextContextKey = getVisibleContextKey(agent.id, tab);
+  const nonSelfVisibleMessageIds = getNonSelfVisibleMessageIds(agent.id, tab);
   const triggeringMessageIds = getTriggeringMessageIds(
     previousContextKey,
     nonSelfVisibleMessageIds,

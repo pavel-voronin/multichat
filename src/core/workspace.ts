@@ -55,12 +55,10 @@ export function createEmptyTabState(input: {
   id: string;
   title?: string;
   human: ChatTabState['participants'][number];
-  contextWindowSize: number;
 }): ChatTabState {
   return {
     id: input.id,
     title: input.title ?? DEFAULT_TAB_TITLE,
-    contextWindowSize: input.contextWindowSize,
     participants: [deepClone(input.human)],
     agents: [],
     timeline: [],
@@ -74,7 +72,6 @@ export function createEmptyTabState(input: {
 export function initialWorkspace(config: RuntimeConfig): WorkspaceState {
   const human = config.humanParticipant ?? DEFAULT_HUMAN;
   const tabId = 'tab-default';
-  const contextWindowSize = config.maxContextMessages ?? 40;
   return {
     settings: initialSettings(config),
     debugLogs: [],
@@ -83,7 +80,6 @@ export function initialWorkspace(config: RuntimeConfig): WorkspaceState {
       createEmptyTabState({
         id: tabId,
         human,
-        contextWindowSize,
       }),
     ],
     activeTabId: tabId,
@@ -139,10 +135,6 @@ export function normalizeTabState(
       typeof tab.title === 'string' && tab.title.trim()
         ? tab.title
         : DEFAULT_TAB_TITLE,
-    contextWindowSize:
-      typeof tab.contextWindowSize === 'number' && tab.contextWindowSize > 0
-        ? Math.floor(tab.contextWindowSize)
-        : 40,
     participants,
     agents: (tab.agents ?? []).map(normalizeAgentConfig),
     timeline: tab.timeline ?? [],
