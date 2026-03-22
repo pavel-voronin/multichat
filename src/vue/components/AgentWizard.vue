@@ -145,6 +145,10 @@ watch(
     if (isOpen && isApiKeyPresent.value) {
       await modelsStore.fetchModels();
     }
+    if (isOpen && !agent.value && ui.preselectedModelId) {
+      modelId.value = ui.preselectedModelId;
+      ui.preselectedModelId = null;
+    }
   },
 );
 
