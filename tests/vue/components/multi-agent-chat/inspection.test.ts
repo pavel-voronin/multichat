@@ -123,6 +123,51 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('Agent Prompt');
   });
 
+  it('renders inspector prompts as selectable text blocks', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [
+          {
+            id: 'model-a:free',
+            name: 'Model A Free',
+            context_length: 128000,
+            supported_parameters: ['tools'],
+          },
+        ];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'speak_public', text: 'agent reply' },
+          usage: { promptTokens: 10, completionTokens: 5, requestCostUsd: 0.001 },
+        };
+      },
+    };
+
+    const runtime = createRuntime({ transport });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'please answer',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+    const triggers = wrapper.findAll('.message-time-trigger-active');
+    await triggers[2]!.trigger('click');
+
+    const agentPrompt = document.body.querySelector(
+      '[data-testid="inspection-agent-prompt"]',
+    );
+    const fullSystemPrompt = document.body.querySelector(
+      '[data-testid="inspection-full-system-prompt"]',
+    );
+
+    expect(agentPrompt).not.toBeNull();
+    expect(fullSystemPrompt).not.toBeNull();
+    expect(agentPrompt?.classList.contains('inspection-prompt')).toBe(true);
+    expect(fullSystemPrompt?.classList.contains('inspection-prompt')).toBe(true);
+  });
+
   it('loads models for the inspector participant card when cache is empty', async () => {
     let listModelsCalls = 0;
     const transport: OpenRouterTransport = {
