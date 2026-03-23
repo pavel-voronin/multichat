@@ -100,6 +100,7 @@ import {
 import type { RenderedTab } from '../types';
 import { useTabsStore } from '../stores/tabs';
 import { useUiStore } from '../stores/ui';
+import { useInspectionStore } from '../stores/inspection';
 
 type EditableInput = HTMLInputElement | null;
 type TabElement = HTMLDivElement | null;
@@ -107,6 +108,7 @@ type TabElement = HTMLDivElement | null;
 const tabsStore = useTabsStore();
 const { workspace, renderedTabs } = storeToRefs(tabsStore);
 const ui = useUiStore();
+const inspection = useInspectionStore();
 const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
 const draggingTabId = ref<string | null>(null);
@@ -125,6 +127,7 @@ function createTab() {
   cancelRename();
   const tab = tabsStore.createTab({ activate: true });
   ui.resetChatScopedState();
+  inspection.reset();
   void nextTick(() => {
     scrollTabIntoView(tab.id);
     const createdTab = renderedTabs.value.find((item) => item.id === tab.id);
@@ -142,6 +145,7 @@ function activateTab(tabId: string) {
   cancelRename();
   tabsStore.activateTab(tabId);
   ui.resetChatScopedState();
+  inspection.reset();
   void nextTick(() => {
     scrollTabIntoView(tabId);
   });
@@ -240,6 +244,7 @@ function closeTab(tabId: string) {
   cancelRename();
   tabsStore.closeTab(tabId);
   ui.resetChatScopedState();
+  inspection.reset();
 }
 
 function handleDragStart(tabId: string, event: DragEvent) {

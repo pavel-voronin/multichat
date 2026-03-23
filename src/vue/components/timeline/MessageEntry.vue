@@ -31,7 +31,6 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { getMessageSenderId } from '../../../core';
 import type { CostDisplayMode, VisibleTimelineMessageEntry } from '../../types';
 import { useInspectionStore } from '../../stores/inspection';
 import { useMessageInputStore } from '../../stores/messageInput';
@@ -75,29 +74,7 @@ const entryClasses = computed(() => {
 });
 
 function handleInspect() {
-  if (!canInspect.value) return;
-
-  if (getMessageSenderId(props.entry.message) === 'human') {
-    const subject = inspection.getInspectionSubjectForMessage(
-      props.entry.message.id,
-    );
-    if (subject.downstreamTraces.length === 1) {
-      inspection.openForTrace(
-        subject.downstreamTraces[0]!.id,
-        props.entry.message.id,
-      );
-      return;
-    }
-    inspection.openForMessage(props.entry.message.id);
-    return;
-  }
-
-  if (props.entry.message.sourceTraceId) {
-    inspection.openForTrace(
-      props.entry.message.sourceTraceId,
-      props.entry.message.id,
-    );
-  }
+  inspection.openForMessage(props.entry.message.id);
 }
 </script>
 

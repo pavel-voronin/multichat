@@ -63,8 +63,15 @@ const eventText = computed(() => formatTechnicalEventText(props.entry.event));
 
 function handleInspect() {
   if (!canInspect.value) return;
-  if (!props.entry.event.sourceTraceId) return;
-  inspection.openForTrace(props.entry.event.sourceTraceId);
+  const traceId = props.entry.event.sourceTraceId;
+  if (!traceId) return;
+  const message = timeline.state.timeline
+    .filter((e) => e.kind === 'message')
+    .map((e) => e.message)
+    .find((m) => m.sourceTraceId === traceId);
+  if (message) {
+    inspection.openForMessage(message.id);
+  }
 }
 </script>
 
