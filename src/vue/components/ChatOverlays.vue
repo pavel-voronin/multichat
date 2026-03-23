@@ -14,8 +14,8 @@
     :shown-cost-text="costShownText"
     :format-message-cost="formatMessageCost"
     :format-contributor-cost="formatContributorCost"
-    @mouseenter="cancelCostBubbleClose"
-    @mouseleave="closeCostBubble"
+    @mouseenter="costBubble.cancelClose"
+    @mouseleave="costBubble.close"
     @element-change="costBubbleElementRef = $event"
   />
 
@@ -27,8 +27,8 @@
     :completion-cost="modelCompletionCost"
     :total-cost="modelTotalCost"
     :format-message-cost="formatMessageCost"
-    @mouseenter="cancelModelPriceBubbleClose"
-    @mouseleave="closeModelPriceBubble"
+    @mouseenter="modelPriceBubble.cancelClose"
+    @mouseleave="modelPriceBubble.close"
     @element-change="modelPriceBubbleElementRef = $event"
   />
 </template>
@@ -200,10 +200,10 @@ watch(
 
 onMounted(() => {
   setOverlayControls({
-    openCostBubble,
-    scheduleCostBubbleClose,
-    openModelPriceBubble,
-    scheduleModelPriceBubbleClose,
+    openCostBubble: costBubble.open,
+    scheduleCostBubbleClose: costBubble.scheduleClose,
+    openModelPriceBubble: modelPriceBubble.open,
+    scheduleModelPriceBubbleClose: modelPriceBubble.scheduleClose,
   });
   window.addEventListener('resize', costBubble.updatePosition);
   window.addEventListener('scroll', costBubble.updatePosition, true);
@@ -219,43 +219,11 @@ onBeforeUnmount(() => {
   window.removeEventListener('scroll', modelPriceBubble.updatePosition, true);
 });
 
-function openCostBubble(messageId: string, event: MouseEvent) {
-  costBubble.open(messageId, event);
-}
-
 function participantNameById(participantId: string): string | null {
   return (
     state.value.participants.find(
       (participant) => participant.id === participantId,
     )?.name ?? null
   );
-}
-
-function scheduleCostBubbleClose() {
-  costBubble.scheduleClose();
-}
-
-function cancelCostBubbleClose() {
-  costBubble.cancelClose();
-}
-
-function closeCostBubble() {
-  costBubble.close();
-}
-
-function openModelPriceBubble(participantId: string, event: MouseEvent) {
-  modelPriceBubble.open(participantId, event);
-}
-
-function scheduleModelPriceBubbleClose() {
-  modelPriceBubble.scheduleClose();
-}
-
-function cancelModelPriceBubbleClose() {
-  modelPriceBubble.cancelClose();
-}
-
-function closeModelPriceBubble() {
-  modelPriceBubble.close();
 }
 </script>

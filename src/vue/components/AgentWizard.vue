@@ -95,7 +95,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { onMounted, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { defaultPromptPreset, promptPresets } from '../promptPresets';
 import { useAgentsStore } from '../stores/agents';
 import { useModelsStore } from '../stores/models';
@@ -146,6 +146,7 @@ watch(
       ui.preselectedModelId = null;
     }
   },
+  { immediate: true },
 );
 
 watch(
@@ -159,12 +160,6 @@ watch(
     ui.showAgentWizard = true;
   },
 );
-
-onMounted(async () => {
-  if (ui.showAgentWizard && isApiKeyPresent.value) {
-    await modelsStore.fetchModels();
-  }
-});
 
 function applyPreset() {
   const preset = promptPresets.find(

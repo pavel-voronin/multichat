@@ -48,7 +48,7 @@
         class="inspection-panel"
       >
         <template v-if="agent">
-          <p class="inspection-field-label">{{ agentNameLabel }}</p>
+          <p class="inspection-field-label">{{ participantLabel }}</p>
           <ModelCard
             :model-id="modelId"
             :snapshot="modelSnapshot"
@@ -56,19 +56,21 @@
             class="mb-4"
           />
         </template>
-        <p v-else class="inspection-field-label mb-4">Human</p>
+        <p v-else class="inspection-field-label mb-4">{{ participantLabel }}</p>
 
-        <div class="inspection-prompt-block">
-          <p class="inspection-field-label">Agent Prompt</p>
-          <pre v-if="agentPrompt" class="inspection-prompt">{{ agentPrompt }}</pre>
-          <p v-else class="inspection-na">—</p>
-        </div>
+        <template v-if="agent">
+          <div class="inspection-prompt-block">
+            <p class="inspection-field-label">Agent Prompt</p>
+            <pre v-if="agentPrompt" class="inspection-prompt">{{ agentPrompt }}</pre>
+            <p v-else class="inspection-na">—</p>
+          </div>
 
-        <div class="inspection-prompt-block">
-          <p class="inspection-field-label">Full System Prompt (sent)</p>
-          <pre v-if="fullSystemPrompt" class="inspection-prompt">{{ fullSystemPrompt }}</pre>
-          <p v-else class="inspection-na">—</p>
-        </div>
+          <div class="inspection-prompt-block">
+            <p class="inspection-field-label">Full System Prompt (sent)</p>
+            <pre v-if="fullSystemPrompt" class="inspection-prompt">{{ fullSystemPrompt }}</pre>
+            <p v-else class="inspection-na">—</p>
+          </div>
+        </template>
       </section>
 
       <section
@@ -112,7 +114,7 @@
 
           <details class="inspection-raw-json">
             <summary class="inspection-raw-json-summary">
-              Request Input
+              Raw Input
               <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.requestInputJson)">Copy</button>
             </summary>
             <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
@@ -147,7 +149,7 @@
 
           <details class="inspection-raw-json inspection-raw-json-second">
             <summary class="inspection-raw-json-summary">
-              Response Output
+              Raw Output
               <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.responseOutputJson)">Copy</button>
             </summary>
             <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
@@ -208,6 +210,11 @@ const {
 
 // Participant tab
 const agentNameLabel = computed(() => agent.value?.name ?? 'Human');
+const participantLabel = computed(() => {
+  if (agent.value) return agentNameLabel.value;
+  if (message.value?.author.type === 'system') return 'System';
+  return 'Human';
+});
 const modelId = computed(() => agent.value?.modelId ?? '');
 const modelSnapshot = computed(() => agent.value?.modelSnapshot);
 const agentPrompt = computed(() => agent.value?.systemPrompt ?? null);

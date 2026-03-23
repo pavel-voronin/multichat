@@ -55,7 +55,8 @@ describe('MultiAgentChat request inspection', () => {
 
     // Participant tab should be active by default
     expect(document.body.textContent).toContain('Human');
-    expect(document.body.textContent).toContain('Agent Prompt');
+    expect(document.body.textContent).not.toContain('Agent Prompt');
+    expect(document.body.textContent).not.toContain('Full System Prompt (sent)');
   });
 
   it('shows no request data on Input tab for a human message', async () => {
@@ -120,6 +121,49 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('model-a:free');
     // Agent prompt label
     expect(document.body.textContent).toContain('Agent Prompt');
+  });
+
+  it('loads models for the inspector participant card when cache is empty', async () => {
+    let listModelsCalls = 0;
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        listModelsCalls += 1;
+        return [
+          {
+            id: 'model-a:free',
+            name: 'Model A Free',
+            context_length: 128000,
+            supported_parameters: ['tools'],
+          },
+        ];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          action: { type: 'speak_public', text: 'agent reply' },
+          usage: { promptTokens: 10, completionTokens: 5, requestCostUsd: 0.001 },
+        };
+      },
+    };
+
+    const runtime = createRuntime({ transport });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'please answer',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+    const triggers = wrapper.findAll('.chat-line-time-active');
+    await triggers[2]!.trigger('click');
+    await wrapper.vm.$nextTick();
+    await Promise.resolve();
+    await wrapper.vm.$nextTick();
+
+    expect(listModelsCalls).toBe(1);
+    expect(document.body.textContent).toContain('Model A Free');
+    expect(document.body.textContent).toContain('128k ctx');
+    wrapper.unmount();
   });
 
   it('shows speak_public action in Output tab for an agent message', async () => {
@@ -281,6 +325,24 @@ describe('MultiAgentChat request inspection', () => {
     const trigger = systemLine.find('.message-time-trigger');
     expect(trigger.exists()).toBe(true);
     expect(trigger.classes()).toContain('message-time-trigger-active');
+  });
+
+  it('shows System label on Participant tab for a system message', async () => {
+    const runtime = createRuntime();
+    const wrapper = mountChat(runtime);
+
+    const systemLine = wrapper.find('.message-line-system');
+    await systemLine.find('.message-time-trigger-active').trigger('click');
+
+    const participantTab = Array.from(document.body.querySelectorAll('button'))
+      .find((b) => b.textContent?.trim() === 'Participant');
+    expect(participantTab).toBeDefined();
+    participantTab!.click();
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('System');
+    expect(document.body.textContent).not.toContain('Agent Prompt');
+    expect(document.body.textContent).not.toContain('Full System Prompt (sent)');
   });
 
   it('closes the inspector', async () => {

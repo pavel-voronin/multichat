@@ -23,6 +23,13 @@
         placeholder="sk-or-v1-..."
       />
     </label>
+    <div class="modal-field">
+      <span class="modal-label">Models cache</span>
+      <p class="modal-copy">{{ modelsCacheLabel }}</p>
+      <UiButton class="modal-secondary-button" @click="invalidateModelsCache">
+        Invalidate models cache
+      </UiButton>
+    </div>
     <div class="modal-actions">
       <UiButton
         class="modal-primary-button"
@@ -43,18 +50,29 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRuntimeStore } from '../stores/runtime';
 import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
+import { useModelsStore } from '../stores/models';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 import UiModal from './ui/UiModal.vue';
 
 const session = useSessionStore();
-const { state } = storeToRefs(useRuntimeStore());
+const runtimeStore = useRuntimeStore();
+const { state, workspace } = storeToRefs(runtimeStore);
 const ui = useUiStore();
+const modelsStore = useModelsStore();
 const draftKey = ref(state.value.settings.openRouterApiKey);
+const modelsCacheLabel = computed(() => {
+  const snapshot = workspace.value.modelsCatalogSnapshot;
+  if (!snapshot) {
+    return 'No persisted models snapshot.';
+  }
+
+  return `Snapshot: ${snapshot.models.length} models, updated ${new Date(snapshot.lastFetchedAt).toLocaleString()}.`;
+});
 
 watch(
   () => ui.showSettings,
@@ -72,10 +90,15 @@ function close() {
 }
 
 function save() {
+  const nextKey = draftKey.value.trim();
   session.updateRuntimeSettings({
-    openRouterApiKey: draftKey.value.trim(),
+    openRouterApiKey: nextKey,
   });
   close();
+}
+
+function invalidateModelsCache() {
+  modelsStore.invalidateCache();
 }
 
 function reset() {
@@ -110,5 +133,9 @@ function reset() {
 
 .modal-actions {
   @apply mt-5 flex flex-wrap gap-2 px-5 pb-5;
+}
+
+.modal-copy {
+  @apply m-0 text-[12px] leading-5 text-neutral-500;
 }
 </style>

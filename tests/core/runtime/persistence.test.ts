@@ -89,4 +89,35 @@ describe('MultiChatRuntime persistence coordination', () => {
 
     expect(operations).toEqual(['reset', 'save:1:1']);
   });
+
+  it('clears the persisted models snapshot when the API key changes', async () => {
+    const runtime = new MultiChatRuntime({
+      transport: createTransport(async () => ({
+        mode: 'tools',
+        action: { type: 'stay_silent', reason: 'noop' },
+      })),
+      storage: {
+        load: async () => null,
+        save: vi.fn().mockResolvedValue(undefined),
+        reset: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    runtime.updateSettings({ openRouterApiKey: 'key-1' });
+    runtime.setModelsCatalogSnapshot({
+      models: [
+        {
+          id: 'openai/gpt-4.1',
+          name: 'GPT-4.1',
+          context_length: 128000,
+          supported_parameters: ['tools'],
+        },
+      ],
+      lastFetchedAt: 123,
+    });
+
+    runtime.updateSettings({ openRouterApiKey: 'key-2' });
+
+    expect(runtime.getModelsCatalogSnapshot()).toBeNull();
+  });
 });

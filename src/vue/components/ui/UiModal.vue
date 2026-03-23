@@ -122,7 +122,7 @@ onBeforeUnmount(() => {
 }
 
 .ui-modal-close {
-  @apply flex h-7 w-7 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
+  @apply flex h-7 w-7 items-center justify-center rounded text-base leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .ui-modal-body {

@@ -9,3 +9,7 @@ export function createId(): string {
 export function deepClone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
+
+export function fingerprintApiKey(apiKey: string): string {
+  return `${apiKey.length}:${apiKey.slice(-6)}`;
+}

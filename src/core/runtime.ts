@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   ChatTabState,
   DiagnosticsState,
+  ModelsCatalogSnapshot,
   OpenRouterModel,
   RequestTrace,
   RuntimeConfig,
@@ -34,7 +35,7 @@ import {
 import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
 import { runAgentSweepFn, type ExecutionContext } from './execution';
 import { IndexedDbPersistenceAdapter, NoopPersistenceAdapter } from './storage';
-import { createId, deepClone } from './utils';
+import { createId, deepClone, fingerprintApiKey } from './utils';
 import {
   DEFAULT_HUMAN,
   createEmptyTabState,
@@ -117,6 +118,32 @@ export class MultiChatRuntime {
     }
 
     return this.config.transport.listModels(apiKey);
+  }
+
+  getModelsCatalogSnapshot(): ModelsCatalogSnapshot | null {
+    return deepClone(this.workspace.modelsCatalogSnapshot ?? null);
+  }
+
+  setModelsCatalogSnapshot(input: {
+    models: OpenRouterModel[];
+    lastFetchedAt?: number;
+  }): void {
+    const apiKey = this.workspace.settings.openRouterApiKey;
+    this.workspace.modelsCatalogSnapshot = {
+      models: deepClone(input.models),
+      lastFetchedAt: input.lastFetchedAt ?? this.now().getTime(),
+      apiKeyFingerprint: apiKey ? fingerprintApiKey(apiKey) : null,
+    };
+    this.persistAndNotify();
+  }
+
+  clearModelsCatalogSnapshot(): void {
+    if (!this.workspace.modelsCatalogSnapshot) {
+      return;
+    }
+
+    this.workspace.modelsCatalogSnapshot = null;
+    this.persistAndNotify();
   }
 
   getTimelineEntries(tabId = this.workspace.activeTabId): TimelineEntry[] {
@@ -288,10 +315,17 @@ export class MultiChatRuntime {
   }
 
   updateSettings(patch: Partial<RuntimeState['settings']>): void {
+    const previousApiKey = this.workspace.settings.openRouterApiKey;
     this.workspace.settings = {
       ...this.workspace.settings,
       ...patch,
     };
+    if (
+      typeof patch.openRouterApiKey === 'string' &&
+      patch.openRouterApiKey !== previousApiKey
+    ) {
+      this.workspace.modelsCatalogSnapshot = null;
+    }
     pushDebugLog({
       now: this.now,
       workspace: this.workspace,

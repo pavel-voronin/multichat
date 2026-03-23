@@ -5,6 +5,7 @@
         ref="scrollElement"
         class="chat-tabs-scroll"
         @click="handleRailClick"
+        @dblclick="createTab"
       >
         <div class="chat-tabs-list">
           <div
@@ -78,7 +79,11 @@
             >
               <span class="chat-tabs-add-label">+</span>
             </button>
-            <div class="chat-tabs-empty-zone" @click.stop="handleRailClick" />
+            <div
+              class="chat-tabs-empty-zone"
+              @click.stop="handleRailClick"
+              @dblclick.stop="createTab"
+            />
           </div>
         </div>
       </div>
@@ -112,16 +117,9 @@ const inspection = useInspectionStore();
 const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
 const draggingTabId = ref<string | null>(null);
-const emptyRailClickState = ref<{
-  time: number;
-  x: number;
-  y: number;
-} | null>(null);
 const editInputRefs = new Map<string, EditableInput>();
 const tabElementRefs = new Map<string, TabElement>();
 const scrollElementRef = useTemplateRef<HTMLDivElement>('scrollElement');
-const EMPTY_RAIL_DOUBLE_CLICK_DELAY_MS = 400;
-const EMPTY_RAIL_DOUBLE_CLICK_MOVE_THRESHOLD_PX = 6;
 
 function createTab() {
   cancelRename();
@@ -174,44 +172,13 @@ function cancelRename() {
 function handleRailClick(event: MouseEvent) {
   const target = event.target;
   if (!(target instanceof HTMLElement)) {
-    emptyRailClickState.value = null;
     cancelRename();
     return;
-  }
-
-  if (target.closest('.chat-tab') || target.closest('.chat-tabs-add')) {
-    emptyRailClickState.value = null;
-  } else {
-    registerEmptyRailClick(event);
   }
 
   if (!target.closest('.chat-tab-edit')) {
     cancelRename();
   }
-}
-
-function registerEmptyRailClick(event: MouseEvent) {
-  const now = Date.now();
-  const previousClick = emptyRailClickState.value;
-
-  if (
-    previousClick &&
-    now - previousClick.time <= EMPTY_RAIL_DOUBLE_CLICK_DELAY_MS &&
-    Math.abs(event.clientX - previousClick.x) <=
-      EMPTY_RAIL_DOUBLE_CLICK_MOVE_THRESHOLD_PX &&
-    Math.abs(event.clientY - previousClick.y) <=
-      EMPTY_RAIL_DOUBLE_CLICK_MOVE_THRESHOLD_PX
-  ) {
-    emptyRailClickState.value = null;
-    createTab();
-    return;
-  }
-
-  emptyRailClickState.value = {
-    time: now,
-    x: event.clientX,
-    y: event.clientY,
-  };
 }
 
 function handleDocumentPointerDown(event: PointerEvent) {

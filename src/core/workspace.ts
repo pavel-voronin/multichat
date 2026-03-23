@@ -74,6 +74,7 @@ export function initialWorkspace(config: RuntimeConfig): WorkspaceState {
   const tabId = 'tab-default';
   return {
     settings: initialSettings(config),
+    modelsCatalogSnapshot: null,
     debugLogs: [],
     errors: [],
     tabs: [
@@ -111,6 +112,7 @@ export function mergePersistedWorkspace(
       ...base.settings,
       ...persisted.settings,
     },
+    modelsCatalogSnapshot: persisted.modelsCatalogSnapshot ?? null,
     debugLogs: persisted.debugLogs ?? [],
     errors: persisted.errors ?? [],
     tabs,

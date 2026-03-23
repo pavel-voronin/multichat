@@ -15,9 +15,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import type { ModelSnapshot } from '../../core';
 import { useModelsStore } from '../stores/models';
+import { useRuntimeStore } from '../stores/runtime';
 import UiButton from './ui/UiButton.vue';
 
 const props = defineProps<{
@@ -29,8 +30,24 @@ const props = defineProps<{
 defineEmits<{ change: [] }>();
 
 const modelsStore = useModelsStore();
+const runtimeStore = useRuntimeStore();
 
 const liveModel = computed(() => modelsStore.findById(props.modelId));
+const hasApiKey = computed(() =>
+  Boolean(runtimeStore.state.settings.openRouterApiKey),
+);
+
+watch(
+  () => [props.modelId, liveModel.value?.id, hasApiKey.value] as const,
+  ([modelId, resolvedModelId, apiKeyPresent]) => {
+    if (!modelId || resolvedModelId || !apiKeyPresent) {
+      return;
+    }
+
+    void modelsStore.fetchModels();
+  },
+  { immediate: true },
+);
 
 const displayName = computed(() => {
   const model = liveModel.value;

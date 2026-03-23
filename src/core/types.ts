@@ -175,6 +175,12 @@ export interface SettingsState {
   openRouterApiKey: string;
 }
 
+export interface ModelsCatalogSnapshot {
+  models: OpenRouterModel[];
+  lastFetchedAt: number;
+  apiKeyFingerprint: string | null;
+}
+
 export interface RuntimeError {
   id: string;
   createdAt: string;
@@ -276,6 +282,7 @@ export interface ChatTabState {
 
 export interface WorkspaceState {
   settings: SettingsState;
+  modelsCatalogSnapshot?: ModelsCatalogSnapshot | null;
   debugLogs: DebugLogEntry[];
   errors: RuntimeError[];
   tabs: ChatTabState[];

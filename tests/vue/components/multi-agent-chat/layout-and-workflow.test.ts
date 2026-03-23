@@ -52,11 +52,12 @@ describe('MultiAgentChat layout and workflow', () => {
     openSettingsButton?.click();
     await wrapper.vm.$nextTick();
 
-    expect(document.body.querySelector('.wizard-backdrop')).toBeNull();
-    expect(document.body.querySelector('.modal-backdrop')).not.toBeNull();
+    expect(document.body.querySelector('.ui-modal-backdrop')).not.toBeNull();
+    expect(document.body.textContent).toContain('Settings');
+    expect(document.body.textContent).not.toContain('Create agent');
 
     const closeButton = Array.from(
-      document.body.querySelectorAll('.modal-backdrop button'),
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
     ).find((button) => button.textContent?.trim() === 'Close') as
       | HTMLButtonElement
       | undefined;
@@ -65,8 +66,8 @@ describe('MultiAgentChat layout and workflow', () => {
     closeButton?.click();
     await wrapper.vm.$nextTick();
 
-    expect(document.body.querySelector('.modal-backdrop')).toBeNull();
-    expect(document.body.querySelector('.wizard-backdrop')).not.toBeNull();
+    expect(document.body.querySelector('.ui-modal-backdrop')).not.toBeNull();
+    expect(document.body.textContent).toContain('Create agent');
 
     wrapper.unmount();
   });
@@ -82,6 +83,7 @@ describe('MultiAgentChat layout and workflow', () => {
         .filter((text) => text === 'Reset agents' || text === 'Stop'),
     ).toEqual(['Stop']);
     expect(wrapper.find('.composer-actions').text()).toContain('Send');
+    wrapper.unmount();
   });
 
   it('shows Human as the default participant name', () => {
@@ -89,6 +91,45 @@ describe('MultiAgentChat layout and workflow', () => {
     const wrapper = mountChat(runtime);
 
     expect(wrapper.text()).toContain('Human');
+    wrapper.unmount();
+  });
+
+  it('invalidates the persisted models cache from settings', async () => {
+    const runtime = createRuntime();
+    runtime.setModelsCatalogSnapshot({
+      models: [
+        {
+          id: 'openai/gpt-4.1',
+          name: 'GPT-4.1',
+          context_length: 128000,
+          supported_parameters: ['tools'],
+        },
+      ],
+      lastFetchedAt: Date.now(),
+    });
+    const wrapper = mountChat(runtime);
+
+    const settingsButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text() === 'Settings');
+    expect(settingsButton).toBeDefined();
+
+    await settingsButton?.trigger('click');
+    expect(document.body.textContent).toContain('Snapshot: 1 models');
+
+    const invalidateButton = Array.from(
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
+    ).find(
+      (button) => button.textContent?.trim() === 'Invalidate models cache',
+    ) as HTMLButtonElement | undefined;
+    expect(invalidateButton).toBeDefined();
+
+    invalidateButton?.click();
+    await wrapper.vm.$nextTick();
+
+    expect(runtime.getModelsCatalogSnapshot()).toBeNull();
+    expect(document.body.textContent).toContain('No persisted models snapshot.');
+    wrapper.unmount();
   });
 
   it('renders message metadata with real spaces in text content', async () => {
@@ -102,13 +143,14 @@ describe('MultiAgentChat layout and workflow', () => {
 
     const wrapper = mountChat(runtime);
 
-    const line = wrapper.get('.message-line');
+    const line = wrapper.get('.chat-line:not(.chat-line-system)');
     const normalizedText = line.element.textContent
       ?.replace(/\s+/g, ' ')
       .trim();
     expect(normalizedText).toMatch(
       /^\[\d{2}:\d{2}:\d{2}\] <Human> hello world$/,
     );
+    wrapper.unmount();
   });
 
   it('scrolls chat history to the bottom on initial mount when messages already exist', async () => {
@@ -143,5 +185,6 @@ describe('MultiAgentChat layout and workflow', () => {
     await wrapper.vm.$nextTick();
 
     expect(chatLog.scrollTop).toBe(480);
+    wrapper.unmount();
   });
 });

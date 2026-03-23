@@ -40,10 +40,16 @@
           </div>
         </aside>
         <div class="browser-table-wrap">
-          <div v-if="modelsStore.isLoading" class="browser-empty">
+          <div
+            v-if="modelsStore.isLoading && !modelsStore.models.length"
+            class="browser-empty"
+          >
             Loading models…
           </div>
-          <div v-else-if="modelsStore.error" class="browser-error">
+          <div
+            v-else-if="modelsStore.error && !modelsStore.models.length"
+            class="browser-error"
+          >
             {{ modelsStore.error }}
           </div>
           <div v-else-if="!sorted.length" class="browser-empty">
