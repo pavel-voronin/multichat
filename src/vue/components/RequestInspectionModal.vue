@@ -61,13 +61,19 @@
         <template v-if="agent">
           <div class="inspection-prompt-block">
             <p class="inspection-field-label">Agent Prompt</p>
-            <pre v-if="agentPrompt" class="inspection-prompt">{{ agentPrompt }}</pre>
+            <pre
+              v-if="agentPrompt"
+              class="inspection-prompt"
+            >{{ agentPrompt }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
 
           <div class="inspection-prompt-block">
             <p class="inspection-field-label">Full System Prompt (sent)</p>
-            <pre v-if="fullSystemPrompt" class="inspection-prompt">{{ fullSystemPrompt }}</pre>
+            <pre
+              v-if="fullSystemPrompt"
+              class="inspection-prompt"
+            >{{ fullSystemPrompt }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
         </template>
@@ -312,7 +318,7 @@ async function copyJson(value: unknown): Promise<void> {
 }
 
 .inspection-prompt {
-  @apply m-0 flex-1 overflow-auto rounded border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[11px] leading-5 text-neutral-700;
+  @apply m-0 flex-1 overflow-auto rounded border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[11px] leading-5 text-neutral-700 select-text;
 }
 
 .inspection-message-list {
