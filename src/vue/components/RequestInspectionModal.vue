@@ -407,6 +407,6 @@ async function copyRawJson(): Promise<void> {
 }
 
 .inspection-json {
-  @apply mb-4 m-0 overflow-auto rounded bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
+  @apply m-0 mb-4 overflow-auto rounded bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
 }
 </style>
