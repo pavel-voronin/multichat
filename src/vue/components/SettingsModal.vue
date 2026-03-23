@@ -4,7 +4,9 @@
       <div class="modal-card">
         <div class="modal-titlebar">
           <h2 class="modal-title">Settings</h2>
-          <button class="modal-close" @click="close" aria-label="Close">✕</button>
+          <button class="modal-close" @click="close" aria-label="Close">
+            ✕
+          </button>
         </div>
 
         <label class="modal-field">

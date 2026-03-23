@@ -33,10 +33,7 @@ import {
 } from './context-routing';
 import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
 import { runAgentSweepFn, type ExecutionContext } from './execution';
-import {
-  IndexedDbPersistenceAdapter,
-  NoopPersistenceAdapter,
-} from './storage';
+import { IndexedDbPersistenceAdapter, NoopPersistenceAdapter } from './storage';
 import { createId, deepClone } from './utils';
 import {
   DEFAULT_HUMAN,
@@ -326,6 +323,15 @@ export class MultiChatRuntime {
         details: `cutoff=${cutoff.id}`,
       },
     });
+    this.persistAndNotify();
+  }
+
+  clearDebugLogs(): void {
+    if (!this.workspace.debugLogs.length) {
+      return;
+    }
+
+    this.workspace.debugLogs = [];
     this.persistAndNotify();
   }
 

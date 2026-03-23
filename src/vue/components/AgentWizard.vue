@@ -6,7 +6,9 @@
           <h2 class="wizard-title">
             {{ agent ? 'Edit agent' : 'Create agent' }}
           </h2>
-          <button class="wizard-close" @click="close" aria-label="Close">✕</button>
+          <button class="wizard-close" @click="close" aria-label="Close">
+            ✕
+          </button>
         </div>
 
         <div v-if="!isApiKeyPresent" class="wizard-blocked">

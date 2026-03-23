@@ -8,7 +8,9 @@
       <div class="human-modal-card">
         <div class="human-modal-titlebar">
           <h2 class="human-modal-title">Edit human</h2>
-          <button class="human-modal-close" @click="close" aria-label="Close">✕</button>
+          <button class="human-modal-close" @click="close" aria-label="Close">
+            ✕
+          </button>
         </div>
 
         <label class="human-modal-field">

@@ -9,7 +9,13 @@
         <!-- Title bar -->
         <div class="browser-titlebar">
           <h2 class="browser-title">Select Model</h2>
-          <button class="browser-close" @click="$emit('close')" aria-label="Close">✕</button>
+          <button
+            class="browser-close"
+            @click="$emit('close')"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
         <!-- Search bar -->
         <div class="browser-searchbar">
@@ -34,16 +40,26 @@
                 :key="option.value"
                 class="browser-radio-row"
               >
-                <input type="radio" :value="option.value" v-model="minContext" />
+                <input
+                  type="radio"
+                  :value="option.value"
+                  v-model="minContext"
+                />
                 {{ option.label }}
               </label>
             </div>
           </aside>
           <!-- Table -->
           <div class="browser-table-wrap">
-            <div v-if="modelsStore.isLoading" class="browser-empty">Loading models…</div>
-            <div v-else-if="modelsStore.error" class="browser-error">{{ modelsStore.error }}</div>
-            <div v-else-if="!sorted.length" class="browser-empty">No models match your filters.</div>
+            <div v-if="modelsStore.isLoading" class="browser-empty">
+              Loading models…
+            </div>
+            <div v-else-if="modelsStore.error" class="browser-error">
+              {{ modelsStore.error }}
+            </div>
+            <div v-else-if="!sorted.length" class="browser-empty">
+              No models match your filters.
+            </div>
             <table v-else class="browser-table">
               <colgroup>
                 <col class="browser-col-provider" />
@@ -62,7 +78,9 @@
                     @click="toggleSort(col.key)"
                   >
                     {{ col.label }}
-                    <span class="browser-sort-icon">{{ sortIcon(col.key) }}</span>
+                    <span class="browser-sort-icon">{{
+                      sortIcon(col.key)
+                    }}</span>
                   </th>
                 </tr>
               </thead>
@@ -73,22 +91,39 @@
                   class="browser-tr"
                   @click="$emit('select', model.id)"
                 >
-                  <td class="browser-td browser-td-provider">{{ providerOf(model.id) }}</td>
+                  <td class="browser-td browser-td-provider">
+                    {{ providerOf(model.id) }}
+                  </td>
                   <td class="browser-td browser-td-name">
                     {{ cleanModelName(model.name, model.id) }}
-                    <span v-if="pricing.kind === 'free'" class="browser-badge-free">Free</span>
+                    <span
+                      v-if="pricing.kind === 'free'"
+                      class="browser-badge-free"
+                      >Free</span
+                    >
                   </td>
-                  <td class="browser-td browser-td-right">{{ formatContextLength(model.context_length) }}</td>
+                  <td class="browser-td browser-td-right">
+                    {{ formatContextLength(model.context_length) }}
+                  </td>
                   <template v-if="pricing.kind === 'variable'">
-                    <td class="browser-td browser-td-right browser-td-variable" colspan="2">variable</td>
+                    <td
+                      class="browser-td browser-td-right browser-td-variable"
+                      colspan="2"
+                    >
+                      variable
+                    </td>
                   </template>
                   <template v-else-if="pricing.kind === 'free'">
                     <td class="browser-td browser-td-right">—</td>
                     <td class="browser-td browser-td-right">—</td>
                   </template>
                   <template v-else>
-                    <td class="browser-td browser-td-right">{{ priceInput(pricing) }}</td>
-                    <td class="browser-td browser-td-right">{{ priceOutput(pricing) }}</td>
+                    <td class="browser-td browser-td-right">
+                      {{ priceInput(pricing) }}
+                    </td>
+                    <td class="browser-td browser-td-right">
+                      {{ priceOutput(pricing) }}
+                    </td>
                   </template>
                 </tr>
               </tbody>
@@ -154,7 +189,11 @@ function providerOf(id: string): string {
 }
 
 function pricingOf(model: OpenRouterModel) {
-  return classifyPricing(model.pricing?.prompt, model.pricing?.completion, model.id);
+  return classifyPricing(
+    model.pricing?.prompt,
+    model.pricing?.completion,
+    model.id,
+  );
 }
 
 function priceInput(pricing: PricingDisplay): string {
@@ -166,11 +205,16 @@ function priceOutput(pricing: PricingDisplay): string {
 
 function sortValue(model: OpenRouterModel, key: SortKey): string | number {
   switch (key) {
-    case 'provider': return providerOf(model.id).toLowerCase();
-    case 'name': return cleanModelName(model.name, model.id).toLowerCase();
-    case 'context': return model.context_length ?? 0;
-    case 'input': return parseFloat(model.pricing?.prompt ?? '0') || 0;
-    case 'output': return parseFloat(model.pricing?.completion ?? '0') || 0;
+    case 'provider':
+      return providerOf(model.id).toLowerCase();
+    case 'name':
+      return cleanModelName(model.name, model.id).toLowerCase();
+    case 'context':
+      return model.context_length ?? 0;
+    case 'input':
+      return parseFloat(model.pricing?.prompt ?? '0') || 0;
+    case 'output':
+      return parseFloat(model.pricing?.completion ?? '0') || 0;
   }
 }
 
@@ -192,7 +236,8 @@ const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return modelsStore.models.filter((model) => {
     if (freeOnly.value && pricingOf(model).kind !== 'free') return false;
-    if (minContext.value && (model.context_length ?? 0) < minContext.value) return false;
+    if (minContext.value && (model.context_length ?? 0) < minContext.value)
+      return false;
     if (q) {
       const inId = model.id.toLowerCase().includes(q);
       const inName = model.name.toLowerCase().includes(q);
@@ -213,7 +258,9 @@ const sorted = computed(() => {
         const diff = av.localeCompare(bv);
         if (diff !== 0) return diff * dir;
         if (key === 'provider') {
-          return cleanModelName(a.name, a.id).localeCompare(cleanModelName(b.name, b.id));
+          return cleanModelName(a.name, a.id).localeCompare(
+            cleanModelName(b.name, b.id),
+          );
         }
         return 0;
       }

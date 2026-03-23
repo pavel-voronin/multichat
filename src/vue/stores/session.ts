@@ -42,6 +42,10 @@ export const useSessionStore = defineStore('session', () => {
     runtime.value.clearHistoryBeforeAgentCutoff();
   }
 
+  function clearDebugLogs(): void {
+    runtime.value.clearDebugLogs();
+  }
+
   function moveManualCutoffBefore(targetEntryId: string | null): void {
     runtime.value.moveManualCutoffBefore(targetEntryId);
   }
@@ -70,6 +74,7 @@ export const useSessionStore = defineStore('session', () => {
     toggleSilentDecisions,
     cycleCostDisplayMode,
     resetAgentHistoryContext,
+    clearDebugLogs,
     clearHistoryBeforeAgentCutoff,
     moveManualCutoffBefore,
     removeManualCutoff,

@@ -12,24 +12,25 @@
 
 ## File Map
 
-| File | Action | What changes |
-|------|--------|--------------|
-| `src/vue/utils/modelFormatting.ts` | **Create** | Pure functions: `cleanModelName`, `classifyPricing`, `formatPricePerM`, `formatContextLength` |
-| `src/vue/utils/modelFormatting.test.ts` | **Create** | Vitest unit tests for all four functions |
-| `src/vue/stores/ui.ts` | **Modify** | Add `preselectedModelId: string \| null` field, init, and reset |
-| `src/vue/components/ModelBrowserDialog.vue` | **Rewrite** | Table layout, sortable columns, ✕ button, new context options, use utility functions |
-| `src/vue/components/AgentWizard.vue` | **Modify** | Consume `ui.preselectedModelId` in `showAgentWizard` watcher |
-| `src/vue/components/ParticipantsPanel.vue` | **Modify** | New-agent flow: open ModelBrowserDialog first, then wizard |
-| `src/vue/components/HumanNameModal.vue` | **Modify** | Add ✕ button next to title |
-| `src/vue/components/DeleteAgentModal.vue` | **Modify** | Add ✕ button next to title |
-| `src/vue/components/SettingsModal.vue` | **Modify** | Add ✕ button next to title |
-| `src/vue/components/RequestInspectionModal.vue` | **Modify** | Move existing "Close" button into title row, replace text with ✕ |
+| File                                            | Action      | What changes                                                                                  |
+| ----------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| `src/vue/utils/modelFormatting.ts`              | **Create**  | Pure functions: `cleanModelName`, `classifyPricing`, `formatPricePerM`, `formatContextLength` |
+| `src/vue/utils/modelFormatting.test.ts`         | **Create**  | Vitest unit tests for all four functions                                                      |
+| `src/vue/stores/ui.ts`                          | **Modify**  | Add `preselectedModelId: string \| null` field, init, and reset                               |
+| `src/vue/components/ModelBrowserDialog.vue`     | **Rewrite** | Table layout, sortable columns, ✕ button, new context options, use utility functions          |
+| `src/vue/components/AgentWizard.vue`            | **Modify**  | Consume `ui.preselectedModelId` in `showAgentWizard` watcher                                  |
+| `src/vue/components/ParticipantsPanel.vue`      | **Modify**  | New-agent flow: open ModelBrowserDialog first, then wizard                                    |
+| `src/vue/components/HumanNameModal.vue`         | **Modify**  | Add ✕ button next to title                                                                    |
+| `src/vue/components/DeleteAgentModal.vue`       | **Modify**  | Add ✕ button next to title                                                                    |
+| `src/vue/components/SettingsModal.vue`          | **Modify**  | Add ✕ button next to title                                                                    |
+| `src/vue/components/RequestInspectionModal.vue` | **Modify**  | Move existing "Close" button into title row, replace text with ✕                              |
 
 ---
 
 ## Task 1: Extract model formatting utilities
 
 **Files:**
+
 - Create: `src/vue/utils/modelFormatting.ts`
 - Create: `src/vue/utils/modelFormatting.test.ts`
 
@@ -123,44 +124,64 @@ import {
 
 describe('cleanModelName', () => {
   it('strips matching vendor prefix', () => {
-    expect(cleanModelName('Qwen: Qwen Plus 0728', 'qwen/qwen-plus-0728')).toBe('Qwen Plus 0728');
+    expect(cleanModelName('Qwen: Qwen Plus 0728', 'qwen/qwen-plus-0728')).toBe(
+      'Qwen Plus 0728',
+    );
   });
   it('is case-insensitive for slug matching', () => {
     expect(cleanModelName('QWEN: something', 'qwen/model')).toBe('something');
   });
   it('leaves name unchanged when no match', () => {
-    expect(cleanModelName('Claude 3.5 Sonnet', 'anthropic/claude-3-5-sonnet')).toBe('Claude 3.5 Sonnet');
+    expect(
+      cleanModelName('Claude 3.5 Sonnet', 'anthropic/claude-3-5-sonnet'),
+    ).toBe('Claude 3.5 Sonnet');
   });
   it('leaves name unchanged when no slash in id', () => {
-    expect(cleanModelName('Auto Router', 'openrouter/auto')).toBe('Auto Router');
+    expect(cleanModelName('Auto Router', 'openrouter/auto')).toBe(
+      'Auto Router',
+    );
   });
   it('does not strip partial slug matches', () => {
-    expect(cleanModelName('Meta: something', 'meta-llama/model')).toBe('Meta: something');
+    expect(cleanModelName('Meta: something', 'meta-llama/model')).toBe(
+      'Meta: something',
+    );
   });
 });
 
 describe('classifyPricing', () => {
   it('returns free for :free suffix', () => {
-    expect(classifyPricing('0', '0', 'provider/model:free')).toEqual({ kind: 'free' });
+    expect(classifyPricing('0', '0', 'provider/model:free')).toEqual({
+      kind: 'free',
+    });
   });
   it('returns free when both prices are zero', () => {
-    expect(classifyPricing('0', '0', 'openrouter/auto')).toEqual({ kind: 'free' });
+    expect(classifyPricing('0', '0', 'openrouter/auto')).toEqual({
+      kind: 'free',
+    });
   });
   it('returns free for zero with different formats', () => {
-    expect(classifyPricing('0.00', '0.0', 'provider/model')).toEqual({ kind: 'free' });
+    expect(classifyPricing('0.00', '0.0', 'provider/model')).toEqual({
+      kind: 'free',
+    });
   });
   it('returns variable for negative prompt price', () => {
-    expect(classifyPricing('-0.000001', '0', 'openrouter/auto')).toEqual({ kind: 'variable' });
+    expect(classifyPricing('-0.000001', '0', 'openrouter/auto')).toEqual({
+      kind: 'variable',
+    });
   });
   it('returns variable for negative completion price', () => {
-    expect(classifyPricing('0', '-0.000001', 'openrouter/auto')).toEqual({ kind: 'variable' });
+    expect(classifyPricing('0', '-0.000001', 'openrouter/auto')).toEqual({
+      kind: 'variable',
+    });
   });
   it('returns price for normal pricing', () => {
-    expect(classifyPricing('0.000003', '0.000015', 'anthropic/claude')).toEqual({
-      kind: 'price',
-      input: '$3.00',
-      output: '$15.00',
-    });
+    expect(classifyPricing('0.000003', '0.000015', 'anthropic/claude')).toEqual(
+      {
+        kind: 'price',
+        input: '$3.00',
+        output: '$15.00',
+      },
+    );
   });
   it('does not treat mixed zero/non-zero as free', () => {
     const result = classifyPricing('0', '0.000001', 'provider/model');
@@ -224,6 +245,7 @@ git commit -m "feat: add model formatting utilities with tests"
 ## Task 2: Add `preselectedModelId` to ui store
 
 **Files:**
+
 - Modify: `src/vue/stores/ui.ts`
 
 - [ ] **Step 1: Add field to `UiStateSnapshot` interface and `ChatScopedUiStateSnapshot`**
@@ -233,12 +255,12 @@ In `src/vue/stores/ui.ts`, add `preselectedModelId: string | null` to both inter
 ```typescript
 export interface UiStateSnapshot {
   // ... existing fields ...
-  preselectedModelId: string | null;  // add this
+  preselectedModelId: string | null; // add this
 }
 
 export interface ChatScopedUiStateSnapshot {
   // ... existing fields ...
-  preselectedModelId: string | null;  // add this
+  preselectedModelId: string | null; // add this
 }
 ```
 
@@ -248,7 +270,7 @@ export interface ChatScopedUiStateSnapshot {
 function defaultUiState(): UiStateSnapshot {
   return {
     // ... existing fields ...
-    preselectedModelId: null,  // add this
+    preselectedModelId: null, // add this
   };
 }
 ```
@@ -288,9 +310,11 @@ git commit -m "feat: add preselectedModelId to ui store"
 ## Task 3: Rewrite ModelBrowserDialog
 
 **Files:**
+
 - Modify: `src/vue/components/ModelBrowserDialog.vue`
 
 Replace the entire file. Key changes:
+
 - Two-row header: title + ✕ on first row, search input on second row
 - `<table>` with sortable columns: Provider | Name | Context | Input /M | Output /M
 - Local `sortKey` + `sortDir` state, applied in `filtered` computed
@@ -311,7 +335,13 @@ Replace the entire file. Key changes:
         <!-- Title bar -->
         <div class="browser-titlebar">
           <h2 class="browser-title">Select Model</h2>
-          <button class="browser-close" @click="$emit('close')" aria-label="Close">✕</button>
+          <button
+            class="browser-close"
+            @click="$emit('close')"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
         <!-- Search bar -->
         <div class="browser-searchbar">
@@ -336,16 +366,26 @@ Replace the entire file. Key changes:
                 :key="option.value"
                 class="browser-radio-row"
               >
-                <input type="radio" :value="option.value" v-model="minContext" />
+                <input
+                  type="radio"
+                  :value="option.value"
+                  v-model="minContext"
+                />
                 {{ option.label }}
               </label>
             </div>
           </aside>
           <!-- Table -->
           <div class="browser-table-wrap">
-            <div v-if="modelsStore.isLoading" class="browser-empty">Loading models…</div>
-            <div v-else-if="modelsStore.error" class="browser-error">{{ modelsStore.error }}</div>
-            <div v-else-if="!sorted.length" class="browser-empty">No models match your filters.</div>
+            <div v-if="modelsStore.isLoading" class="browser-empty">
+              Loading models…
+            </div>
+            <div v-else-if="modelsStore.error" class="browser-error">
+              {{ modelsStore.error }}
+            </div>
+            <div v-else-if="!sorted.length" class="browser-empty">
+              No models match your filters.
+            </div>
             <table v-else class="browser-table">
               <thead class="browser-thead">
                 <tr>
@@ -357,7 +397,9 @@ Replace the entire file. Key changes:
                     @click="toggleSort(col.key)"
                   >
                     {{ col.label }}
-                    <span class="browser-sort-icon">{{ sortIcon(col.key) }}</span>
+                    <span class="browser-sort-icon">{{
+                      sortIcon(col.key)
+                    }}</span>
                   </th>
                 </tr>
               </thead>
@@ -368,22 +410,39 @@ Replace the entire file. Key changes:
                   class="browser-tr"
                   @click="$emit('select', model.id)"
                 >
-                  <td class="browser-td browser-td-provider">{{ providerOf(model.id) }}</td>
+                  <td class="browser-td browser-td-provider">
+                    {{ providerOf(model.id) }}
+                  </td>
                   <td class="browser-td browser-td-name">
                     {{ cleanModelName(model.name, model.id) }}
-                    <span v-if="pricingOf(model).kind === 'free'" class="browser-badge-free">Free</span>
+                    <span
+                      v-if="pricingOf(model).kind === 'free'"
+                      class="browser-badge-free"
+                      >Free</span
+                    >
                   </td>
-                  <td class="browser-td browser-td-right">{{ formatContextLength(model.context_length) }}</td>
+                  <td class="browser-td browser-td-right">
+                    {{ formatContextLength(model.context_length) }}
+                  </td>
                   <template v-if="pricingOf(model).kind === 'variable'">
-                    <td class="browser-td browser-td-right browser-td-variable" colspan="2">variable</td>
+                    <td
+                      class="browser-td browser-td-right browser-td-variable"
+                      colspan="2"
+                    >
+                      variable
+                    </td>
                   </template>
                   <template v-else-if="pricingOf(model).kind === 'free'">
                     <td class="browser-td browser-td-right">—</td>
                     <td class="browser-td browser-td-right">—</td>
                   </template>
                   <template v-else>
-                    <td class="browser-td browser-td-right">{{ (pricingOf(model) as any).input }}</td>
-                    <td class="browser-td browser-td-right">{{ (pricingOf(model) as any).output }}</td>
+                    <td class="browser-td browser-td-right">
+                      {{ (pricingOf(model) as any).input }}
+                    </td>
+                    <td class="browser-td browser-td-right">
+                      {{ (pricingOf(model) as any).output }}
+                    </td>
                   </template>
                 </tr>
               </tbody>
@@ -444,16 +503,25 @@ function providerOf(id: string): string {
 }
 
 function pricingOf(model: OpenRouterModel) {
-  return classifyPricing(model.pricing?.prompt, model.pricing?.completion, model.id);
+  return classifyPricing(
+    model.pricing?.prompt,
+    model.pricing?.completion,
+    model.id,
+  );
 }
 
 function sortValue(model: OpenRouterModel, key: SortKey): string | number {
   switch (key) {
-    case 'provider': return providerOf(model.id).toLowerCase();
-    case 'name': return cleanModelName(model.name, model.id).toLowerCase();
-    case 'context': return model.context_length ?? 0;
-    case 'input': return parseFloat(model.pricing?.prompt ?? '0') || 0;
-    case 'output': return parseFloat(model.pricing?.completion ?? '0') || 0;
+    case 'provider':
+      return providerOf(model.id).toLowerCase();
+    case 'name':
+      return cleanModelName(model.name, model.id).toLowerCase();
+    case 'context':
+      return model.context_length ?? 0;
+    case 'input':
+      return parseFloat(model.pricing?.prompt ?? '0') || 0;
+    case 'output':
+      return parseFloat(model.pricing?.completion ?? '0') || 0;
   }
 }
 
@@ -474,8 +542,14 @@ function sortIcon(key: SortKey): string {
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return modelsStore.models.filter((model) => {
-    if (freeOnly.value && !model.id.endsWith(':free') && pricingOf(model).kind !== 'free') return false;
-    if (minContext.value && model.context_length < minContext.value) return false;
+    if (
+      freeOnly.value &&
+      !model.id.endsWith(':free') &&
+      pricingOf(model).kind !== 'free'
+    )
+      return false;
+    if (minContext.value && model.context_length < minContext.value)
+      return false;
     if (q) {
       const inId = model.id.toLowerCase().includes(q);
       const inName = model.name.toLowerCase().includes(q);
@@ -496,7 +570,9 @@ const sorted = computed(() => {
       if (diff !== 0) return diff * dir;
       // secondary sort by name when primary is provider
       if (key === 'provider') {
-        return cleanModelName(a.name, a.id).localeCompare(cleanModelName(b.name, b.id));
+        return cleanModelName(a.name, a.id).localeCompare(
+          cleanModelName(b.name, b.id),
+        );
       }
       return 0;
     }
@@ -642,6 +718,7 @@ git commit -m "feat: rewrite ModelBrowserDialog as sortable table"
 ## Task 4: Add ✕ close button to HumanNameModal, DeleteAgentModal, SettingsModal
 
 **Files:**
+
 - Modify: `src/vue/components/HumanNameModal.vue`
 - Modify: `src/vue/components/DeleteAgentModal.vue`
 - Modify: `src/vue/components/SettingsModal.vue`
@@ -651,10 +728,13 @@ The pattern for all three: wrap the existing `<h2>` in a flex container with ✕
 - [ ] **Step 1: Update HumanNameModal.vue**
 
 Replace the existing title:
+
 ```html
 <h2 class="human-modal-title">Edit human</h2>
 ```
+
 with:
+
 ```html
 <div class="human-modal-titlebar">
   <h2 class="human-modal-title">Edit human</h2>
@@ -663,6 +743,7 @@ with:
 ```
 
 Add styles:
+
 ```css
 .human-modal-titlebar {
   @apply flex items-center justify-between;
@@ -676,18 +757,24 @@ Add styles:
 - [ ] **Step 2: Update DeleteAgentModal.vue**
 
 Replace:
+
 ```html
 <h2 class="delete-agent-modal-title">Hide agent?</h2>
 ```
+
 with:
+
 ```html
 <div class="delete-agent-modal-titlebar">
   <h2 class="delete-agent-modal-title">Hide agent?</h2>
-  <button class="delete-agent-modal-close" @click="close" aria-label="Close">✕</button>
+  <button class="delete-agent-modal-close" @click="close" aria-label="Close">
+    ✕
+  </button>
 </div>
 ```
 
 Add styles:
+
 ```css
 .delete-agent-modal-titlebar {
   @apply flex items-center justify-between;
@@ -701,10 +788,13 @@ Add styles:
 - [ ] **Step 3: Update SettingsModal.vue**
 
 Replace:
+
 ```html
 <h2 class="modal-title">Settings</h2>
 ```
+
 with:
+
 ```html
 <div class="modal-titlebar">
   <h2 class="modal-title">Settings</h2>
@@ -713,6 +803,7 @@ with:
 ```
 
 Add styles:
+
 ```css
 .modal-titlebar {
   @apply flex items-center justify-between;
@@ -743,28 +834,29 @@ git commit -m "feat: add close button to HumanNameModal, DeleteAgentModal, Setti
 ## Task 5: Add ✕ to AgentWizard and RequestInspectionModal
 
 **Files:**
+
 - Modify: `src/vue/components/AgentWizard.vue`
 - Modify: `src/vue/components/RequestInspectionModal.vue`
 
 - [ ] **Step 1: Update AgentWizard.vue title**
 
 Replace:
+
 ```html
-<h2 class="wizard-title">
-  {{ agent ? 'Edit agent' : 'Create agent' }}
-</h2>
+<h2 class="wizard-title">{{ agent ? 'Edit agent' : 'Create agent' }}</h2>
 ```
+
 with:
+
 ```html
 <div class="wizard-titlebar">
-  <h2 class="wizard-title">
-    {{ agent ? 'Edit agent' : 'Create agent' }}
-  </h2>
+  <h2 class="wizard-title">{{ agent ? 'Edit agent' : 'Create agent' }}</h2>
   <button class="wizard-close" @click="close" aria-label="Close">✕</button>
 </div>
 ```
 
 Add styles:
+
 ```css
 .wizard-titlebar {
   @apply flex items-center justify-between;
@@ -780,15 +872,21 @@ Add styles:
 The inspection modal already has a header with a "Close" text button (`<UiButton size="sm" @click="inspection.close">Close</UiButton>`). Replace it with a ✕ button to match other modals:
 
 Replace:
+
 ```html
 <UiButton size="sm" @click="inspection.close">Close</UiButton>
 ```
+
 with:
+
 ```html
-<button class="inspection-close" @click="inspection.close" aria-label="Close">✕</button>
+<button class="inspection-close" @click="inspection.close" aria-label="Close">
+  ✕
+</button>
 ```
 
 Add style:
+
 ```css
 .inspection-close {
   @apply flex h-7 w-7 shrink-0 items-center justify-center self-start rounded text-[14px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
@@ -815,6 +913,7 @@ git commit -m "feat: add close button to AgentWizard and RequestInspectionModal"
 ## Task 6: New agent creation flow
 
 **Files:**
+
 - Modify: `src/vue/components/ParticipantsPanel.vue`
 - Modify: `src/vue/components/AgentWizard.vue`
 
@@ -935,6 +1034,7 @@ pnpm dev
 - [ ] **Step 3: Verify close buttons on all modals**
 
 Open each modal and confirm ✕ button is present in the title row and closes the modal:
+
 - AgentWizard (Edit agent / Create agent)
 - HumanNameModal (Edit human)
 - DeleteAgentModal (Hide agent?)

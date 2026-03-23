@@ -35,13 +35,13 @@ Replace the current button-list layout with a proper `<table>`. The dialog struc
 
 ### Columns
 
-| Column | Alignment | Notes |
-|--------|-----------|-------|
-| Provider | left | Extracted from model ID (`id.split('/')[0]`) |
-| Name | left | Cleaned name (see vendor dedup below) |
-| Context | right | Formatted as `8k`, `128k`, `1M` |
-| Input /M | right | Price per 1M input tokens |
-| Output /M | right | Price per 1M output tokens |
+| Column    | Alignment | Notes                                        |
+| --------- | --------- | -------------------------------------------- |
+| Provider  | left      | Extracted from model ID (`id.split('/')[0]`) |
+| Name      | left      | Cleaned name (see vendor dedup below)        |
+| Context   | right     | Formatted as `8k`, `128k`, `1M`              |
+| Input /M  | right     | Price per 1M input tokens                    |
+| Output /M | right     | Price per 1M output tokens                   |
 
 All columns are sortable by clicking the header. Default sort: Provider ASC, then Name ASC.
 

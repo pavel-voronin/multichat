@@ -32,14 +32,14 @@
           : 'Technical info: off'
       }}
     </UiButton>
-    <UiButton
-      class="toolbar-button"
-      size="md"
-      @click="ui.showLogsPanel = !ui.showLogsPanel"
-    >
-      {{ ui.showLogsPanel ? 'Logs: on' : 'Logs: off' }}
-    </UiButton>
     <div class="toolbar-actions">
+      <UiButton
+        class="toolbar-button"
+        size="md"
+        @click="ui.showLogsPanel = !ui.showLogsPanel"
+      >
+        {{ ui.showLogsPanel ? 'Logs: on' : 'Logs: off' }}
+      </UiButton>
       <UiButton
         class="toolbar-button"
         variant="danger"

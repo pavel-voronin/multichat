@@ -65,7 +65,9 @@ describe('MultiChatRuntime persistence coordination', () => {
       storage: {
         load: async () => null,
         save: vi.fn().mockImplementation(async (state) => {
-          operations.push(`save:${state.tabs.length}:${state.debugLogs.length}`);
+          operations.push(
+            `save:${state.tabs.length}:${state.debugLogs.length}`,
+          );
         }),
         reset: vi.fn().mockImplementation(async () => {
           operations.push('reset');

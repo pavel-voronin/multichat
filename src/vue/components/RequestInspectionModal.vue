@@ -14,7 +14,13 @@
               {{ currentSubjectMeta }}
             </p>
           </div>
-          <button class="inspection-close" @click="inspection.close" aria-label="Close">✕</button>
+          <button
+            class="inspection-close"
+            @click="inspection.close"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </header>
 
         <div class="inspection-body">

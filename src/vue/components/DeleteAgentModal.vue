@@ -8,7 +8,13 @@
       <div class="delete-agent-modal-card">
         <div class="delete-agent-modal-titlebar">
           <h2 class="delete-agent-modal-title">Hide agent?</h2>
-          <button class="delete-agent-modal-close" @click="close" aria-label="Close">✕</button>
+          <button
+            class="delete-agent-modal-close"
+            @click="close"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
         <p class="delete-agent-modal-copy">
           {{ modalCopy }}
