@@ -15,6 +15,8 @@
       [{{ formatMessageTime(entry.event.createdAt) }}]</button
     ><span class="message-separator">{{ ' ' }}</span
     ><span class="runtime-label">{{ eventLabel }}</span
+    ><template v-if="showCost"
+      ><span class="message-separator">{{ ' ' }}</span></template
     ><CostBadge
       :item="entry.event"
       :item-id="entry.event.id"
@@ -38,6 +40,7 @@ import {
   formatTechnicalEventText,
   technicalEventClasses,
 } from '../../utils/chatFormatting';
+import { shouldShowMessageCost } from '../../utils/costing';
 import CostBadge from './CostBadge.vue';
 
 const props = defineProps<{
@@ -60,6 +63,9 @@ const eventLabel = computed(() =>
 );
 
 const eventText = computed(() => formatTechnicalEventText(props.entry.event));
+const showCost = computed(() =>
+  shouldShowMessageCost(props.entry.event, props.costDisplayMode),
+);
 
 function handleInspect() {
   if (!canInspect.value) return;

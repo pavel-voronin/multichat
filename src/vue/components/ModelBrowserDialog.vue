@@ -1,138 +1,124 @@
 <template>
-  <Teleport to="body">
-    <div
-      class="browser-backdrop"
-      @click.self="$emit('close')"
-      @keydown.esc.window="$emit('close')"
-    >
-      <div class="browser-dialog">
-        <!-- Title bar -->
-        <div class="browser-titlebar">
-          <h2 class="browser-title">Select Model</h2>
-          <button
-            class="browser-close"
-            @click="$emit('close')"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <!-- Search bar -->
-        <div class="browser-searchbar">
-          <UiInput
-            v-model="search"
-            class="browser-search"
-            type="text"
-            placeholder="Search by name or provider…"
-            autofocus
-          />
-        </div>
-        <div class="browser-body">
-          <!-- Sidebar -->
-          <aside class="browser-sidebar">
-            <div class="browser-sidebar-section">
-              <UiCheckbox v-model="freeOnly">Free only</UiCheckbox>
-            </div>
-            <div class="browser-sidebar-section">
-              <div class="browser-sidebar-label">Min context</div>
-              <label
-                v-for="option in contextOptions"
-                :key="option.value"
-                class="browser-radio-row"
-              >
-                <input
-                  type="radio"
-                  :value="option.value"
-                  v-model="minContext"
-                />
-                {{ option.label }}
-              </label>
-            </div>
-          </aside>
-          <!-- Table -->
-          <div class="browser-table-wrap">
-            <div v-if="modelsStore.isLoading" class="browser-empty">
-              Loading models…
-            </div>
-            <div v-else-if="modelsStore.error" class="browser-error">
-              {{ modelsStore.error }}
-            </div>
-            <div v-else-if="!sorted.length" class="browser-empty">
-              No models match your filters.
-            </div>
-            <table v-else class="browser-table">
-              <colgroup>
-                <col class="browser-col-provider" />
-                <col class="browser-col-name" />
-                <col class="browser-col-context" />
-                <col class="browser-col-input" />
-                <col class="browser-col-output" />
-              </colgroup>
-              <thead class="browser-thead">
-                <tr>
-                  <th
-                    v-for="col in columns"
-                    :key="col.key"
-                    class="browser-th"
-                    :class="{ 'browser-th-right': col.align === 'right' }"
-                    @click="toggleSort(col.key)"
-                  >
-                    {{ col.label }}
-                    <span class="browser-sort-icon">{{
-                      sortIcon(col.key)
-                    }}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="{ model, pricing } in sorted"
-                  :key="model.id"
-                  class="browser-tr"
-                  @click="$emit('select', model.id)"
+  <UiModal
+    :open="true"
+    size="wide"
+    :expanded="true"
+    @close="$emit('close')"
+  >
+    <template #title>
+      <h2 class="browser-title">Select Model</h2>
+    </template>
+    <div class="browser-shell">
+      <div class="browser-searchbar">
+        <UiInput
+          v-model="search"
+          class="browser-search"
+          type="text"
+          placeholder="Search by name or provider…"
+          autofocus
+        />
+      </div>
+      <div class="browser-body">
+        <aside class="browser-sidebar">
+          <div class="browser-sidebar-section">
+            <UiCheckbox v-model="freeOnly">Free only</UiCheckbox>
+          </div>
+          <div class="browser-sidebar-section">
+            <div class="browser-sidebar-label">Min context</div>
+            <label
+              v-for="option in contextOptions"
+              :key="option.value"
+              class="browser-radio-row"
+            >
+              <input
+                type="radio"
+                :value="option.value"
+                v-model="minContext"
+              />
+              {{ option.label }}
+            </label>
+          </div>
+        </aside>
+        <div class="browser-table-wrap">
+          <div v-if="modelsStore.isLoading" class="browser-empty">
+            Loading models…
+          </div>
+          <div v-else-if="modelsStore.error" class="browser-error">
+            {{ modelsStore.error }}
+          </div>
+          <div v-else-if="!sorted.length" class="browser-empty">
+            No models match your filters.
+          </div>
+          <table v-else class="browser-table">
+            <colgroup>
+              <col class="browser-col-provider" />
+              <col class="browser-col-name" />
+              <col class="browser-col-context" />
+              <col class="browser-col-input" />
+              <col class="browser-col-output" />
+            </colgroup>
+            <thead class="browser-thead">
+              <tr>
+                <th
+                  v-for="col in columns"
+                  :key="col.key"
+                  class="browser-th"
+                  :class="{ 'browser-th-right': col.align === 'right' }"
+                  @click="toggleSort(col.key)"
                 >
-                  <td class="browser-td browser-td-provider">
-                    {{ providerOf(model.id) }}
+                  {{ col.label }}
+                  <span class="browser-sort-icon">{{ sortIcon(col.key) }}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="{ model, pricing } in sorted"
+                :key="model.id"
+                class="browser-tr"
+                @click="$emit('select', model.id)"
+              >
+                <td class="browser-td browser-td-provider">
+                  {{ providerOf(model.id) }}
+                </td>
+                <td class="browser-td browser-td-name">
+                  {{ cleanModelName(model.name, model.id) }}
+                  <span
+                    v-if="pricing.kind === 'free'"
+                    class="browser-badge-free"
+                    >Free</span
+                  >
+                </td>
+                <td class="browser-td browser-td-right">
+                  {{ formatContextLength(model.context_length) }}
+                </td>
+                <template v-if="pricing.kind === 'variable'">
+                  <td
+                    class="browser-td browser-td-right browser-td-variable"
+                    colspan="2"
+                  >
+                    variable
                   </td>
-                  <td class="browser-td browser-td-name">
-                    {{ cleanModelName(model.name, model.id) }}
-                    <span
-                      v-if="pricing.kind === 'free'"
-                      class="browser-badge-free"
-                      >Free</span
-                    >
+                </template>
+                <template v-else-if="pricing.kind === 'free'">
+                  <td class="browser-td browser-td-right">—</td>
+                  <td class="browser-td browser-td-right">—</td>
+                </template>
+                <template v-else>
+                  <td class="browser-td browser-td-right">
+                    {{ priceInput(pricing) }}
                   </td>
                   <td class="browser-td browser-td-right">
-                    {{ formatContextLength(model.context_length) }}
+                    {{ priceOutput(pricing) }}
                   </td>
-                  <template v-if="pricing.kind === 'variable'">
-                    <td
-                      class="browser-td browser-td-right browser-td-variable"
-                      colspan="2"
-                    >
-                      variable
-                    </td>
-                  </template>
-                  <template v-else-if="pricing.kind === 'free'">
-                    <td class="browser-td browser-td-right">—</td>
-                    <td class="browser-td browser-td-right">—</td>
-                  </template>
-                  <template v-else>
-                    <td class="browser-td browser-td-right">
-                      {{ priceInput(pricing) }}
-                    </td>
-                    <td class="browser-td browser-td-right">
-                      {{ priceOutput(pricing) }}
-                    </td>
-                  </template>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                </template>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
-  </Teleport>
+  </UiModal>
 </template>
 
 <script setup lang="ts">
@@ -147,6 +133,7 @@ import {
 } from '../utils/modelFormatting';
 import UiCheckbox from './ui/UiCheckbox.vue';
 import UiInput from './ui/UiInput.vue';
+import UiModal from './ui/UiModal.vue';
 
 defineEmits<{
   select: [modelId: string];
@@ -273,28 +260,16 @@ const sorted = computed(() => {
 <style scoped>
 @reference "../../styles.css";
 
-.browser-backdrop {
-  @apply fixed inset-0 z-50 flex items-start justify-center bg-neutral-950/20 pt-16 backdrop-blur-sm;
-}
-
-.browser-dialog {
-  @apply flex max-h-[70vh] w-full max-w-[818px] flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl;
-}
-
-.browser-titlebar {
-  @apply flex items-center justify-between border-b border-neutral-200 px-4 py-2.5;
-}
-
 .browser-title {
   @apply text-[13px] font-semibold text-neutral-900;
 }
 
-.browser-close {
-  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
+.browser-shell {
+  @apply flex h-full min-h-0 flex-col;
 }
 
 .browser-searchbar {
-  @apply border-b border-neutral-200 px-4 py-2;
+  @apply shrink-0 border-b border-neutral-200 px-4 py-2;
 }
 
 .browser-search {

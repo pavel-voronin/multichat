@@ -1,6 +1,6 @@
 <template>
   <div
-    class="timeline-root"
+    class="timeline-root whitespace-pre-wrap"
     :class="{ 'timeline-root--dragging': drag.isDragging.value }"
   >
     <template v-for="entry in renderedTimelineEntries" :key="entry.id">
@@ -8,7 +8,6 @@
         v-if="entry.kind === 'message'"
         :entry="entry"
         :drag-preview-target-id="drag.dragPreviewTargetId.value"
-        :cost-display-mode="preferences.costDisplayMode"
       />
       <TechnicalEventEntry
         v-else-if="entry.kind === 'technical-event'"

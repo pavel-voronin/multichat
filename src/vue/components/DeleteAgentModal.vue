@@ -1,39 +1,24 @@
 <template>
-  <Teleport to="body">
-    <div
-      v-if="ui.showDeleteAgentConfirm"
-      class="delete-agent-modal-backdrop"
-      @click.self="close"
-    >
-      <div class="delete-agent-modal-card">
-        <div class="delete-agent-modal-titlebar">
-          <h2 class="delete-agent-modal-title">Hide agent?</h2>
-          <button
-            class="delete-agent-modal-close"
-            @click="close"
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-        <p class="delete-agent-modal-copy">
-          {{ modalCopy }}
-        </p>
-        <div class="delete-agent-modal-actions">
-          <UiButton
-            class="delete-agent-modal-primary-button"
-            variant="danger"
-            @click="confirm"
-          >
-            Hide and disable
-          </UiButton>
-          <UiButton class="delete-agent-modal-secondary-button" @click="close">
-            Cancel
-          </UiButton>
-        </div>
-      </div>
+  <UiModal :open="ui.showDeleteAgentConfirm" size="sm" @close="close">
+    <template #title>
+      <h2 class="delete-agent-modal-title">Hide agent?</h2>
+    </template>
+    <p class="delete-agent-modal-copy">
+      {{ modalCopy }}
+    </p>
+    <div class="delete-agent-modal-actions">
+      <UiButton
+        class="delete-agent-modal-primary-button"
+        variant="danger"
+        @click="confirm"
+      >
+        Hide and disable
+      </UiButton>
+      <UiButton class="delete-agent-modal-secondary-button" @click="close">
+        Cancel
+      </UiButton>
     </div>
-  </Teleport>
+  </UiModal>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +26,7 @@ import { computed } from 'vue';
 import { useAgentsStore } from '../stores/agents';
 import { useUiStore } from '../stores/ui';
 import UiButton from './ui/UiButton.vue';
+import UiModal from './ui/UiModal.vue';
 
 const agentsStore = useAgentsStore();
 const ui = useUiStore();
@@ -70,31 +56,15 @@ function confirm() {
 <style scoped>
 @reference "../../styles.css";
 
-.delete-agent-modal-backdrop {
-  @apply fixed inset-0 z-40 flex items-center justify-center bg-neutral-950/20 p-6 backdrop-blur-sm;
-}
-
-.delete-agent-modal-card {
-  @apply w-full max-w-md rounded-md border border-neutral-300 bg-white p-5 font-mono text-[13px] text-neutral-900 shadow-xl;
-}
-
-.delete-agent-modal-titlebar {
-  @apply flex items-center justify-between;
-}
-
 .delete-agent-modal-title {
   @apply m-0 text-base font-semibold;
 }
 
-.delete-agent-modal-close {
-  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
-}
-
 .delete-agent-modal-copy {
-  @apply mt-3 text-[12px] leading-5 text-neutral-600;
+  @apply mt-3 px-5 text-[12px] leading-5 text-neutral-600;
 }
 
 .delete-agent-modal-actions {
-  @apply mt-5 flex gap-2;
+  @apply mt-5 flex gap-2 px-5 pb-5;
 }
 </style>

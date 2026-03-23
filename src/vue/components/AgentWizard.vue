@@ -1,103 +1,96 @@
 <template>
-  <Teleport to="body">
-    <div v-if="ui.showAgentWizard" class="wizard-backdrop" @click.self="close">
-      <div class="wizard-card">
-        <div class="wizard-titlebar">
-          <h2 class="wizard-title">
-            {{ agent ? 'Edit agent' : 'Create agent' }}
-          </h2>
-          <button class="wizard-close" @click="close" aria-label="Close">
-            ✕
-          </button>
-        </div>
+  <UiModal :open="ui.showAgentWizard" size="lg" @close="close">
+    <template #title>
+      <h2 class="wizard-title">
+        {{ agent ? 'Edit agent' : 'Create agent' }}
+      </h2>
+    </template>
 
-        <div v-if="!isApiKeyPresent" class="wizard-blocked">
-          <p class="wizard-copy">
-            OpenRouter key is required before creating agents.
-          </p>
-          <UiButton
-            class="wizard-primary-button"
-            variant="primary"
-            @click="openSettings"
-          >
-            Open settings
+    <div v-if="!isApiKeyPresent" class="wizard-blocked">
+      <p class="wizard-copy">
+        OpenRouter key is required before creating agents.
+      </p>
+      <UiButton
+        class="wizard-primary-button"
+        variant="primary"
+        @click="openSettings"
+      >
+        Open settings
+      </UiButton>
+    </div>
+
+    <template v-else>
+      <label class="wizard-field">
+        <span class="wizard-label">Name</span>
+        <UiInput v-model="name" class="wizard-input" type="text" />
+      </label>
+
+      <div class="wizard-field">
+        <span class="wizard-label">Model</span>
+        <ModelCard
+          :model-id="modelId"
+          :snapshot="agent?.modelSnapshot"
+          @change="showBrowser = true"
+        />
+      </div>
+
+      <ModelBrowserDialog
+        v-if="showBrowser"
+        @select="onModelSelect"
+        @close="showBrowser = false"
+      />
+
+      <label class="wizard-field">
+        <span class="wizard-label">System prompt</span>
+        <div class="wizard-prompt-tools">
+          <UiSelect v-model="selectedPresetId" class="wizard-input">
+            <option
+              v-for="preset in promptPresets"
+              :key="preset.id"
+              :value="preset.id"
+            >
+              {{ preset.label }}
+            </option>
+          </UiSelect>
+          <UiButton class="wizard-secondary-button" @click="applyPreset">
+            Apply preset
           </UiButton>
         </div>
-
-        <template v-else>
-          <label class="wizard-field">
-            <span class="wizard-label">Name</span>
-            <UiInput v-model="name" class="wizard-input" type="text" />
-          </label>
-
-          <div class="wizard-field">
-            <span class="wizard-label">Model</span>
-            <ModelCard
-              :model-id="modelId"
-              :snapshot="agent?.modelSnapshot"
-              @change="showBrowser = true"
-            />
-          </div>
-
-          <ModelBrowserDialog
-            v-if="showBrowser"
-            @select="onModelSelect"
-            @close="showBrowser = false"
-          />
-
-          <label class="wizard-field">
-            <span class="wizard-label">System prompt</span>
-            <div class="wizard-prompt-tools">
-              <UiSelect v-model="selectedPresetId" class="wizard-input">
-                <option
-                  v-for="preset in promptPresets"
-                  :key="preset.id"
-                  :value="preset.id"
-                >
-                  {{ preset.label }}
-                </option>
-              </UiSelect>
-              <UiButton class="wizard-secondary-button" @click="applyPreset">
-                Apply preset
-              </UiButton>
-            </div>
-            <p class="wizard-copy">
-              This prompt is combined with the runtime's built-in protocol
-              instructions. Your text defines the agent's role and judgment. The
-              app still injects the response contract, visibility rules, and
-              tool/JSON command format automatically.
-            </p>
-            <UiTextarea
-              v-model="systemPrompt"
-              class="wizard-textarea"
-              rows="10"
-            />
-          </label>
-          <div class="wizard-actions">
-            <UiButton
-              class="wizard-primary-button"
-              variant="primary"
-              :disabled="!name || !modelId || !systemPrompt"
-              @click="save"
-            >
-              Save
-            </UiButton>
-            <UiButton class="wizard-secondary-button" @click="close">
-              Cancel
-            </UiButton>
-            <UiButton
-              v-if="agent"
-              class="wizard-delete-button"
-              variant="danger"
-              @click="requestDeleteAgent"
-            >
-              Delete
-            </UiButton>
-          </div>
-        </template>
+        <p class="wizard-copy">
+          This prompt is combined with the runtime's built-in protocol
+          instructions. Your text defines the agent's role and judgment. The
+          app still injects the response contract, visibility rules, and
+          tool/JSON command format automatically.
+        </p>
+        <UiTextarea
+          v-model="systemPrompt"
+          class="wizard-textarea"
+          rows="10"
+        />
+      </label>
+      <div class="wizard-actions">
+        <UiButton
+          class="wizard-primary-button"
+          variant="primary"
+          :disabled="!name || !modelId || !systemPrompt"
+          @click="save"
+        >
+          Save
+        </UiButton>
+        <UiButton class="wizard-secondary-button" @click="close">
+          Cancel
+        </UiButton>
+        <UiButton
+          v-if="agent"
+          class="wizard-delete-button"
+          variant="danger"
+          @click="requestDeleteAgent"
+        >
+          Delete
+        </UiButton>
       </div>
-    </div>
-  </Teleport>
+    </template>
+  </UiModal>
 </template>
 
 <script setup lang="ts">
@@ -111,6 +104,7 @@ import ModelBrowserDialog from './ModelBrowserDialog.vue';
 import ModelCard from './ModelCard.vue';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
+import UiModal from './ui/UiModal.vue';
 import UiSelect from './ui/UiSelect.vue';
 import UiTextarea from './ui/UiTextarea.vue';
 
@@ -234,24 +228,8 @@ function openSettings() {
 <style scoped>
 @reference "../../styles.css";
 
-.wizard-backdrop {
-  @apply fixed inset-0 z-40 flex items-center justify-center bg-neutral-950/20 p-6 backdrop-blur-sm;
-}
-
-.wizard-card {
-  @apply max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-auto rounded-md border border-neutral-300 bg-white p-5 font-mono text-[13px] text-neutral-900 shadow-xl;
-}
-
-.wizard-titlebar {
-  @apply flex items-center justify-between;
-}
-
 .wizard-title {
   @apply m-0 text-base font-semibold;
-}
-
-.wizard-close {
-  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .wizard-delete-button {
@@ -259,11 +237,11 @@ function openSettings() {
 }
 
 .wizard-blocked {
-  @apply mt-4 grid gap-3;
+  @apply mt-4 grid gap-3 px-5 pb-5;
 }
 
 .wizard-field {
-  @apply mt-4 grid gap-2;
+  @apply mt-4 grid gap-2 px-5;
 }
 
 .wizard-label {
@@ -283,6 +261,6 @@ function openSettings() {
 }
 
 .wizard-actions {
-  @apply mt-5 flex flex-wrap gap-2;
+  @apply mt-5 flex flex-wrap gap-2 px-5 pb-5;
 }
 </style>

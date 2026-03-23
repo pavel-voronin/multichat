@@ -1,6 +1,5 @@
 <template>
   <template v-if="shouldShow">
-    <span class="message-separator">{{ ' ' }}</span>
     <span class="message-cost">
       <span
         class="message-cost-trigger"
@@ -46,10 +45,6 @@ const costClass = computed(() =>
 
 <style scoped>
 @reference "../../../styles.css";
-
-.message-separator {
-  @apply whitespace-pre;
-}
 
 .message-cost {
   @apply relative inline;
