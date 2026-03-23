@@ -2,14 +2,21 @@ import { createPinia } from 'pinia';
 import { createApp } from 'vue';
 import App from './App.vue';
 import './styles.css';
-import { disposeChatApp, initializeChatApp } from './vue/bootstrap';
+import {
+  createDefaultRuntime,
+  disposeChatApp,
+  initializeChatApp,
+} from './vue/bootstrap';
 
-const app = createApp(App);
-const pinia = createPinia();
+void (async () => {
+  const app = createApp(App);
+  const pinia = createPinia();
+  const runtime = await createDefaultRuntime();
 
-initializeChatApp(pinia);
-app.use(pinia);
-app.onUnmount(() => {
-  disposeChatApp(pinia);
-});
-app.mount('#app');
+  initializeChatApp(pinia, runtime);
+  app.use(pinia);
+  app.onUnmount(() => {
+    disposeChatApp(pinia);
+  });
+  app.mount('#app');
+})();

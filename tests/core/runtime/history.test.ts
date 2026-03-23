@@ -249,63 +249,64 @@ describe('MultiChatRuntime history cutoffs', () => {
   });
 
   it('persists manual cutoff state', () => {
-    const save = vi.fn();
+    const save = vi.fn().mockResolvedValue(undefined);
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
         action: { type: 'stay_silent', reason: 'noop' },
       })),
-      storage: {
-        load: () => ({
-          settings: {
-            openRouterApiKey: 'persisted-key',
-          },
-          debugLogs: [],
-          errors: [],
-          activeTabId: 'tab-1',
-          tabs: [
-            {
-              id: 'tab-1',
-              title: '#default',
-              participants: [{ id: 'human', name: 'Human', role: 'human' }],
-              agents: [],
-              timeline: [
-                {
+      initialState: {
+        settings: {
+          openRouterApiKey: 'persisted-key',
+        },
+        debugLogs: [],
+        errors: [],
+        activeTabId: 'tab-1',
+        tabs: [
+          {
+            id: 'tab-1',
+            title: '#default',
+            participants: [{ id: 'human', name: 'Human', role: 'human' }],
+            agents: [],
+            timeline: [
+              {
+                id: 'm-1',
+                kind: 'message',
+                createdAt: '2026-03-16T10:00:00.000Z',
+                message: {
                   id: 'm-1',
-                  kind: 'message',
+                  author: { type: 'participant', participantId: 'human' },
+                  kind: 'participant',
+                  target: 'public',
+                  content: 'persisted',
                   createdAt: '2026-03-16T10:00:00.000Z',
-                  message: {
-                    id: 'm-1',
-                    author: { type: 'participant', participantId: 'human' },
-                    kind: 'participant',
-                    target: 'public',
-                    content: 'persisted',
-                    createdAt: '2026-03-16T10:00:00.000Z',
-                  },
                 },
-                {
-                  id: 'cutoff-1',
-                  kind: 'history-cutoff',
-                  createdAt: '2026-03-16T10:01:00.000Z',
-                  cutoff: {
-                    source: 'manual',
-                  },
-                },
-              ],
-              metrics: {},
-              execution: {
-                isSweepRunning: false,
-                queuedSweep: false,
-                sweepCount: 0,
-                stopRequested: false,
               },
-              requestTraces: {},
-              messageInspectionIndex: {},
+              {
+                id: 'cutoff-1',
+                kind: 'history-cutoff',
+                createdAt: '2026-03-16T10:01:00.000Z',
+                cutoff: {
+                  source: 'manual',
+                },
+              },
+            ],
+            metrics: {},
+            execution: {
+              isSweepRunning: false,
+              queuedSweep: false,
+              sweepCount: 0,
+              stopRequested: false,
             },
-          ],
-        }),
+            requestTraces: {},
+            messageInspectionIndex: {},
+          },
+        ],
+      },
+      storage: {
+        load: async () => null,
         save,
-        reset: vi.fn(),
+        reset: vi.fn().mockResolvedValue(undefined),
       },
     });
 

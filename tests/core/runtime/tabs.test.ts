@@ -9,9 +9,9 @@ function createEmptyRuntime() {
       action: { type: 'stay_silent', reason: 'noop' },
     })),
     storage: {
-      load: () => null,
-      save: () => {},
-      reset: () => {},
+      load: async () => null,
+      save: async () => {},
+      reset: async () => {},
     },
     now: () => new Date('2026-03-16T10:00:00.000Z'),
     idGenerator: (() => {
@@ -181,9 +181,9 @@ describe('MultiChatRuntime tabs', () => {
           }),
       ),
       storage: {
-        load: () => null,
-        save: () => {},
-        reset: () => {},
+        load: async () => null,
+        save: async () => {},
+        reset: async () => {},
       },
       now: () => new Date('2026-03-16T10:00:00.000Z'),
       idGenerator: (() => {

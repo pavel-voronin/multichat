@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { LocalStoragePersistenceAdapter } from '../../src/core/storage';
+import 'fake-indexeddb/auto';
+import { openDB } from 'idb';
+import { describe, expect, it } from 'vitest';
+import { IndexedDbPersistenceAdapter } from '../../src/core/storage';
 import type { WorkspaceState } from '../../src/core';
 
 function createState(): WorkspaceState {
@@ -31,40 +33,55 @@ function createState(): WorkspaceState {
   };
 }
 
-describe('LocalStoragePersistenceAdapter', () => {
-  it('saves and restores runtime state', () => {
-    const store = new Map<string, string>();
-    const adapter = new LocalStoragePersistenceAdapter('test-key', {
-      getItem: (key) => store.get(key) ?? null,
-      setItem: (key, value) => {
-        store.set(key, value);
-      },
-      removeItem: (key) => {
-        store.delete(key);
-      },
-      clear: () => store.clear(),
-      key: () => null,
-      length: 0,
-    });
+function createAdapter(): IndexedDbPersistenceAdapter {
+  return new IndexedDbPersistenceAdapter(
+    `multichat-test-${Math.random().toString(36).slice(2)}`,
+  );
+}
 
+describe('IndexedDbPersistenceAdapter', () => {
+  it('saves and restores runtime state', async () => {
+    const adapter = createAdapter();
     const state = createState();
-    adapter.save(state);
+    await adapter.save(state);
 
-    expect(adapter.load()).toEqual(state);
+    await expect(adapter.load()).resolves.toEqual(state);
   });
 
-  it('returns null and clears corrupted payload', () => {
-    const removeItem = vi.fn();
-    const adapter = new LocalStoragePersistenceAdapter('test-key', {
-      getItem: () => '{broken-json',
-      setItem: vi.fn(),
-      removeItem,
-      clear: vi.fn(),
-      key: vi.fn(),
-      length: 1,
-    });
+  it('returns null when database is empty', async () => {
+    const adapter = createAdapter();
 
-    expect(adapter.load()).toBeNull();
-    expect(removeItem).toHaveBeenCalledWith('test-key');
+    await expect(adapter.load()).resolves.toBeNull();
+  });
+
+  it('clears persisted state on reset', async () => {
+    const adapter = createAdapter();
+    await adapter.save(createState());
+
+    await adapter.reset();
+
+    await expect(adapter.load()).resolves.toBeNull();
+  });
+
+  it('returns null on payload version mismatch', async () => {
+    const databaseName = `multichat-test-${Math.random().toString(36).slice(2)}`;
+    const database = await openDB(databaseName, 1, {
+      upgrade(db) {
+        db.createObjectStore('runtime');
+      },
+    });
+    await database.put(
+      'runtime',
+      {
+        version: 999,
+        state: createState(),
+      },
+      'workspace',
+    );
+    database.close();
+
+    const adapter = new IndexedDbPersistenceAdapter(databaseName);
+
+    await expect(adapter.load()).resolves.toBeNull();
   });
 });

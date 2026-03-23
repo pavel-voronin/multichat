@@ -390,14 +390,15 @@ export interface OpenRouterTransport {
 }
 
 export interface PersistenceAdapter {
-  load(): Partial<WorkspaceState> | null;
-  save(state: WorkspaceState): void;
-  reset(): void;
+  load(): Promise<Partial<WorkspaceState> | null>;
+  save(state: WorkspaceState): Promise<void>;
+  reset(): Promise<void>;
 }
 
 export interface RuntimeConfig {
   transport: OpenRouterTransport;
   storage?: PersistenceAdapter;
+  initialState?: Partial<WorkspaceState> | null;
   now?: () => Date;
   idGenerator?: () => string;
   humanParticipant?: Participant;

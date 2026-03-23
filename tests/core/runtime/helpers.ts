@@ -30,9 +30,9 @@ export function createRuntime(config?: Partial<RuntimeConfig>) {
       action: { type: 'stay_silent', reason: 'noop' },
     })),
     storage: {
-      load: () => null,
-      save: vi.fn(),
-      reset: vi.fn(),
+      load: async () => null,
+      save: vi.fn().mockResolvedValue(undefined),
+      reset: vi.fn().mockResolvedValue(undefined),
     },
     now: () => new Date('2026-03-16T10:00:00.000Z'),
     idGenerator: (() => {

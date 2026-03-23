@@ -33,7 +33,10 @@ import {
 } from './context-routing';
 import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
 import { runAgentSweepFn, type ExecutionContext } from './execution';
-import { LocalStoragePersistenceAdapter } from './storage';
+import {
+  IndexedDbPersistenceAdapter,
+  NoopPersistenceAdapter,
+} from './storage';
 import { createId, deepClone } from './utils';
 import {
   DEFAULT_HUMAN,
@@ -62,16 +65,19 @@ export class MultiChatRuntime {
   >();
   private readonly activeSweepPromises = new Map<string, Promise<void>>();
   private readonly abortControllers = new Map<string, AbortController>();
+  private persistPromise: Promise<void> | null = null;
+  private pendingPersistSnapshot: WorkspaceState | null = null;
+  private resetStorageRequested = false;
   private workspace: WorkspaceState;
 
   constructor(private readonly config: RuntimeConfig) {
     this.now = config.now ?? (() => new Date());
     this.createId = config.idGenerator ?? createId;
     this.maxAutoSweeps = config.maxAutoSweeps ?? 12;
-    this.storage = config.storage ?? new LocalStoragePersistenceAdapter();
+    this.storage = config.storage ?? new NoopPersistenceAdapter();
     this.workspace = mergePersistedWorkspace(
       initialWorkspace(config),
-      this.storage.load(),
+      config.initialState ?? null,
     );
     for (const tab of this.workspace.tabs) {
       syncParticipants(tab, this.config.humanParticipant ?? DEFAULT_HUMAN);
@@ -403,7 +409,7 @@ export class MultiChatRuntime {
     for (const tabId of this.workspace.tabs.map((tab) => tab.id)) {
       this.stop(tabId);
     }
-    this.storage.reset();
+    this.scheduleStorageReset();
     this.workspace = initialWorkspace({
       ...this.config,
       idGenerator: this.createId,
@@ -752,7 +758,10 @@ export class MultiChatRuntime {
   }
 
   private persist(): void {
-    this.storage.save(deepClone(this.workspace));
+    // Snapshot once at enqueue time so later workspace mutations do not leak
+    // into an in-flight IndexedDB write.
+    this.pendingPersistSnapshot = deepClone(this.workspace);
+    this.ensurePersistenceFlush();
   }
 
   private persistAndNotify(): void {
@@ -766,10 +775,62 @@ export class MultiChatRuntime {
       listener(diagnosticsSnapshot);
     }
   }
+
+  private scheduleStorageReset(): void {
+    this.resetStorageRequested = true;
+    this.ensurePersistenceFlush();
+  }
+
+  private ensurePersistenceFlush(): void {
+    if (this.persistPromise) {
+      return;
+    }
+
+    this.persistPromise = this.flushPersistenceQueue().finally(() => {
+      this.persistPromise = null;
+    });
+  }
+
+  private async flushPersistenceQueue(): Promise<void> {
+    while (this.resetStorageRequested || this.pendingPersistSnapshot) {
+      const shouldReset = this.resetStorageRequested;
+      const snapshot = this.pendingPersistSnapshot;
+      this.resetStorageRequested = false;
+      this.pendingPersistSnapshot = null;
+
+      if (shouldReset) {
+        try {
+          await this.storage.reset();
+        } catch (error) {
+          console.error('Failed to reset workspace persistence', error);
+        }
+      }
+
+      if (snapshot) {
+        try {
+          await this.storage.save(snapshot);
+        } catch (error) {
+          console.error('Failed to save workspace persistence', error);
+        }
+      }
+    }
+  }
 }
 
 export function createMultiChatRuntime(
   config: RuntimeConfig,
 ): MultiChatRuntime {
   return new MultiChatRuntime(config);
+}
+
+export async function createHydratedMultiChatRuntime(
+  config: RuntimeConfig,
+): Promise<MultiChatRuntime> {
+  const storage = config.storage ?? new IndexedDbPersistenceAdapter();
+  const initialState = await storage.load();
+  return new MultiChatRuntime({
+    ...config,
+    storage,
+    initialState,
+  });
 }

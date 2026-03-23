@@ -31,9 +31,9 @@ describe('MultiAgentChat layout and workflow', () => {
     const runtime = new MultiChatRuntime({
       transport,
       storage: {
-        load: () => null,
-        save: vi.fn(),
-        reset: vi.fn(),
+        load: async () => null,
+        save: vi.fn().mockResolvedValue(undefined),
+        reset: vi.fn().mockResolvedValue(undefined),
       },
     });
 

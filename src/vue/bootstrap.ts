@@ -1,7 +1,7 @@
 import type { Pinia } from 'pinia';
 import {
-  createMultiChatRuntime,
-  LocalStoragePersistenceAdapter,
+  createHydratedMultiChatRuntime,
+  IndexedDbPersistenceAdapter,
   OpenRouterHttpTransport,
   type MultiChatRuntime,
 } from '../core';
@@ -11,16 +11,16 @@ import { useRuntimeStore } from './stores/runtime';
 import { useUiStore } from './stores/ui';
 import { setOverlayControls } from './useOverlayControls';
 
-export function createDefaultRuntime(): MultiChatRuntime {
-  return createMultiChatRuntime({
+export function createDefaultRuntime(): Promise<MultiChatRuntime> {
+  return createHydratedMultiChatRuntime({
     transport: new OpenRouterHttpTransport(),
-    storage: new LocalStoragePersistenceAdapter(),
+    storage: new IndexedDbPersistenceAdapter(),
   });
 }
 
 export function initializeChatApp(
   pinia: Pinia,
-  runtime: MultiChatRuntime = createDefaultRuntime(),
+  runtime: MultiChatRuntime,
 ): MultiChatRuntime {
   useUiStore(pinia).reset();
   usePreferencesStore(pinia).reset();
