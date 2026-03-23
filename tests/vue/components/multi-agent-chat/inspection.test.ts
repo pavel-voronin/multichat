@@ -58,7 +58,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('Agent Prompt');
   });
 
-  it('shows no request data on Request tab for a human message', async () => {
+  it('shows no request data on Input tab for a human message', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({
       senderId: 'human',
@@ -81,7 +81,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('No request data');
   });
 
-  it('opens inspector for an agent message showing model and system prompt on Agent tab', async () => {
+  it('opens inspector for an agent message showing model and system prompt on Participant tab', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
         return [
@@ -122,7 +122,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('Agent Prompt');
   });
 
-  it('shows speak_public action in Result tab for an agent message', async () => {
+  it('shows speak_public action in Output tab for an agent message', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
         return [
@@ -163,7 +163,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('Published to public chat');
   });
 
-  it('shows no request data on Result tab for a human message', async () => {
+  it('shows no request data on Output tab for a human message', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({
       senderId: 'human',
@@ -184,7 +184,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('No request data');
   });
 
-  it('shows stay_silent action in Result tab for an agent message', async () => {
+  it('shows stay_silent action on agent message inspector', async () => {
     const runtime = createRuntime(); // default transport returns stay_silent: noop
     await runtime.sendMessage({
       senderId: 'human',
@@ -280,7 +280,6 @@ describe('MultiAgentChat request inspection', () => {
     expect(systemLine.exists()).toBe(true);
     const trigger = systemLine.find('.message-time-trigger');
     expect(trigger.exists()).toBe(true);
-    // This FAILS before the fix: the system message timestamp is not active
     expect(trigger.classes()).toContain('message-time-trigger-active');
   });
 
