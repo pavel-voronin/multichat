@@ -21,8 +21,11 @@ A centralized `uiPersistence.ts` module manages a single `localStorage` key (`mu
 ## Data Shape
 
 ```ts
+// src/vue/uiPersistence.ts
+// imports: CostDisplayMode from './types'
+
 interface UiPersistedState {
-  version: number;           // migration guard
+  version: number;
   showSilentDecisions: boolean;
   costDisplayMode: CostDisplayMode;
   showLogsPanel: boolean;
@@ -30,43 +33,96 @@ interface UiPersistedState {
 }
 ```
 
-Stored under the key `multichat-ui-state`. Version mismatch discards stored data and returns defaults.
+Stored under the key `multichat-ui-state`. Version mismatch causes `loadUiState` to delete the stale entry immediately and return defaults (not lazy-overwrite).
 
 ## Architecture
 
 ### `src/vue/uiPersistence.ts`
 
-Single-responsibility module:
-- `loadUiState(): UiPersistedState` — reads and parses localStorage, returns defaults on missing/invalid/version-mismatch data
-- `saveUiState(state: UiPersistedState): void` — serializes and writes to localStorage
+Plain functions, no class or singleton:
 
-No class, no singleton — plain functions. Consumers call them directly.
+```ts
+const UI_PERSISTENCE_VERSION = 1;
+
+function defaultUiPersistedState(): UiPersistedState { ... }
+
+export function loadUiState(): UiPersistedState
+export function saveUiState(state: UiPersistedState): void
+```
+
+**`loadUiState`:** reads `localStorage.getItem('multichat-ui-state')`, parses JSON inside a try/catch. Returns defaults if:
+- key is missing
+- JSON parse fails
+- `version` field does not match `UI_PERSISTENCE_VERSION` (also deletes the stale entry via `localStorage.removeItem`)
+- boolean fields fail `typeof x === 'boolean'`
+- `costDisplayMode` fails an allowlist check: `['off', 'request', 'net'].includes(x)` — falling back to the field's default if invalid (not discarding the whole object)
+- `draftByTabId` fails `typeof x === 'object' && x !== null`; after the object check, any entry whose value is not a string is dropped (filter, not reject-all)
+
+**`saveUiState`:** JSON.stringify + `localStorage.setItem`. Called synchronously.
 
 ### Store changes
 
-Each affected store gains a `loadPersistedState(data: UiPersistedState)` method (or equivalent) to apply loaded values on init:
+#### `usePreferencesStore`
+- Add `loadPersistedState(data: Pick<UiPersistedState, 'showSilentDecisions' | 'costDisplayMode'>)` method that sets both fields.
 
-- `usePreferencesStore` — accepts `showSilentDecisions`, `costDisplayMode`
-- `useUiStore` — accepts `showLogsPanel`
-- `useMessageInputStore` — accepts `draftByTabId`
+#### `useUiStore`
+- Add `loadPersistedState(data: Pick<UiPersistedState, 'showLogsPanel'>)` method that sets `showLogsPanel`.
 
-Each store also adds a `watch` that calls `saveUiState` with the current snapshot whenever its relevant fields change. The three watches can be co-located in `bootstrap.ts` to keep stores free of persistence concerns, or placed inside each store — co-location in bootstrap is preferred for symmetry with the load logic.
+#### `useMessageInputStore`
+- Expose `draftByTabId` ref in the store's return object (currently internal only).
+- Add `loadPersistedState(data: Pick<UiPersistedState, 'draftByTabId'>)` method that sets `draftByTabId.value = data.draftByTabId`. Must not touch `messageInputElement`.
 
-### `bootstrap.ts` changes
+### `bootstrap.ts` — `initializeChatApp`
 
-`initializeChatApp`:
-1. Call `loadUiState()` before store resets
-2. Apply loaded state to each store after `reset()`
-3. Set up `watch` calls to persist on change
+Steps execute synchronously with no async gaps or `nextTick` between them:
 
-`disposeChatApp`: no changes needed (data is saved incrementally).
+```ts
+// 1. Read from localStorage (sync)
+const persisted = loadUiState();
+
+// 2. Reset stores to defaults
+useUiStore(pinia).reset();
+usePreferencesStore(pinia).reset();
+useMessageInputStore(pinia).reset();
+
+// 3. Apply persisted values immediately after reset
+usePreferencesStore(pinia).loadPersistedState(persisted);
+useUiStore(pinia).loadPersistedState(persisted);
+useMessageInputStore(pinia).loadPersistedState(persisted);
+
+// 4. Set up watches to persist changes
+// Note: draftByTabId watch fires on every keystroke (new object ref per change).
+// Per-keystroke localStorage.setItem is acceptable at this data size.
+// If perf becomes an issue, replace with watchDebounced from VueUse.
+watch(
+  () => buildUiSnapshot(preferencesStore, uiStore, messageInputStore),
+  (snapshot) => saveUiState(snapshot),
+  { deep: true },
+);
+```
+
+The single watch receives a computed snapshot of all three stores. `buildUiSnapshot` is a local helper in `bootstrap.ts`:
+
+```ts
+function buildUiSnapshot(...stores): UiPersistedState {
+  return {
+    version: UI_PERSISTENCE_VERSION,
+    showSilentDecisions: preferencesStore.showSilentDecisions,
+    costDisplayMode: preferencesStore.costDisplayMode,
+    showLogsPanel: uiStore.showLogsPanel,
+    draftByTabId: messageInputStore.draftByTabId,
+  };
+}
+```
+
+`disposeChatApp`: no changes needed.
 
 ## Versioning
 
-`UI_PERSISTENCE_VERSION = 1`. On version mismatch, `loadUiState` returns the default object and the stale entry is overwritten on next save.
+`UI_PERSISTENCE_VERSION = 1`. On mismatch, `loadUiState` deletes the stale localStorage entry and returns defaults. Defaults are written to localStorage on the next change that triggers the watch.
 
 ## Out of Scope
 
-- Migrating old data between versions (discard-on-mismatch is sufficient for now)
+- Data migration between versions (discard-on-mismatch is sufficient for now)
 - Persisting other `useUiStore` fields (modal states are intentionally transient)
 - Cross-tab synchronization via `storage` events
