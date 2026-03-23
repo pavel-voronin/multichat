@@ -70,6 +70,21 @@ function lastProcessedKeysForTab(
   return keys;
 }
 
+function getPromptParticipants(tab: ChatTabState) {
+  const humanParticipant =
+    tab.participants.find((participant) => participant.role === 'human') ??
+    null;
+
+  return [
+    ...(humanParticipant ? [deepClone(humanParticipant)] : []),
+    ...getActiveAgents(tab).map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      role: 'agent' as const,
+    })),
+  ];
+}
+
 export async function handleSuccessfulAgentTurnResultFn({
   agent,
   result,
@@ -297,7 +312,7 @@ export async function runAgentTurnFn(
       apiKey,
       context: {
         agent,
-        participants: deepClone(tab.participants),
+        participants: getPromptParticipants(tab),
         visibleMessages,
       },
       signal: abortController.signal,

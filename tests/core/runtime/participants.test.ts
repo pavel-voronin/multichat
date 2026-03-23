@@ -97,6 +97,48 @@ describe('MultiChatRuntime participant lifecycle', () => {
     });
   });
 
+  it('passes only active chat participants into the agent prompt context', async () => {
+    let seenParticipantIds: string[] = [];
+    const runtime = createRuntime({
+      transport: {
+        async listModels() {
+          return [];
+        },
+        async runAgentTurn(input) {
+          seenParticipantIds = input.context.participants.map(
+            (participant) => participant.id,
+          );
+          return {
+            mode: 'tools',
+            action: { type: 'stay_silent', reason: 'captured context' },
+          };
+        },
+      },
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const alpha = runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
+    const beta = runtime.createAgent({
+      name: 'Beta',
+      modelId: 'b',
+      systemPrompt: 'prompt',
+    });
+
+    runtime.removeAgent(beta.id);
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Need a reply',
+      target: 'public',
+    });
+
+    expect(seenParticipantIds).toEqual(['human', alpha.id]);
+  });
+
   it('publishes a system message when the tab title changes', () => {
     const runtime = createRuntime();
 
