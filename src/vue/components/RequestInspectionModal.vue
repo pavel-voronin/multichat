@@ -156,7 +156,7 @@
               <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
             </details>
 
-            <details class="inspection-raw-json mt-2">
+            <details class="inspection-raw-json inspection-raw-json-second">
               <summary class="inspection-raw-json-summary">
                 Response Output
                 <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.responseOutputJson)">Copy</button>
@@ -240,9 +240,10 @@ const modelSnapshot = computed(() => agent.value?.modelSnapshot);
 const agentPrompt = computed(() => agent.value?.systemPrompt ?? null);
 const fullSystemPrompt = computed<string | null>(() => {
   const json = trace.value?.payloads.requestInputJson;
-  if (!json || typeof json !== 'object') return null;
-  const messages = (json as { messages?: Array<{ role: string; content: string }> }).messages;
-  return messages?.find((m) => m.role === 'system')?.content ?? null;
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
+  const messages = (json as { messages?: Array<{ role: string; content: unknown }> }).messages;
+  const entry = messages?.find((m) => m.role === 'system');
+  return typeof entry?.content === 'string' ? entry.content : null;
 });
 
 // Input tab
@@ -383,6 +384,10 @@ async function copyJson(value: unknown): Promise<void> {
 
 .inspection-raw-json {
   @apply mt-6 rounded border border-neutral-200;
+}
+
+.inspection-raw-json-second {
+  @apply mt-2;
 }
 
 .inspection-raw-json-summary {
