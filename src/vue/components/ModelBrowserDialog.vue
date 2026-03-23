@@ -45,6 +45,13 @@
             <div v-else-if="modelsStore.error" class="browser-error">{{ modelsStore.error }}</div>
             <div v-else-if="!sorted.length" class="browser-empty">No models match your filters.</div>
             <table v-else class="browser-table">
+              <colgroup>
+                <col class="browser-col-provider" />
+                <col class="browser-col-name" />
+                <col class="browser-col-context" />
+                <col class="browser-col-input" />
+                <col class="browser-col-output" />
+              </colgroup>
               <thead class="browser-thead">
                 <tr>
                   <th
@@ -94,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import type { OpenRouterModel } from '../../core';
 import { useModelsStore } from '../stores/models';
 import {
@@ -137,6 +144,10 @@ const contextOptions = [
   { label: '≥ 200k', value: 200_000 },
   { label: '≥ 1M', value: 1_000_000 },
 ];
+
+onMounted(() => {
+  void modelsStore.fetchModels();
+});
 
 function providerOf(id: string): string {
   return id.includes('/') ? (id.split('/')[0] ?? id) : id;
@@ -220,7 +231,7 @@ const sorted = computed(() => {
 }
 
 .browser-dialog {
-  @apply flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl;
+  @apply flex max-h-[70vh] w-full max-w-[818px] flex-col overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl;
 }
 
 .browser-titlebar {
@@ -276,7 +287,20 @@ const sorted = computed(() => {
 }
 
 .browser-table {
-  @apply w-full border-collapse font-mono text-[12px];
+  @apply w-full table-fixed border-collapse font-mono text-[12px];
+}
+
+.browser-col-provider {
+  width: 8rem;
+}
+
+.browser-col-context {
+  width: 6.5rem;
+}
+
+.browser-col-input,
+.browser-col-output {
+  width: 6.75rem;
 }
 
 .browser-thead {
