@@ -1,16 +1,16 @@
 import { defineStore, storeToRefs } from 'pinia';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
+  type AgentConfig,
   type ChatMessage,
-  type DiagnosticsState,
-  type MultiChatRuntime,
   type RequestTrace,
   type RuntimeState,
 } from '../../core';
-import { getMessageSenderId, isSystemMessage } from '../../core/messages';
+import { isSystemMessage } from '../../core/messages';
+import type { AgentToolCall } from '../../core/types';
 import { useDiagnosticsStore } from './diagnostics';
 import { useRuntimeStore } from './runtime';
-import { useUiStore, type InspectionTab } from './ui';
+import { useUiStore } from './ui';
 
 export const useInspectionStore = defineStore('inspection', () => {
   const runtimeStore = useRuntimeStore();
@@ -18,137 +18,124 @@ export const useInspectionStore = defineStore('inspection', () => {
   const ui = useUiStore();
   const { state } = storeToRefs(runtimeStore);
   const { diagnostics } = storeToRefs(diagnosticsStore);
-  const runtime = computed<MultiChatRuntime>(() =>
-    runtimeStore.requireRuntime(),
+
+  // ── History stack ──────────────────────────────────────────────
+  const inspectionHistory = ref<string[]>([]);
+  const inspectionHistoryIndex = ref(0);
+
+  const canGoBack = computed(() => inspectionHistoryIndex.value > 0);
+  const canGoForward = computed(
+    () => inspectionHistoryIndex.value < inspectionHistory.value.length - 1,
   );
 
-  const currentMessage = computed(() =>
-    ui.selectedMessageId
-      ? findMessageById(state.value, ui.selectedMessageId)
-      : null,
-  );
-  const currentTrace = computed(() =>
-    ui.selectedTraceId
-      ? findTraceById(diagnostics.value, ui.selectedTraceId)
-      : null,
-  );
-  const messageGraph = computed(() =>
-    ui.selectedMessageId
-      ? runtime.value.getMessageInspectionGraph(ui.selectedMessageId)
-      : null,
-  );
-  const relatedTraces = computed(() =>
-    currentTrace.value
-      ? runtime.value.getRelatedRequestTraces(currentTrace.value.id)
-      : [],
-  );
+  // ── Current message and its trace / agent ──────────────────────
+  const currentInspectedMessage = computed<ChatMessage | null>(() => {
+    const messageId = inspectionHistory.value[inspectionHistoryIndex.value];
+    if (!messageId) return null;
+    return findMessageById(state.value, messageId);
+  });
 
-  function openForMessage(messageId: string) {
+  const traceForCurrentMessage = computed<RequestTrace | null>(() => {
+    const message = currentInspectedMessage.value;
+    if (!message?.sourceTraceId) return null;
+    return diagnostics.value.requestTraces[message.sourceTraceId] ?? null;
+  });
+
+  const agentForCurrentMessage = computed<AgentConfig | null>(() => {
+    const trace = traceForCurrentMessage.value;
+    if (!trace) return null;
+    return state.value.agents.find((a) => a.id === trace.agentId) ?? null;
+  });
+
+  const contextMessagesForCurrentTrace = computed<ChatMessage[]>(() => {
+    const trace = traceForCurrentMessage.value;
+    if (!trace) return [];
+    return trace.visibleMessageIds
+      .map((id) => findMessageById(state.value, id))
+      .filter((m): m is ChatMessage => m !== null);
+  });
+
+  const currentActionForTrace = computed<AgentToolCall | null>(() => {
+    const payload = traceForCurrentMessage.value?.payloads.normalizedActionJson;
+    if (!payload || typeof payload !== 'object') return null;
+    return payload as AgentToolCall;
+  });
+
+  // ── Navigation ─────────────────────────────────────────────────
+  function openForMessage(messageId: string): void {
+    inspectionHistory.value = [messageId];
+    inspectionHistoryIndex.value = 0;
     ui.showRequestInspection = true;
-    ui.inspectionTargetType = 'message';
-    ui.selectedMessageId = messageId;
-    ui.selectedTraceId = null;
-    ui.activeInspectionTab = 'overview';
+    ui.activeInspectionTab = 'agent';
   }
 
-  function openForTrace(traceId: string, messageId?: string | null) {
-    ui.showRequestInspection = true;
-    ui.inspectionTargetType = 'trace';
-    ui.selectedTraceId = traceId;
-    ui.selectedMessageId = messageId ?? null;
-    ui.activeInspectionTab = 'overview';
+  function navigateTo(messageId: string): void {
+    // Truncate forward history before pushing
+    inspectionHistory.value = inspectionHistory.value.slice(
+      0,
+      inspectionHistoryIndex.value + 1,
+    );
+    inspectionHistory.value.push(messageId);
+    inspectionHistoryIndex.value = inspectionHistory.value.length - 1;
+    if (!ui.showRequestInspection) {
+      ui.showRequestInspection = true;
+    }
   }
 
-  function selectMessage(messageId: string) {
-    ui.inspectionTargetType = 'message';
-    ui.selectedMessageId = messageId;
-    ui.selectedTraceId = null;
+  function navigateBack(): void {
+    if (canGoBack.value) {
+      inspectionHistoryIndex.value--;
+    }
   }
 
-  function selectTrace(traceId: string) {
-    ui.inspectionTargetType = 'trace';
-    ui.selectedTraceId = traceId;
+  function navigateForward(): void {
+    if (canGoForward.value) {
+      inspectionHistoryIndex.value++;
+    }
   }
 
-  function setTab(tab: InspectionTab) {
-    ui.activeInspectionTab = tab;
+  function reset(): void {
+    inspectionHistory.value = [];
+    inspectionHistoryIndex.value = 0;
   }
 
-  function close() {
+  function close(): void {
     ui.showRequestInspection = false;
   }
 
+  // ── Utilities ──────────────────────────────────────────────────
   function canInspectMessage(message: ChatMessage): boolean {
-    if (isSystemMessage(message)) {
-      return false;
-    }
-
-    if (getMessageSenderId(message) === 'human') {
-      return true;
-    }
-
-    if (message.sourceTraceId) {
-      return true;
-    }
-
-    return (
-      runtime.value.getInspectionSubjectForMessage(message.id).downstreamTraces
-        .length > 0
-    );
-  }
-
-  function getInspectionSubjectForMessage(messageId: string) {
-    return runtime.value.getInspectionSubjectForMessage(messageId);
-  }
-
-  function getRequestTrace(traceId: string): RequestTrace | null {
-    return findTraceById(diagnostics.value, traceId);
-  }
-
-  function relatedMessagesForTrace(trace: RequestTrace): ChatMessage[] {
-    const relatedIds = [
-      ...trace.triggeringMessageIds,
-      ...trace.visibleMessageIds,
-      ...trace.downstreamMessageIds,
-      ...(trace.producedMessageId ? [trace.producedMessageId] : []),
-    ];
-
-    return dedupeMessages(
-      relatedIds
-        .map((messageId) => findMessageById(state.value, messageId))
-        .filter((message): message is ChatMessage => Boolean(message)),
-    );
+    return !isSystemMessage(message);
   }
 
   function participantName(participantId?: string): string {
-    if (!participantId) {
-      return '';
-    }
-
+    if (!participantId) return '';
     return (
-      state.value.participants.find(
-        (participant) => participant.id === participantId,
-      )?.name ?? participantId
+      state.value.participants.find((p) => p.id === participantId)?.name ??
+      participantId
     );
   }
 
   return {
-    state,
-    diagnostics,
-    currentMessage,
-    currentTrace,
-    messageGraph,
-    relatedTraces,
+    // State
+    inspectionHistory,
+    inspectionHistoryIndex,
+    // Computed
+    canGoBack,
+    canGoForward,
+    currentInspectedMessage,
+    traceForCurrentMessage,
+    agentForCurrentMessage,
+    contextMessagesForCurrentTrace,
+    currentActionForTrace,
+    // Actions
     openForMessage,
-    openForTrace,
-    selectMessage,
-    selectTrace,
-    setTab,
+    navigateTo,
+    navigateBack,
+    navigateForward,
+    reset,
     close,
     canInspectMessage,
-    getInspectionSubjectForMessage,
-    getRequestTrace,
-    relatedMessagesForTrace,
     participantName,
   };
 });
@@ -162,29 +149,5 @@ function findMessageById(
       return entry.message;
     }
   }
-
   return null;
-}
-
-function findTraceById(
-  diagnostics: DiagnosticsState,
-  traceId: string,
-): RequestTrace | null {
-  return diagnostics.requestTraces[traceId] ?? null;
-}
-
-function dedupeMessages(messages: ChatMessage[]): ChatMessage[] {
-  const seen = new Set<string>();
-  const result: ChatMessage[] = [];
-
-  for (const message of messages) {
-    if (seen.has(message.id)) {
-      continue;
-    }
-
-    seen.add(message.id);
-    result.push(message);
-  }
-
-  return result;
 }
