@@ -111,8 +111,13 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     draftByTabId.value = {};
   }
 
+  function loadPersistedState(data: { draftByTabId: Record<string, string> }): void {
+    draftByTabId.value = data.draftByTabId;
+  }
+
   return {
     draftMessage,
+    draftByTabId,
     canSend,
     sendCurrentMessage,
     mentionMessageSender,
@@ -120,5 +125,6 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     setMessageInputElement,
     clearDraft,
     reset,
+    loadPersistedState,
   };
 });

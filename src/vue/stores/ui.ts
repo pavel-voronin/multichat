@@ -119,6 +119,10 @@ export const useUiStore = defineStore('ui', () => {
     activeInspectionTab.value = defaults.activeInspectionTab;
   }
 
+  function loadPersistedState(data: { showLogsPanel: boolean }): void {
+    showLogsPanel.value = data.showLogsPanel;
+  }
+
   return {
     showSettings,
     showAgentWizard,
@@ -137,5 +141,6 @@ export const useUiStore = defineStore('ui', () => {
     activeInspectionTab,
     reset,
     resetChatScopedState,
+    loadPersistedState,
   };
 });

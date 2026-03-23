@@ -11,9 +11,18 @@ export const usePreferencesStore = defineStore('preferences', () => {
     costDisplayMode.value = 'request';
   }
 
+  function loadPersistedState(data: {
+    showSilentDecisions: boolean;
+    costDisplayMode: CostDisplayMode;
+  }): void {
+    showSilentDecisions.value = data.showSilentDecisions;
+    costDisplayMode.value = data.costDisplayMode;
+  }
+
   return {
     showSilentDecisions,
     costDisplayMode,
     reset,
+    loadPersistedState,
   };
 });
