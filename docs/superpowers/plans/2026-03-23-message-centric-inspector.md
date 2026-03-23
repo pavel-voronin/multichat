@@ -12,21 +12,22 @@
 
 ## File Map
 
-| Action | File | Responsibility |
-|---|---|---|
-| Modify | `src/vue/stores/ui.ts` | Remove inspection fields; redefine `InspectionTab` to 3 values |
-| Rewrite | `src/vue/stores/inspection.ts` | History stack navigation, all inspection-related computeds |
-| Create | `src/vue/components/timeline/InspectorMessageLine.vue` | Renders a `ChatMessage` as a clickable line inside the inspector |
-| Rewrite | `src/vue/components/RequestInspectionModal.vue` | 3-tab layout: Agent / Request / Result |
-| Modify | `src/vue/components/timeline/MessageEntry.vue` | Simplify `handleInspect` — always open by message ID |
-| Modify | `src/vue/components/ChatTabs.vue` | Call `inspection.reset()` on tab switch |
-| Rewrite | `tests/vue/components/multi-agent-chat/inspection.test.ts` | New behavior tests |
+| Action  | File                                                       | Responsibility                                                   |
+| ------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| Modify  | `src/vue/stores/ui.ts`                                     | Remove inspection fields; redefine `InspectionTab` to 3 values   |
+| Rewrite | `src/vue/stores/inspection.ts`                             | History stack navigation, all inspection-related computeds       |
+| Create  | `src/vue/components/timeline/InspectorMessageLine.vue`     | Renders a `ChatMessage` as a clickable line inside the inspector |
+| Rewrite | `src/vue/components/RequestInspectionModal.vue`            | 3-tab layout: Agent / Request / Result                           |
+| Modify  | `src/vue/components/timeline/MessageEntry.vue`             | Simplify `handleInspect` — always open by message ID             |
+| Modify  | `src/vue/components/ChatTabs.vue`                          | Call `inspection.reset()` on tab switch                          |
+| Rewrite | `tests/vue/components/multi-agent-chat/inspection.test.ts` | New behavior tests                                               |
 
 ---
 
 ## Task 1: Update `ui.ts` — strip inspection fields and redefine tab type
 
 **Files:**
+
 - Modify: `src/vue/stores/ui.ts`
 
 This task is pure TypeScript refactoring. No new tests needed — TypeScript errors will indicate regressions. Run `pnpm typecheck` after each step.
@@ -116,6 +117,7 @@ function defaultUiState(): UiStateSnapshot {
 - [ ] **Step 5: Update the store body — remove the three `ref` declarations and their usages in `reset()`, `resetChatScopedState()`, and the `return` object**
 
 Remove these three `ref` lines:
+
 ```typescript
 const inspectionTargetType = ref<InspectionTargetType>(null);
 const selectedMessageId = ref<string | null>(null);
@@ -123,6 +125,7 @@ const selectedTraceId = ref<string | null>(null);
 ```
 
 In `reset()` and `resetChatScopedState()`, remove the three corresponding assignment lines:
+
 ```typescript
 inspectionTargetType.value = defaults.inspectionTargetType;
 selectedMessageId.value = defaults.selectedMessageId;
@@ -151,6 +154,7 @@ git commit -m "refactor: strip inspection fields from ui store, redefine Inspect
 ## Task 2: Rewrite `inspection.ts`
 
 **Files:**
+
 - Rewrite: `src/vue/stores/inspection.ts`
 
 All inspection state now lives here: the history stack, the current index, and all derivations. The modal and MessageEntry will drive this store.
@@ -333,6 +337,7 @@ git commit -m "refactor: rewrite inspection store with history-based navigation"
 ## Task 3: Create `InspectorMessageLine.vue`
 
 **Files:**
+
 - Create: `src/vue/components/timeline/InspectorMessageLine.vue`
 
 A lightweight component that looks exactly like `MessageEntry` but is designed for use inside the inspector. Does not import `MessageEntry`; copies the relevant CSS classes to avoid pulling in timeline drag-and-drop and store dependencies.
@@ -341,11 +346,7 @@ A lightweight component that looks exactly like `MessageEntry` but is designed f
 
 ```vue
 <template>
-  <button
-    type="button"
-    :class="lineClass"
-    @click="handleClick"
-  >
+  <button type="button" :class="lineClass" @click="handleClick">
     <span class="inspector-line-time">[{{ formattedTime }}]</span
     ><span class="inspector-line-sep"> </span
     ><span class="inspector-line-sender">{{ authorLabel }}</span
@@ -439,6 +440,7 @@ git commit -m "feat: add InspectorMessageLine component for inspector context li
 ## Task 4: Rewrite `RequestInspectionModal.vue`
 
 **Files:**
+
 - Rewrite: `src/vue/components/RequestInspectionModal.vue`
 
 - [ ] **Step 1: Rewrite the file**
@@ -498,7 +500,9 @@ git commit -m "feat: add InspectorMessageLine component for inspector context li
             :key="tab.id"
             type="button"
             class="inspection-tab"
-            :class="{ 'inspection-tab-active': ui.activeInspectionTab === tab.id }"
+            :class="{
+              'inspection-tab-active': ui.activeInspectionTab === tab.id,
+            }"
             @click="ui.activeInspectionTab = tab.id"
           >
             {{ tab.label }}
@@ -528,10 +532,9 @@ git commit -m "feat: add InspectorMessageLine component for inspector context li
           </div>
           <div class="inspection-block">
             <p class="inspection-field-label">System prompt</p>
-            <pre
-              v-if="agent"
-              class="inspection-prompt"
-            >{{ agent.systemPrompt }}</pre>
+            <pre v-if="agent" class="inspection-prompt">{{
+              agent.systemPrompt
+            }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
         </section>
@@ -589,7 +592,9 @@ git commit -m "feat: add InspectorMessageLine component for inspector context li
             <div class="inspection-meta-grid">
               <div>
                 <p class="inspection-field-label">Output tokens</p>
-                <p class="inspection-field-value">{{ completionTokensLabel }}</p>
+                <p class="inspection-field-value">
+                  {{ completionTokensLabel }}
+                </p>
               </div>
               <div>
                 <p class="inspection-field-label">Cost</p>
@@ -614,11 +619,17 @@ git commit -m "feat: add InspectorMessageLine component for inspector context li
               </summary>
               <div class="inspection-raw-json-body">
                 <p class="inspection-field-label">Request input</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
+                <pre class="inspection-json">{{
+                  formatJson(trace.payloads.requestInputJson)
+                }}</pre>
                 <p class="inspection-field-label">Response output</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
+                <pre class="inspection-json">{{
+                  formatJson(trace.payloads.responseOutputJson)
+                }}</pre>
                 <p class="inspection-field-label">Normalized action</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.normalizedActionJson) }}</pre>
+                <pre class="inspection-json">{{
+                  formatJson(trace.payloads.normalizedActionJson)
+                }}</pre>
               </div>
             </details>
           </template>
@@ -681,9 +692,7 @@ const costLabel = computed(() => {
 // Agent tab
 const agentNameLabel = computed(() => agent.value?.name ?? 'Human');
 const modelLabel = computed(() => agent.value?.modelId ?? '—');
-const providerLabel = computed(
-  () => trace.value?.transport?.provider ?? '—',
-);
+const providerLabel = computed(() => trace.value?.transport?.provider ?? '—');
 const contextLengthLabel = computed(() => {
   const len = agent.value?.modelSnapshot?.contextLength;
   return len != null ? `${(len / 1000).toFixed(0)}k` : '—';
@@ -878,6 +887,7 @@ git commit -m "feat: rewrite RequestInspectionModal with 3-tab message-centric l
 ## Task 5: Update `MessageEntry.vue` and `ChatTabs.vue`
 
 **Files:**
+
 - Modify: `src/vue/components/timeline/MessageEntry.vue`
 - Modify: `src/vue/components/ChatTabs.vue`
 
@@ -961,6 +971,7 @@ git commit -m "refactor: simplify MessageEntry handleInspect, add inspection.res
 ## Task 6: Rewrite integration tests
 
 **Files:**
+
 - Rewrite: `tests/vue/components/multi-agent-chat/inspection.test.ts`
 
 The old tests assert on UI text that no longer exists (`'Human message'`, `'Request trace'`, `'Downstream traces'`, etc.). We rewrite them to test the new behavior.
@@ -1066,7 +1077,11 @@ describe('MultiAgentChat request inspection', () => {
         return {
           mode: 'tools',
           action: { type: 'speak_public', text: 'agent reply' },
-          usage: { promptTokens: 10, completionTokens: 5, requestCostUsd: 0.001 },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 5,
+            requestCostUsd: 0.001,
+          },
         };
       },
     };
@@ -1107,7 +1122,11 @@ describe('MultiAgentChat request inspection', () => {
         return {
           mode: 'tools',
           action: { type: 'speak_public', text: 'agent reply' },
-          usage: { promptTokens: 10, completionTokens: 5, requestCostUsd: 0.001 },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 5,
+            requestCostUsd: 0.001,
+          },
         };
       },
     };
@@ -1123,9 +1142,9 @@ describe('MultiAgentChat request inspection', () => {
     const triggers = wrapper.findAll('.message-time-trigger-active');
     await triggers[1]!.trigger('click');
 
-    const resultTab = Array.from(
-      document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Result');
+    const resultTab = Array.from(document.body.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Result',
+    );
     resultTab!.click();
     await wrapper.vm.$nextTick();
 
@@ -1144,9 +1163,9 @@ describe('MultiAgentChat request inspection', () => {
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
 
-    const resultTab = Array.from(
-      document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Result');
+    const resultTab = Array.from(document.body.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Result',
+    );
     resultTab!.click();
     await wrapper.vm.$nextTick();
 

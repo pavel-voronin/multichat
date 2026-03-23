@@ -14,11 +14,13 @@ A set of focused improvements to `RequestInspectionModal.vue` and related compon
 ### Layout change
 
 Current layout (left-to-right):
+
 ```
 [nav ← →] [subject: time · author · action] [cost] [✕]
 ```
 
 New layout:
+
 ```
 [LEFT: time · author · $cost · message text truncated…] [RIGHT: ← → · ✕]
 ```
@@ -52,12 +54,12 @@ Update all references: `UiStateSnapshot`, `ChatScopedUiStateSnapshot`, `defaultU
 
 ### Renaming
 
-| Old ID | New ID | Old Label | New Label |
-|--------|--------|-----------|-----------|
-| `agent` | `participant` | Agent | Participant |
-| `request` | `input` | Request | Input |
-| `result` | `output` | Result | Output |
-| *(new)* | `used-in` | — | Used In |
+| Old ID    | New ID        | Old Label | New Label   |
+| --------- | ------------- | --------- | ----------- |
+| `agent`   | `participant` | Agent     | Participant |
+| `request` | `input`       | Request   | Input       |
+| `result`  | `output`      | Result    | Output      |
+| _(new)_   | `used-in`     | —         | Used In     |
 
 ### Default tab on open
 
@@ -97,12 +99,15 @@ Extracting the full system prompt requires a type guard since `requestInputJson`
 const fullSystemPrompt = computed<string | null>(() => {
   const json = trace.value?.payloads.requestInputJson;
   if (!json || typeof json !== 'object') return null;
-  const messages = (json as { messages?: Array<{ role: string; content: string }> }).messages;
+  const messages = (
+    json as { messages?: Array<{ role: string; content: string }> }
+  ).messages;
   return messages?.find((m) => m.role === 'system')?.content ?? null;
 });
 ```
 
 Both blocks:
+
 - `<pre>` scrollable, no `max-h` cap — fills the remaining panel height
 - Clearly labeled: "Agent Prompt" / "Full System Prompt (sent)"
 - If the value is absent (no trace, or JSON shape differs): show `"—"`
@@ -120,6 +125,7 @@ Replace the multi-span layout (which causes merge artefacts due to `whitespace-p
 ```
 
 For private messages:
+
 ```
 [HH:MM:SS] <Sender -> Recipient> message content
 ```
@@ -168,6 +174,7 @@ Shows which agent requests included this message in their visible context.
 `diagnostics.value.messageInspectionIndex[messageId].downstreamTraceIds`
 
 For each downstream trace ID:
+
 - Resolve `diagnostics.value.requestTraces[traceId]`
 - Get `trace.producedMessageId`
 - Look up that message via `findMessageById`
@@ -204,11 +211,11 @@ If no downstream messages: `"No messages used this in their context."`
 
 ## Affected files
 
-| File | Change |
-|------|--------|
-| `src/vue/stores/ui.ts` | `InspectionTab` type updated to 4 new IDs; default value changed to `'participant'` |
-| `src/vue/stores/inspection.ts` | `canInspectMessage` allows system messages; `openForMessage` default tab logic; add + export `usedInMessagesForCurrentMessage` |
-| `src/vue/components/RequestInspectionModal.vue` | Header layout, tab names/IDs, tab content for all 4 tabs |
-| `src/vue/components/timeline/InspectorMessageLine.vue` | Single computed string format |
-| `src/vue/components/ModelCard.vue` | Add `readonly` prop |
-| `src/vue/components/timeline/MessageEntry.vue` | No changes needed — inherits `canInspectMessage` fix from store |
+| File                                                   | Change                                                                                                                         |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `src/vue/stores/ui.ts`                                 | `InspectionTab` type updated to 4 new IDs; default value changed to `'participant'`                                            |
+| `src/vue/stores/inspection.ts`                         | `canInspectMessage` allows system messages; `openForMessage` default tab logic; add + export `usedInMessagesForCurrentMessage` |
+| `src/vue/components/RequestInspectionModal.vue`        | Header layout, tab names/IDs, tab content for all 4 tabs                                                                       |
+| `src/vue/components/timeline/InspectorMessageLine.vue` | Single computed string format                                                                                                  |
+| `src/vue/components/ModelCard.vue`                     | Add `readonly` prop                                                                                                            |
+| `src/vue/components/timeline/MessageEntry.vue`         | No changes needed — inherits `canInspectMessage` fix from store                                                                |

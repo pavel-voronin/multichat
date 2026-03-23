@@ -61,7 +61,7 @@ describe('MultiAgentChat composer', () => {
 
     const wrapper = mountChat(runtime);
 
-    const sender = wrapper.get('.message-sender');
+    const sender = wrapper.get('.chat-line-sender');
     expect(sender.text()).toBe('<Human>');
 
     await sender.trigger('dblclick');

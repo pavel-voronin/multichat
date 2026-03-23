@@ -1,10 +1,5 @@
 <template>
-  <UiModal
-    :open="true"
-    size="wide"
-    :expanded="true"
-    @close="$emit('close')"
-  >
+  <UiModal :open="true" size="wide" :expanded="true" @close="$emit('close')">
     <template #title>
       <h2 class="browser-title">Select Model</h2>
     </template>
@@ -30,11 +25,7 @@
               :key="option.value"
               class="browser-radio-row"
             >
-              <input
-                type="radio"
-                :value="option.value"
-                v-model="minContext"
-              />
+              <input type="radio" :value="option.value" v-model="minContext" />
               {{ option.label }}
             </label>
           </div>

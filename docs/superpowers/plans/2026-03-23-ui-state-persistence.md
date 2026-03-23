@@ -14,22 +14,23 @@
 
 ## File Map
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| Create | `src/vue/uiPersistence.ts` | `loadUiState` / `saveUiState` — all localStorage I/O and versioning |
-| Modify | `src/vue/stores/preferences.ts` | Add `loadPersistedState` |
-| Modify | `src/vue/stores/ui.ts` | Add `loadPersistedState` |
-| Modify | `src/vue/stores/messageInput.ts` | Expose `draftByTabId`, add `loadPersistedState` |
-| Modify | `src/vue/bootstrap.ts` | Load → reset → apply → watch; cleanup in `disposeChatApp` |
-| Create | `tests/vue/uiPersistence.test.ts` | Unit tests for `loadUiState` / `saveUiState` |
-| Modify | `tests/vue/components/multi-agent-chat/helpers.ts` | Clear localStorage in `afterEach` to prevent cross-test leakage |
-| Create | `tests/vue/components/multi-agent-chat/ui-persistence.test.ts` | Integration tests via `mountChat` |
+| Action | File                                                           | Responsibility                                                      |
+| ------ | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Create | `src/vue/uiPersistence.ts`                                     | `loadUiState` / `saveUiState` — all localStorage I/O and versioning |
+| Modify | `src/vue/stores/preferences.ts`                                | Add `loadPersistedState`                                            |
+| Modify | `src/vue/stores/ui.ts`                                         | Add `loadPersistedState`                                            |
+| Modify | `src/vue/stores/messageInput.ts`                               | Expose `draftByTabId`, add `loadPersistedState`                     |
+| Modify | `src/vue/bootstrap.ts`                                         | Load → reset → apply → watch; cleanup in `disposeChatApp`           |
+| Create | `tests/vue/uiPersistence.test.ts`                              | Unit tests for `loadUiState` / `saveUiState`                        |
+| Modify | `tests/vue/components/multi-agent-chat/helpers.ts`             | Clear localStorage in `afterEach` to prevent cross-test leakage     |
+| Create | `tests/vue/components/multi-agent-chat/ui-persistence.test.ts` | Integration tests via `mountChat`                                   |
 
 ---
 
 ## Task 1: Create `uiPersistence.ts` with unit tests
 
 **Files:**
+
 - Create: `src/vue/uiPersistence.ts`
 - Create: `tests/vue/uiPersistence.test.ts`
 
@@ -282,6 +283,7 @@ git commit -m "feat: add uiPersistence module for localStorage UI state"
 ## Task 2: Add `loadPersistedState` to stores
 
 **Files:**
+
 - Modify: `src/vue/stores/preferences.ts`
 - Modify: `src/vue/stores/ui.ts`
 - Modify: `src/vue/stores/messageInput.ts`
@@ -322,7 +324,9 @@ In `src/vue/stores/messageInput.ts`:
 2. Add `loadPersistedState` (must only set `draftByTabId`, not touch `messageInputElement`):
 
 ```ts
-function loadPersistedState(data: { draftByTabId: Record<string, string> }): void {
+function loadPersistedState(data: {
+  draftByTabId: Record<string, string>;
+}): void {
   draftByTabId.value = data.draftByTabId;
 }
 ```
@@ -349,6 +353,7 @@ git commit -m "feat: add loadPersistedState to preferences, ui, and messageInput
 ## Task 3: Wire up `bootstrap.ts`
 
 **Files:**
+
 - Modify: `src/vue/bootstrap.ts`
 
 - [ ] **Step 3.1: Modify `bootstrap.ts` incrementally**
@@ -463,6 +468,7 @@ git commit -m "feat: wire UI state persistence into initializeChatApp"
 ## Task 4: Integration tests + test helper cleanup
 
 **Files:**
+
 - Modify: `tests/vue/components/multi-agent-chat/helpers.ts`
 - Create: `tests/vue/components/multi-agent-chat/ui-persistence.test.ts`
 

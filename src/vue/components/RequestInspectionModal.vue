@@ -20,13 +20,17 @@
         :disabled="!inspection.canGoBack"
         aria-label="Back"
         @click="inspection.navigateBack"
-      >←</button>
+      >
+        ←
+      </button>
       <button
         class="inspection-nav-btn"
         :disabled="!inspection.canGoForward"
         aria-label="Forward"
         @click="inspection.navigateForward"
-      >→</button>
+      >
+        →
+      </button>
     </template>
 
     <div class="inspection-shell">
@@ -36,7 +40,9 @@
           :key="tab.id"
           type="button"
           class="inspection-tab"
-          :class="{ 'inspection-tab-active': ui.activeInspectionTab === tab.id }"
+          :class="{
+            'inspection-tab-active': ui.activeInspectionTab === tab.id,
+          }"
           @click="ui.activeInspectionTab = tab.id"
         >
           {{ tab.label }}
@@ -61,19 +67,17 @@
         <template v-if="agent">
           <div class="inspection-prompt-block">
             <p class="inspection-field-label">Agent Prompt</p>
-            <pre
-              v-if="agentPrompt"
-              class="inspection-prompt"
-            >{{ agentPrompt }}</pre>
+            <pre v-if="agentPrompt" class="inspection-prompt">{{
+              agentPrompt
+            }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
 
           <div class="inspection-prompt-block">
             <p class="inspection-field-label">Full System Prompt (sent)</p>
-            <pre
-              v-if="fullSystemPrompt"
-              class="inspection-prompt"
-            >{{ fullSystemPrompt }}</pre>
+            <pre v-if="fullSystemPrompt" class="inspection-prompt">{{
+              fullSystemPrompt
+            }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
         </template>
@@ -121,9 +125,17 @@
           <details class="inspection-raw-json">
             <summary class="inspection-raw-json-summary">
               Raw Input
-              <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.requestInputJson)">Copy</button>
+              <button
+                type="button"
+                class="inspection-copy-btn"
+                @click.prevent="copyJson(trace?.payloads.requestInputJson)"
+              >
+                Copy
+              </button>
             </summary>
-            <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
+            <pre class="inspection-json">{{
+              formatJson(trace.payloads.requestInputJson)
+            }}</pre>
           </details>
         </template>
         <p v-else class="inspection-na">No request data.</p>
@@ -156,9 +168,17 @@
           <details class="inspection-raw-json inspection-raw-json-second">
             <summary class="inspection-raw-json-summary">
               Raw Output
-              <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.responseOutputJson)">Copy</button>
+              <button
+                type="button"
+                class="inspection-copy-btn"
+                @click.prevent="copyJson(trace?.payloads.responseOutputJson)"
+              >
+                Copy
+              </button>
             </summary>
-            <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
+            <pre class="inspection-json">{{
+              formatJson(trace.payloads.responseOutputJson)
+            }}</pre>
           </details>
         </template>
         <p v-else class="inspection-na">No request data.</p>
@@ -227,7 +247,9 @@ const agentPrompt = computed(() => agent.value?.systemPrompt ?? null);
 const fullSystemPrompt = computed<string | null>(() => {
   const json = trace.value?.payloads.requestInputJson;
   if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
-  const messages = (json as { messages?: Array<{ role: string; content: unknown }> }).messages;
+  const messages = (
+    json as { messages?: Array<{ role: string; content: unknown }> }
+  ).messages;
   const entry = messages?.find((m) => m.role === 'system');
   return typeof entry?.content === 'string' ? entry.content : null;
 });
@@ -256,9 +278,12 @@ const promptTokensLabel = computed(
 const actionDetailLabel = computed((): string => {
   if (!action.value) return '—';
   switch (action.value.type) {
-    case 'speak_public': return 'Published to public chat';
-    case 'send_private': return `Sent privately to ${inspection.participantName(action.value.to)}`;
-    case 'stay_silent': return `Stayed silent: ${action.value.reason}`;
+    case 'speak_public':
+      return 'Published to public chat';
+    case 'send_private':
+      return `Sent privately to ${inspection.participantName(action.value.to)}`;
+    case 'stay_silent':
+      return `Stayed silent: ${action.value.reason}`;
   }
 });
 const completionTokensLabel = computed(

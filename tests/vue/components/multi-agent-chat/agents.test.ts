@@ -22,7 +22,7 @@ describe('MultiAgentChat agent lifecycle', () => {
     expect(document.body.textContent).toContain('Edit agent');
 
     const deleteButton = Array.from(
-      document.body.querySelectorAll('.wizard-backdrop button'),
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
     ).find((button) => button.textContent?.trim() === 'Delete') as
       | HTMLButtonElement
       | undefined;

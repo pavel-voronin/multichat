@@ -21,16 +21,16 @@ Human messages open the same inspector. Agent/Request/Result tabs are shown but 
 
 ### Header (always visible, not scrollable)
 
-| Element | Content |
-|---|---|
-| Back / Forward | `←` `→` buttons, browser-style history stack |
-| Subject | Author name · timestamp · action type (`speak_public` / `send_private` / `stay_silent`). For human messages or when no trace exists, the action type slot is omitted (just author name · timestamp). |
-| Cost | Request cost in USD (`trace.usage.requestCostUsd`), omitted if no trace |
-| Close | `✕` |
+| Element        | Content                                                                                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Back / Forward | `←` `→` buttons, browser-style history stack                                                                                                                                                         |
+| Subject        | Author name · timestamp · action type (`speak_public` / `send_private` / `stay_silent`). For human messages or when no trace exists, the action type slot is omitted (just author name · timestamp). |
+| Cost           | Request cost in USD (`trace.usage.requestCostUsd`), omitted if no trace                                                                                                                              |
+| Close          | `✕`                                                                                                                                                                                                  |
 
 ### Tab: Agent
 
-Answers: *who wrote this, with what setup?*
+Answers: _who wrote this, with what setup?_
 
 - **Agent card**: name, model ID (`agentConfig.modelId`), provider (`trace.transport.provider`), context length (`agentConfig.modelSnapshot.contextLength`)
 - **System prompt**: full text in a scrollable monospace area (`agentConfig.systemPrompt`)
@@ -39,7 +39,7 @@ For human messages and any case where `agentForCurrentMessage` is null: name sho
 
 ### Tab: Request
 
-Answers: *what did the model see going in?*
+Answers: _what did the model see going in?_
 
 - **Context messages**: the list of `visibleMessageIds` from the `RequestTrace`, resolved to `ChatMessage[]` from `runtimeStore.state.timeline`, rendered using the new `InspectorMessageLine` component (see below), in chronological order. Each message is clickable — clicking calls `navigateTo(message.id)`.
 - **Request meta**: started-at timestamp (`trace.startedAt`), duration in seconds (`trace.finishedAt - trace.startedAt`), input token count (`trace.usage.promptTokens`).
@@ -50,7 +50,7 @@ For human messages or when no trace exists: section shows "no request data".
 
 ### Tab: Result
 
-Answers: *what decision did the model make?*
+Answers: _what decision did the model make?_
 
 - **Action**: cast `trace.payloads.normalizedActionJson` to `AgentToolCall` (from `src/core/types.ts`), then render by type:
   - `speak_public` — "published to public chat"
@@ -91,19 +91,23 @@ A lightweight component for rendering a `ChatMessage` inside the inspector conte
 ### UI store (`src/vue/stores/ui.ts`)
 
 **Removed:**
+
 - `inspectionTargetType: 'message' | 'trace'`
 - `selectedTraceId: string | null`
 - `selectedMessageId: string | null` (moved to inspection store as derived from history)
 - `activeInspectionTab: InspectionTab` (old 6-value type)
 
 **Changed:**
+
 - `InspectionTab` type redefined as `'agent' | 'request' | 'result'` (was `'overview' | 'causality' | 'context' | 'output' | 'infra' | 'raw-json'`)
 - `activeInspectionTab: InspectionTab` default value changed to `'agent'`
 
 **Kept:**
+
 - `showRequestInspection: boolean`
 
 **Impact on related files:**
+
 - `defaultUiState()` in `ui.ts` — change `activeInspectionTab` default from `'overview'` to `'agent'`; remove removed fields
 - `resetChatScopedState()` in `ui.ts` — update accordingly
 - `uiPersistence.ts` — **no changes needed** (`activeInspectionTab` is not persisted)
@@ -112,6 +116,7 @@ A lightweight component for rendering a `ChatMessage` inside the inspector conte
 ### Inspection store (`src/vue/stores/inspection.ts`)
 
 **Removed:**
+
 - `openForTrace(traceId, messageId?)` — no longer a public entry point
 - `selectTrace(traceId)` — removed
 - `selectMessage(messageId)` — removed (replaced by `navigateTo`)
@@ -122,6 +127,7 @@ A lightweight component for rendering a `ChatMessage` inside the inspector conte
 - `currentMessage` computed — replaced by `currentInspectedMessage`
 
 **Added / changed:**
+
 - `inspectionHistory: string[]` — stored in this store (not UI store), list of message IDs
 - `inspectionHistoryIndex: number` — current position in stack
 - `currentInspectedMessage` computed — `findMessageById(state, inspectionHistory[inspectionHistoryIndex])`
@@ -135,6 +141,7 @@ A lightweight component for rendering a `ChatMessage` inside the inspector conte
 - `close()` — **kept** as-is
 
 **Kept:**
+
 - `participantName(participantId)` utility
 - `getRequestTrace(traceId)` — kept for internal use if needed by Raw JSON
 
@@ -153,12 +160,12 @@ A lightweight component for rendering a `ChatMessage` inside the inspector conte
 
 ## Files affected
 
-| File | Change |
-|---|---|
-| `src/vue/stores/ui.ts` | Remove `inspectionTargetType`, `selectedTraceId`, `selectedMessageId`; redefine `InspectionTab` type; update `defaultUiState`, `resetChatScopedState`, `ChatScopedUiStateSnapshot` |
-| `src/vue/utils/uiPersistence.ts` | No changes needed |
-| `src/vue/stores/inspection.ts` | Major rewrite per state changes above |
-| `src/vue/components/RequestInspectionModal.vue` | Full rewrite — new 3-tab layout |
-| `src/vue/components/timeline/MessageEntry.vue` | Simplify `handleInspect`; update `canInspectMessage` usage |
-| `src/vue/components/timeline/InspectorMessageLine.vue` | New component |
-| `tests/vue/components/multi-agent-chat/inspection.test.ts` | Update tests to new API |
+| File                                                       | Change                                                                                                                                                                             |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/vue/stores/ui.ts`                                     | Remove `inspectionTargetType`, `selectedTraceId`, `selectedMessageId`; redefine `InspectionTab` type; update `defaultUiState`, `resetChatScopedState`, `ChatScopedUiStateSnapshot` |
+| `src/vue/utils/uiPersistence.ts`                           | No changes needed                                                                                                                                                                  |
+| `src/vue/stores/inspection.ts`                             | Major rewrite per state changes above                                                                                                                                              |
+| `src/vue/components/RequestInspectionModal.vue`            | Full rewrite — new 3-tab layout                                                                                                                                                    |
+| `src/vue/components/timeline/MessageEntry.vue`             | Simplify `handleInspect`; update `canInspectMessage` usage                                                                                                                         |
+| `src/vue/components/timeline/InspectorMessageLine.vue`     | New component                                                                                                                                                                      |
+| `tests/vue/components/multi-agent-chat/inspection.test.ts` | Update tests to new API                                                                                                                                                            |

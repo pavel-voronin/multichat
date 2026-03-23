@@ -3,7 +3,11 @@ import type { CostDisplayMode } from './types';
 export const UI_PERSISTENCE_KEY = 'multichat-ui-state';
 export const UI_PERSISTENCE_VERSION = 1;
 
-const COST_DISPLAY_MODES = ['off', 'request', 'net'] as const satisfies readonly CostDisplayMode[];
+const COST_DISPLAY_MODES = [
+  'off',
+  'request',
+  'net',
+] as const satisfies readonly CostDisplayMode[];
 
 export interface UiPersistedState {
   version: number;

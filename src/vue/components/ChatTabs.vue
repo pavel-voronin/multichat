@@ -299,8 +299,11 @@ function scrollTabIntoView(tabId: string) {
 
 watch(
   () =>
-    `${workspace.value.activeTabId}::${workspace.value.tabs.map((tab) => tab.id).join('|')}`,
+    workspace.value
+      ? `${workspace.value.activeTabId}::${workspace.value.tabs.map((tab) => tab.id).join('|')}`
+      : null,
   async () => {
+    if (!workspace.value) return;
     await nextTick();
     scrollTabIntoView(workspace.value.activeTabId);
   },

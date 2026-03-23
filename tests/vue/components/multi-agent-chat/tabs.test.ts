@@ -103,14 +103,7 @@ describe('MultiAgentChat tabs', () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     const wrapper = mountChat(runtime);
 
-    await wrapper.get('.chat-tabs-empty-zone').trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
-    await wrapper.get('.chat-tabs-empty-zone').trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
+    await wrapper.get('.chat-tabs-empty-zone').trigger('dblclick');
 
     expect(runtime.getWorkspaceState().tabs.map((tab) => tab.title)).toEqual([
       '#default',
@@ -123,22 +116,8 @@ describe('MultiAgentChat tabs', () => {
     const wrapper = mountChat(runtime);
     const emptyZone = wrapper.get('.chat-tabs-empty-zone');
 
-    await emptyZone.trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
-    await emptyZone.trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
-    await emptyZone.trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
-    await emptyZone.trigger('click', {
-      clientX: 320,
-      clientY: 12,
-    });
+    await emptyZone.trigger('dblclick');
+    await emptyZone.trigger('dblclick');
 
     expect(runtime.getWorkspaceState().tabs.map((tab) => tab.title)).toEqual([
       '#default',

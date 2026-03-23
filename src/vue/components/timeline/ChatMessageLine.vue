@@ -10,17 +10,19 @@
       @keydown.space.prevent="handleInspect"
       >[{{ timeLabel }}]</span
     ><template v-if="!isSystem"
-      >{{ ' ' }}<span
-      class="chat-line-sender"
-      :class="{ 'chat-line-sender-interactive': interactive }"
-      @dblclick="handleMention"
-      >{{ authorLabel }}</span></template
+      >{{ ' '
+      }}<span
+        class="chat-line-sender"
+        :class="{ 'chat-line-sender-interactive': interactive }"
+        @dblclick="handleMention"
+        >{{ authorLabel }}</span
+      ></template
     ><template v-if="showCost"
-      >{{ ' ' }}<CostBadge
+      >{{ ' '
+      }}<CostBadge
         :item="message"
         :item-id="message.id"
-        :cost-display-mode="costDisplayMode"
-      /></template
+        :cost-display-mode="costDisplayMode" /></template
     >{{ ' ' }}<span class="chat-line-text">{{ message.content }}</span>
   </div>
 </template>
@@ -70,8 +72,8 @@ const authorLabel = computed(() =>
   }),
 );
 
-const canInspect = computed(() =>
-  props.interactive && inspection.canInspectMessage(props.message),
+const canInspect = computed(
+  () => props.interactive && inspection.canInspectMessage(props.message),
 );
 
 const lineClasses = computed(() => ({

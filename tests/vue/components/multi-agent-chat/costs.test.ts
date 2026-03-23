@@ -246,7 +246,7 @@ describe('MultiAgentChat cost display', () => {
     await costModeButton!.trigger('click');
     await wrapper.vm.$nextTick();
 
-    const systemLines = wrapper.findAll('.message-line-system');
+    const systemLines = wrapper.findAll('.chat-line-system');
     expect(
       systemLines.some((line) =>
         line.text().includes('Topic changed to: System topic'),
@@ -254,7 +254,7 @@ describe('MultiAgentChat cost display', () => {
     ).toBe(true);
     expect(wrapper.text()).toContain('Topic changed to: System topic');
     expect(
-      wrapper.find('.message-line-system .message-cost-trigger').exists(),
+      wrapper.find('.chat-line-system .message-cost-trigger').exists(),
     ).toBe(true);
   });
 });

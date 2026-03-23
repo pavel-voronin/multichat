@@ -128,7 +128,9 @@ describe('MultiAgentChat layout and workflow', () => {
     await wrapper.vm.$nextTick();
 
     expect(runtime.getModelsCatalogSnapshot()).toBeNull();
-    expect(document.body.textContent).toContain('No persisted models snapshot.');
+    expect(document.body.textContent).toContain(
+      'No persisted models snapshot.',
+    );
     wrapper.unmount();
   });
 

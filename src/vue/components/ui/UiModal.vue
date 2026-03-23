@@ -1,11 +1,10 @@
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="ui-modal-backdrop"
-      @click.self="emit('close')"
-    >
-      <div class="ui-modal-card" :class="[widthClass, { 'ui-modal-card-expanded': props.expanded }]">
+    <div v-if="open" class="ui-modal-backdrop" @click.self="emit('close')">
+      <div
+        class="ui-modal-card"
+        :class="[widthClass, { 'ui-modal-card-expanded': props.expanded }]"
+      >
         <header class="ui-modal-titlebar">
           <div class="ui-modal-title-slot">
             <slot name="title" />
@@ -57,11 +56,16 @@ const modalToken = Symbol('ui-modal');
 
 const widthClass = computed(() => {
   switch (props.size) {
-    case 'sm': return 'max-w-md';
-    case 'md': return 'max-w-xl';
-    case 'lg': return 'max-w-2xl';
-    case 'xl': return 'max-w-4xl';
-    case 'wide': return 'max-w-[818px]';
+    case 'sm':
+      return 'max-w-md';
+    case 'md':
+      return 'max-w-xl';
+    case 'lg':
+      return 'max-w-2xl';
+    case 'xl':
+      return 'max-w-4xl';
+    case 'wide':
+      return 'max-w-[818px]';
   }
 });
 

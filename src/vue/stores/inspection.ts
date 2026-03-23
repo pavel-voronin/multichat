@@ -83,7 +83,8 @@ export const useInspectionStore = defineStore('inspection', () => {
     inspectionHistoryIndex.value = 0;
     ui.showRequestInspection = true;
     const message = findMessageById(state.value, messageId);
-    ui.activeInspectionTab = (message && isSystemMessage(message)) ? 'used-in' : 'participant';
+    ui.activeInspectionTab =
+      message && isSystemMessage(message) ? 'used-in' : 'participant';
   }
 
   function navigateTo(messageId: string): void {

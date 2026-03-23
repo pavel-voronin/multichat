@@ -40,7 +40,7 @@ describe('MultiAgentChat history controls', () => {
 
     expect(wrapper.text()).toContain('New topic starts below.');
     expect(wrapper.text()).toContain('Delete messages above');
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(3);
+    expect(wrapper.findAll('.chat-line-muted')).toHaveLength(3);
     expect(wrapper.text()).toContain('Fresh context');
 
     const logText = wrapper
@@ -90,7 +90,7 @@ describe('MultiAgentChat history controls', () => {
     expect(wrapper.text()).not.toContain('Before cutoff');
     expect(wrapper.text()).not.toContain('stayed silent: noop');
     expect(wrapper.text()).toContain('After cutoff');
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(0);
+    expect(wrapper.findAll('.chat-line-muted')).toHaveLength(0);
   });
 
   it('moves the manual cutoff when dragging it inside chat history', async () => {
@@ -168,7 +168,7 @@ describe('MultiAgentChat history controls', () => {
     expect(logText.indexOf('New topic starts below.')).toBeLessThan(
       logText.indexOf('Two'),
     );
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(2);
+    expect(wrapper.findAll('.chat-line-muted')).toHaveLength(2);
   });
 
   it('removes the manual cutoff when dragging it outside chat history', async () => {
@@ -197,7 +197,7 @@ describe('MultiAgentChat history controls', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).not.toContain('New topic starts below.');
-    expect(wrapper.findAll('.message-line-muted')).toHaveLength(0);
+    expect(wrapper.findAll('.chat-line-muted')).toHaveLength(0);
   });
 
   it('renders only the latest manual cutoff banner after repeated resets', async () => {

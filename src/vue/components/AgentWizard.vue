@@ -58,15 +58,11 @@
         </div>
         <p class="wizard-copy">
           This prompt is combined with the runtime's built-in protocol
-          instructions. Your text defines the agent's role and judgment. The
-          app still injects the response contract, visibility rules, and
-          tool/JSON command format automatically.
+          instructions. Your text defines the agent's role and judgment. The app
+          still injects the response contract, visibility rules, and tool/JSON
+          command format automatically.
         </p>
-        <UiTextarea
-          v-model="systemPrompt"
-          class="wizard-textarea"
-          rows="10"
-        />
+        <UiTextarea v-model="systemPrompt" class="wizard-textarea" rows="10" />
       </label>
       <div class="wizard-actions">
         <UiButton

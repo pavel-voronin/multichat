@@ -3,7 +3,10 @@ import { createPinia, type Pinia } from 'pinia';
 import { afterEach, vi } from 'vitest';
 import MultiAgentChat from '../../../../src/vue/components/MultiAgentChat.vue';
 import { MultiChatRuntime } from '../../../../src/core/runtime';
-import { disposeChatApp, initializeChatApp } from '../../../../src/vue/bootstrap';
+import {
+  disposeChatApp,
+  initializeChatApp,
+} from '../../../../src/vue/bootstrap';
 import { usePreferencesStore } from '../../../../src/vue/stores/preferences';
 import type {
   ChatMessage,
@@ -11,10 +14,15 @@ import type {
   TimelineMessageEntry,
 } from '../../../../src/core';
 
-// Track the last pinia for cleanup
+// Track the last pinia and wrapper for cleanup
 let lastPinia: Pinia | null = null;
+let lastWrapper: ReturnType<typeof mount> | null = null;
 
 afterEach(() => {
+  if (lastWrapper) {
+    lastWrapper.unmount();
+    lastWrapper = null;
+  }
   if (lastPinia) {
     disposeChatApp(lastPinia);
     lastPinia = null;
@@ -89,12 +97,14 @@ export function mountChat(
   lastPinia = pinia;
   initializeChatApp(pinia, runtime);
   options?.configure?.(pinia);
-  return mount(MultiAgentChat, {
+  const wrapper = mount(MultiAgentChat, {
     attachTo: document.body,
     global: {
       plugins: [pinia],
     },
   });
+  lastWrapper = wrapper;
+  return wrapper;
 }
 
 export function setTechnicalInfoVisible(pinia: Pinia): void {

@@ -111,7 +111,9 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     draftByTabId.value = {};
   }
 
-  function loadPersistedState(data: { draftByTabId: Record<string, string> }): void {
+  function loadPersistedState(data: {
+    draftByTabId: Record<string, string>;
+  }): void {
     draftByTabId.value = data.draftByTabId;
   }
 

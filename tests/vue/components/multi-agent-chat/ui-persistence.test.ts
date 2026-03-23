@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import { createPinia } from 'pinia';
-import { initializeChatApp, disposeChatApp } from '../../../../src/vue/bootstrap';
+import {
+  initializeChatApp,
+  disposeChatApp,
+} from '../../../../src/vue/bootstrap';
 import { usePreferencesStore } from '../../../../src/vue/stores/preferences';
 import { useUiStore } from '../../../../src/vue/stores/ui';
 import { useMessageInputStore } from '../../../../src/vue/stores/messageInput';
@@ -25,12 +28,14 @@ afterEach(() => {
 function createRuntime() {
   const transport: OpenRouterTransport = {
     async listModels() {
-      return [{
-        id: 'model-a:free',
-        name: 'Model A Free',
-        context_length: 128000,
-        supported_parameters: ['tools'],
-      }];
+      return [
+        {
+          id: 'model-a:free',
+          name: 'Model A Free',
+          context_length: 128000,
+          supported_parameters: ['tools'],
+        },
+      ];
     },
     async runAgentTurn() {
       return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };

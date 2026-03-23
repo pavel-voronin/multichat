@@ -10,7 +10,9 @@
       <span v-if="priceLabel" class="model-card-meta">{{ priceLabel }}</span>
       <span v-if="isFree" class="model-card-badge-free">Free</span>
     </div>
-    <UiButton v-if="!readonly" size="sm" @click="$emit('change')">Change</UiButton>
+    <UiButton v-if="!readonly" size="sm" @click="$emit('change')"
+      >Change</UiButton
+    >
   </div>
 </template>
 

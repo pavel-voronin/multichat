@@ -31,19 +31,13 @@
       </UiButton>
     </div>
     <div class="modal-actions">
-      <UiButton
-        class="modal-primary-button"
-        variant="primary"
-        @click="save"
-      >
+      <UiButton class="modal-primary-button" variant="primary" @click="save">
         Save
       </UiButton>
       <UiButton class="modal-secondary-button" @click="reset">
         Full reset
       </UiButton>
-      <UiButton class="modal-secondary-button" @click="close">
-        Close
-      </UiButton>
+      <UiButton class="modal-secondary-button" @click="close"> Close </UiButton>
     </div>
   </UiModal>
 </template>

@@ -5,6 +5,7 @@
 ## Problem
 
 User preferences and draft messages are lost on page reload. The following Vue stores reset to defaults on every load:
+
 - `usePreferencesStore` — `showSilentDecisions`, `costDisplayMode`
 - `useUiStore` — `showLogsPanel`
 - `useMessageInputStore` — `draftByTabId`
@@ -14,6 +15,7 @@ The core `WorkspaceState` (chat history, agents, settings) is already persisted 
 ## Approach
 
 A centralized `uiPersistence.ts` module manages a single `localStorage` key (`multichat-ui-state`). localStorage is chosen over IndexedDB because:
+
 - Synchronous reads enable immediate initialization without async loading or render flicker
 - Data volume is small (a few flags + short text drafts)
 - Simpler implementation with no async chain in bootstrap
@@ -51,6 +53,7 @@ export function saveUiState(state: UiPersistedState): void
 ```
 
 **`loadUiState`:** reads `localStorage.getItem('multichat-ui-state')`, parses JSON inside a try/catch. Returns defaults if:
+
 - key is missing
 - JSON parse fails
 - `version` field does not match `UI_PERSISTENCE_VERSION` (also deletes the stale entry via `localStorage.removeItem`)
@@ -63,12 +66,15 @@ export function saveUiState(state: UiPersistedState): void
 ### Store changes
 
 #### `usePreferencesStore`
+
 - Add `loadPersistedState(data: Pick<UiPersistedState, 'showSilentDecisions' | 'costDisplayMode'>)` method that sets both fields.
 
 #### `useUiStore`
+
 - Add `loadPersistedState(data: Pick<UiPersistedState, 'showLogsPanel'>)` method that sets `showLogsPanel`.
 
 #### `useMessageInputStore`
+
 - Expose `draftByTabId` ref in the store's return object (currently internal only).
 - Add `loadPersistedState(data: Pick<UiPersistedState, 'draftByTabId'>)` method that sets `draftByTabId.value = data.draftByTabId`. Must not touch `messageInputElement`.
 

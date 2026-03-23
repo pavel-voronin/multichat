@@ -22,9 +22,9 @@ New `ChatMessageLine.vue` — one component, minimal props.
 
 ```ts
 defineProps<{
-  message: ChatMessage
-  muted?: boolean
-}>()
+  message: ChatMessage;
+  muted?: boolean;
+}>();
 ```
 
 - `muted` — passed by `MessageEntry.vue` from `entry.isMuted`; controls the muted text color class. `ChatMessage` itself has no muted state; it is computed at the timeline layer.
@@ -36,14 +36,19 @@ defineProps<{
 ```html
 <p class="chat-line" :class="lineClasses">
   <span
-    class="time" :class="timeClasses"
+    class="time"
+    :class="timeClasses"
     @click="handleInspect"
     @keydown.enter="handleInspect"
     @keydown.space.prevent="handleInspect"
-  >[{{ time }}]</span>{{ ' '
-  }}<span v-if="!isSystem" class="sender" @dblclick="handleMention">{{ sender }}</span
-  ><CostBadge :item="message" :item-id="message.id" :cost-display-mode="costDisplayMode" />{{ ' '
-  }}<span class="text">{{ message.content }}</span>
+    >[{{ time }}]</span
+  >{{ ' ' }}<span v-if="!isSystem" class="sender" @dblclick="handleMention"
+    >{{ sender }}</span
+  ><CostBadge
+    :item="message"
+    :item-id="message.id"
+    :cost-display-mode="costDisplayMode"
+  />{{ ' ' }}<span class="text">{{ message.content }}</span>
 </p>
 ```
 
@@ -57,12 +62,12 @@ Spaces between elements: `{{ ' ' }}` text interpolations — not separator spans
 
 The component applies the correct class based on message type, mirroring the current behavior in both `MessageEntry.vue` and `InspectorMessageLine.vue`:
 
-| Condition | Class |
-|-----------|-------|
-| `message.target === 'private'` | `chat-line-private` — italic, orange |
-| `isSystemMessage(message)` | `chat-line-system` — gray |
-| `muted === true` | `chat-line-muted` — lighter text, regardless of variant |
-| default | `chat-line` — standard neutral-800 |
+| Condition                      | Class                                                   |
+| ------------------------------ | ------------------------------------------------------- |
+| `message.target === 'private'` | `chat-line-private` — italic, orange                    |
+| `isSystemMessage(message)`     | `chat-line-system` — gray                               |
+| `muted === true`               | `chat-line-muted` — lighter text, regardless of variant |
+| default                        | `chat-line` — standard neutral-800                      |
 
 Private message styling is preserved in the inspector context/Used In lists through this same class logic — no special case needed.
 
@@ -124,14 +129,14 @@ The drag-drop system reads attributes from `<article>` and renders the drop indi
 
 ## What changes
 
-| File | Change |
-|------|--------|
-| `ChatMessageLine.vue` | **New** — unified rendering component |
-| `MessageEntry.vue` | Becomes thin wrapper: `<article>` + `<ChatMessageLine :message="entry.message" :muted="entry.isMuted" />` |
-| `TechnicalEventEntry.vue` | Unchanged |
-| `InspectorMessageLine.vue` | **Deleted** |
+| File                         | Change                                                                                                                                                                                                |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChatMessageLine.vue`        | **New** — unified rendering component                                                                                                                                                                 |
+| `MessageEntry.vue`           | Becomes thin wrapper: `<article>` + `<ChatMessageLine :message="entry.message" :muted="entry.isMuted" />`                                                                                             |
+| `TechnicalEventEntry.vue`    | Unchanged                                                                                                                                                                                             |
+| `InspectorMessageLine.vue`   | **Deleted**                                                                                                                                                                                           |
 | `RequestInspectionModal.vue` | Inspector context/Used In: replace `<InspectorMessageLine>` with wrapper div + `<ChatMessageLine>`; header: replace manual spans with `<ChatMessageLine :message="message" class="truncate min-w-0">` |
-| `ChatTimeline.vue` | Add `whitespace-pre-wrap` to message list container |
+| `ChatTimeline.vue`           | Add `whitespace-pre-wrap` to message list container                                                                                                                                                   |
 
 ## Responsive reflow
 

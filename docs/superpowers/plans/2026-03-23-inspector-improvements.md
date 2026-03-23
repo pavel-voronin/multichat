@@ -14,20 +14,21 @@
 
 ## File Map
 
-| File | What changes |
-|------|-------------|
-| `src/vue/stores/ui.ts` | `InspectionTab` type updated to 4 new IDs; default `'participant'` |
-| `src/vue/stores/inspection.ts` | `canInspectMessage` allows system msgs; `openForMessage` smart default tab; add + export `usedInMessagesForCurrentMessage` |
-| `src/vue/components/ModelCard.vue` | Add `readonly?: boolean` prop; hide Change button when true |
-| `src/vue/components/timeline/InspectorMessageLine.vue` | Single computed string format instead of multi-span |
-| `src/vue/components/RequestInspectionModal.vue` | Header layout, 4 tabs, Participant/Input/Output/Used-In content |
-| `tests/vue/components/multi-agent-chat/inspection.test.ts` | Update tab label references; add tests for new tabs and system message |
+| File                                                       | What changes                                                                                                               |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `src/vue/stores/ui.ts`                                     | `InspectionTab` type updated to 4 new IDs; default `'participant'`                                                         |
+| `src/vue/stores/inspection.ts`                             | `canInspectMessage` allows system msgs; `openForMessage` smart default tab; add + export `usedInMessagesForCurrentMessage` |
+| `src/vue/components/ModelCard.vue`                         | Add `readonly?: boolean` prop; hide Change button when true                                                                |
+| `src/vue/components/timeline/InspectorMessageLine.vue`     | Single computed string format instead of multi-span                                                                        |
+| `src/vue/components/RequestInspectionModal.vue`            | Header layout, 4 tabs, Participant/Input/Output/Used-In content                                                            |
+| `tests/vue/components/multi-agent-chat/inspection.test.ts` | Update tab label references; add tests for new tabs and system message                                                     |
 
 ---
 
 ## Task 1: Update InspectionTab type in ui.ts
 
 **Files:**
+
 - Modify: `src/vue/stores/ui.ts`
 
 - [ ] **Step 1: Update the type and all references**
@@ -54,6 +55,7 @@ const activeInspectionTab = ref<InspectionTab>('participant');
 ## Task 2: Update inspection store
 
 **Files:**
+
 - Modify: `src/vue/stores/inspection.ts`
 - Test: `tests/vue/components/multi-agent-chat/inspection.test.ts`
 
@@ -159,6 +161,7 @@ git commit -m "feat: allow system message inspection, smart default tab, add use
 ## Task 3: Add readonly prop to ModelCard
 
 **Files:**
+
 - Modify: `src/vue/components/ModelCard.vue`
 
 - [ ] **Step 1: Add the `readonly` prop and conditionally hide the button**
@@ -199,6 +202,7 @@ git commit -m "feat: add readonly prop to ModelCard to hide Change button"
 ## Task 4: Refactor InspectorMessageLine to plain text format
 
 **Files:**
+
 - Modify: `src/vue/components/timeline/InspectorMessageLine.vue`
 
 - [ ] **Step 1: Rewrite the component**
@@ -207,11 +211,9 @@ Replace the entire file content with:
 
 ```vue
 <template>
-  <button
-    type="button"
-    :class="lineClass"
-    @click="handleClick"
-  >{{ lineText }}</button>
+  <button type="button" :class="lineClass" @click="handleClick">
+    {{ lineText }}
+  </button>
 </template>
 
 <script setup lang="ts">
@@ -285,6 +287,7 @@ git commit -m "refactor: render InspectorMessageLine as single plain-text string
 This is the largest task. Do it in sub-steps, running tsc after each to catch errors early.
 
 **Files:**
+
 - Modify: `src/vue/components/RequestInspectionModal.vue`
 
 - [ ] **Step 1: Update the `<script setup>` — tabs array, new computed, imports**
@@ -327,7 +330,9 @@ const timeLabel = computed(() =>
 );
 const authorLabel = computed(() => {
   if (!message.value) return '—';
-  return formatMessageAuthor(message.value, { byId: inspection.participantName });
+  return formatMessageAuthor(message.value, {
+    byId: inspection.participantName,
+  });
 });
 const costLabel = computed(() => {
   const cost = trace.value?.usage?.requestCostUsd;
@@ -344,7 +349,9 @@ const agentPrompt = computed(() => agent.value?.systemPrompt ?? null);
 const fullSystemPrompt = computed<string | null>(() => {
   const json = trace.value?.payloads.requestInputJson;
   if (!json || typeof json !== 'object') return null;
-  const messages = (json as { messages?: Array<{ role: string; content: string }> }).messages;
+  const messages = (
+    json as { messages?: Array<{ role: string; content: string }> }
+  ).messages;
   return messages?.find((m) => m.role === 'system')?.content ?? null;
 });
 
@@ -367,9 +374,12 @@ const promptTokensLabel = computed(
 const actionDetailLabel = computed(() => {
   if (!action.value) return '—';
   switch (action.value.type) {
-    case 'speak_public': return 'Published to public chat';
-    case 'send_private': return `Sent privately to ${inspection.participantName(action.value.to)}`;
-    case 'stay_silent': return `Stayed silent: ${action.value.reason}`;
+    case 'speak_public':
+      return 'Published to public chat';
+    case 'send_private':
+      return `Sent privately to ${inspection.participantName(action.value.to)}`;
+    case 'stay_silent':
+      return `Stayed silent: ${action.value.reason}`;
   }
 });
 const completionTokensLabel = computed(
@@ -408,19 +418,21 @@ Replace the `<header class="inspection-header">` block with:
       :disabled="!inspection.canGoBack"
       aria-label="Back"
       @click="inspection.navigateBack"
-    >←</button>
+    >
+      ←
+    </button>
     <button
       class="inspection-nav-btn"
       :disabled="!inspection.canGoForward"
       aria-label="Forward"
       @click="inspection.navigateForward"
-    >→</button>
+    >
+      →
+    </button>
   </div>
-  <button
-    class="inspection-close"
-    aria-label="Close"
-    @click="inspection.close"
-  >✕</button>
+  <button class="inspection-close" aria-label="Close" @click="inspection.close">
+    ✕
+  </button>
 </header>
 ```
 
@@ -456,7 +468,9 @@ Replace the `v-if="ui.activeInspectionTab === 'agent'"` section with:
 
   <div class="inspection-prompt-block">
     <p class="inspection-field-label">Full System Prompt (sent)</p>
-    <pre v-if="fullSystemPrompt" class="inspection-prompt">{{ fullSystemPrompt }}</pre>
+    <pre v-if="fullSystemPrompt" class="inspection-prompt">
+{{ fullSystemPrompt }}</pre
+    >
     <p v-else class="inspection-na">—</p>
   </div>
 </section>
@@ -539,17 +553,33 @@ Replace the `v-else-if="ui.activeInspectionTab === 'result'"` section with:
     <details class="inspection-raw-json">
       <summary class="inspection-raw-json-summary">
         Request Input
-        <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.requestInputJson)">Copy</button>
+        <button
+          type="button"
+          class="inspection-copy-btn"
+          @click.prevent="copyJson(trace?.payloads.requestInputJson)"
+        >
+          Copy
+        </button>
       </summary>
-      <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
+      <pre class="inspection-json">
+{{ formatJson(trace.payloads.requestInputJson) }}</pre
+      >
     </details>
 
     <details class="inspection-raw-json mt-2">
       <summary class="inspection-raw-json-summary">
         Response Output
-        <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.responseOutputJson)">Copy</button>
+        <button
+          type="button"
+          class="inspection-copy-btn"
+          @click.prevent="copyJson(trace?.payloads.responseOutputJson)"
+        >
+          Copy
+        </button>
       </summary>
-      <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
+      <pre class="inspection-json">
+{{ formatJson(trace.payloads.responseOutputJson) }}</pre
+      >
     </details>
   </template>
   <p v-else class="inspection-na">No request data.</p>
@@ -726,6 +756,7 @@ git commit -m "feat: rewrite inspector modal with new tabs, header layout, and U
 ## Task 6: Update existing tests
 
 **Files:**
+
 - Modify: `tests/vue/components/multi-agent-chat/inspection.test.ts`
 
 - [ ] **Step 1: Run the full test suite to see what's failing**
@@ -740,47 +771,56 @@ Expected: failures in tests that reference old tab names (`'Agent'`, `'Request'`
 
 In `inspection.test.ts`, make the following replacements:
 
-| Old text | New text |
-|----------|----------|
-| `'Agent'` (when looking for tab label) | `'Participant'` |
-| `'Request'` (when looking for tab button) | `'Input'` |
-| `'Result'` (when looking for tab button) | `'Output'` |
-| `textContent).toContain('Agent')` | `textContent).toContain('Participant')` |
-| `textContent).toContain('Request')` | `textContent).toContain('Input')` |
-| `textContent).toContain('Result')` | `textContent).toContain('Output')` |
+| Old text                                  | New text                                |
+| ----------------------------------------- | --------------------------------------- |
+| `'Agent'` (when looking for tab label)    | `'Participant'`                         |
+| `'Request'` (when looking for tab button) | `'Input'`                               |
+| `'Result'` (when looking for tab button)  | `'Output'`                              |
+| `textContent).toContain('Agent')`         | `textContent).toContain('Participant')` |
+| `textContent).toContain('Request')`       | `textContent).toContain('Input')`       |
+| `textContent).toContain('Result')`        | `textContent).toContain('Output')`      |
 
 Affected tests:
 
 **1.** `'opens inspector for a human message showing Agent / Request / Result tabs'`
+
 - Rename to `'opens inspector for a human message showing Participant / Input / Output / Used In tabs'`
 - Change all three `toContain` assertions: `'Agent'` → `'Participant'`, `'Request'` → `'Input'`, `'Result'` → `'Output'`
 - Add: `expect(document.body.textContent).toContain('Used In');`
 
 **2.** `'shows N/A for model and no system prompt for a human message on Agent tab'`
+
 - Rename to `'shows Human label and no prompts for a human message on Participant tab'`
 - **Remove** both `toContain('Model')` and `toContain('—')` assertions entirely — the tab no longer has a "Model" field label
 - **Add** `expect(document.body.textContent).toContain('Human');` (the tab shows "Human" for non-agent messages)
 - **Add** `expect(document.body.textContent).toContain('Agent Prompt');` (the prompt label is always present)
 
 **3.** `'shows no request data on Request tab for a human message'`
+
 - Change the button finder: `'Request'` → `'Input'`
 
 **4.** `'shows speak_public action in Result tab for an agent message'`
+
 - Change the button finder: `'Result'` → `'Output'`
 
 **5.** `'shows no request data on Result tab for a human message'`
+
 - Change the button finder: `'Result'` → `'Output'`
 
 **6.** `'closes the inspector'`
+
 - Change `toContain('Agent')` → `toContain('Participant')`
 
 **7.** `'shows stay_silent action in Result tab for an agent message'`
+
 - Change `toContain('Agent')` → `toContain('Participant')`
 
 **8.** Navigation test (`'back button becomes active after navigating to a context message'`)
+
 - Change the button finder: `'Request'` → `'Input'`
 
 **9.** `'opens inspector for an agent message showing model and system prompt on Agent tab'`
+
 - Keep `toContain('model-a:free')` — the ModelCard still renders the model ID
 - **Remove** `toContain('prompt')` (too vague)
 - **Add** `toContain('Agent Prompt')` — the label for the agent's system prompt block
@@ -814,13 +854,16 @@ it('Used In tab shows empty state for a message with no downstream usage', async
   const wrapper = mountChat(runtime);
   await wrapper.get('.message-time-trigger-active').trigger('click');
 
-  const usedInTab = Array.from(document.body.querySelectorAll('button'))
-    .find((b) => b.textContent?.trim() === 'Used In');
+  const usedInTab = Array.from(document.body.querySelectorAll('button')).find(
+    (b) => b.textContent?.trim() === 'Used In',
+  );
   expect(usedInTab).toBeDefined();
   usedInTab!.click();
   await wrapper.vm.$nextTick();
 
-  expect(document.body.textContent).toContain('No messages used this in their context');
+  expect(document.body.textContent).toContain(
+    'No messages used this in their context',
+  );
 });
 ```
 
@@ -852,6 +895,7 @@ git commit -m "test: update inspection tests for renamed tabs and new features"
 ## Done
 
 All 6 tasks complete. The inspector now has:
+
 - Header: `[time] [author] [$cost] [message…]` on the left, `[← →] [✕]` on the right
 - 4 tabs: Participant, Input, Output, Used In
 - Participant tab: ModelCard + two system prompt blocks
