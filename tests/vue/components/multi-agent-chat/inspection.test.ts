@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe('MultiAgentChat request inspection', () => {
-  it('opens inspector for a human message showing Agent / Request / Result tabs', async () => {
+  it('opens inspector for a human message showing Participant / Input / Output / Used In tabs', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({
       senderId: 'human',
@@ -19,9 +19,10 @@ describe('MultiAgentChat request inspection', () => {
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
 
-    expect(document.body.textContent).toContain('Agent');
-    expect(document.body.textContent).toContain('Request');
-    expect(document.body.textContent).toContain('Result');
+    expect(document.body.textContent).toContain('Participant');
+    expect(document.body.textContent).toContain('Input');
+    expect(document.body.textContent).toContain('Output');
+    expect(document.body.textContent).toContain('Used In');
   });
 
   it('shows author name and timestamp in the inspector header', async () => {
@@ -40,7 +41,7 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toMatch(/Human/);
   });
 
-  it('shows N/A for model and no system prompt for a human message on Agent tab', async () => {
+  it('shows Human label and no prompts for a human message on Participant tab', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({
       senderId: 'human',
@@ -52,9 +53,9 @@ describe('MultiAgentChat request inspection', () => {
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
 
-    // Agent tab should be active by default, model shows —
-    expect(document.body.textContent).toContain('Model');
-    expect(document.body.textContent).toContain('—');
+    // Participant tab should be active by default
+    expect(document.body.textContent).toContain('Human');
+    expect(document.body.textContent).toContain('Agent Prompt');
   });
 
   it('shows no request data on Request tab for a human message', async () => {
@@ -69,10 +70,10 @@ describe('MultiAgentChat request inspection', () => {
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
 
-    // Switch to Request tab
+    // Switch to Input tab
     const requestTab = Array.from(
       document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Request');
+    ).find((b) => b.textContent?.trim() === 'Input');
     expect(requestTab).toBeDefined();
     requestTab!.click();
     await wrapper.vm.$nextTick();
@@ -111,14 +112,14 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
 
-    // Click the second message timestamp (the agent's reply)
+    // Click the third trigger (triggers[0]=system, [1]=human, [2]=agent reply)
     const triggers = wrapper.findAll('.message-time-trigger-active');
-    await triggers[1]!.trigger('click');
+    await triggers[2]!.trigger('click');
 
-    // Agent tab: model id should be visible
+    // Participant tab: model id should be visible
     expect(document.body.textContent).toContain('model-a:free');
-    // System prompt
-    expect(document.body.textContent).toContain('prompt');
+    // Agent prompt label
+    expect(document.body.textContent).toContain('Agent Prompt');
   });
 
   it('shows speak_public action in Result tab for an agent message', async () => {
@@ -151,11 +152,11 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.message-time-trigger-active');
-    await triggers[1]!.trigger('click');
+    await triggers[2]!.trigger('click'); // triggers[0]=system, [1]=human, [2]=agent reply
 
     const resultTab = Array.from(
       document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Result');
+    ).find((b) => b.textContent?.trim() === 'Output');
     resultTab!.click();
     await wrapper.vm.$nextTick();
 
@@ -176,7 +177,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const resultTab = Array.from(
       document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Result');
+    ).find((b) => b.textContent?.trim() === 'Output');
     resultTab!.click();
     await wrapper.vm.$nextTick();
 
@@ -193,7 +194,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
-    expect(document.body.textContent).toContain('Agent');
+    expect(document.body.textContent).toContain('Participant');
   });
 
   it('back button is disabled when inspector first opens', async () => {
@@ -245,12 +246,12 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.message-time-trigger-active');
-    await triggers[1]!.trigger('click'); // open agent message inspector
+    await triggers[2]!.trigger('click'); // triggers[0]=system, [1]=human, [2]=agent reply
 
-    // Switch to Request tab to see context messages
+    // Switch to Input tab to see context messages
     const requestTab = Array.from(
       document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Request');
+    ).find((b) => b.textContent?.trim() === 'Input');
     requestTab!.click();
     await wrapper.vm.$nextTick();
 
@@ -294,7 +295,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     await wrapper.get('.message-time-trigger-active').trigger('click');
-    expect(document.body.textContent).toContain('Agent');
+    expect(document.body.textContent).toContain('Participant');
 
     const closeBtn = document.body.querySelector(
       'button[aria-label="Close"]',
@@ -304,5 +305,40 @@ describe('MultiAgentChat request inspection', () => {
 
     // Inspector card should be gone from DOM
     expect(document.body.querySelector('.inspection-card')).toBeNull();
+  });
+
+  it('opens on Participant tab by default for a regular message', async () => {
+    const runtime = createRuntime({ createDefaultAgent: false });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'default tab test',
+      target: 'public',
+      triggerSweep: false,
+    });
+    const wrapper = mountChat(runtime);
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+    // The Participant tab label is visible and the tab bar is rendered
+    expect(document.body.textContent).toContain('Participant');
+    expect(document.body.textContent).toContain('Used In');
+  });
+
+  it('Used In tab shows empty state for a message with no downstream usage', async () => {
+    const runtime = createRuntime({ createDefaultAgent: false });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'used in test',
+      target: 'public',
+      triggerSweep: false,
+    });
+    const wrapper = mountChat(runtime);
+    await wrapper.get('.message-time-trigger-active').trigger('click');
+
+    const usedInTab = Array.from(document.body.querySelectorAll('button'))
+      .find((b) => b.textContent?.trim() === 'Used In');
+    expect(usedInTab).toBeDefined();
+    usedInTab!.click();
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('No messages used this in their context');
   });
 });
