@@ -348,6 +348,6 @@ const sorted = computed(() => {
 }
 
 .browser-badge-free {
-  @apply ml-1.5 rounded-sm bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800;
+  @apply ml-1 rounded-sm bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-800;
 }
 </style>

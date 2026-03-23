@@ -7,20 +7,20 @@ import {
 } from '../../../src/vue/utils/modelFormatting';
 
 describe('cleanModelName', () => {
-  it('strips matching vendor prefix', () => {
+  it('strips the leading vendor prefix before colon', () => {
     expect(cleanModelName('Qwen: Qwen Plus 0728', 'qwen/qwen-plus-0728')).toBe('Qwen Plus 0728');
   });
-  it('is case-insensitive for slug matching', () => {
-    expect(cleanModelName('QWEN: something', 'qwen/model')).toBe('something');
+  it('strips the prefix even when it differs from the provider slug', () => {
+    expect(cleanModelName('Meta: Llama 3.3 70B Instruct', 'meta-llama/model')).toBe('Llama 3.3 70B Instruct');
   });
-  it('leaves name unchanged when no match', () => {
+  it('leaves name unchanged when there is no vendor prefix', () => {
     expect(cleanModelName('Claude 3.5 Sonnet', 'anthropic/claude-3-5-sonnet')).toBe('Claude 3.5 Sonnet');
   });
-  it('leaves name unchanged when prefix does not match slug', () => {
-    expect(cleanModelName('Auto Router', 'openrouter/auto')).toBe('Auto Router');
+  it('removes trailing free suffix', () => {
+    expect(cleanModelName('MiniMax M2.5 (free)', 'minimax/model:free')).toBe('MiniMax M2.5');
   });
-  it('does not strip partial slug matches', () => {
-    expect(cleanModelName('Meta: something', 'meta-llama/model')).toBe('Meta: something');
+  it('removes both vendor prefix and trailing free suffix together', () => {
+    expect(cleanModelName('Arcee AI: Trinity Large Preview (free)', 'arcee-ai/model:free')).toBe('Trinity Large Preview');
   });
 });
 

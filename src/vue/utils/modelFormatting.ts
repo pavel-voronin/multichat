@@ -1,16 +1,15 @@
 /**
- * Strip vendor prefix from model name if it matches the provider slug.
- * e.g. "Qwen: Qwen Plus 0728" with slug "qwen" → "Qwen Plus 0728"
- * e.g. "Claude 3.5 Sonnet" with slug "anthropic" → unchanged
+ * Normalize model names for UI display.
+ * - Strip any leading "<vendor>: " prefix
+ * - Strip trailing " (free)" suffix because the UI renders a separate badge
  */
 export function cleanModelName(name: string, modelId: string): string {
-  const slug = modelId.includes('/') ? (modelId.split('/')[0] ?? '') : '';
-  if (!slug) return name;
-  const prefix = slug + ': ';
-  if (name.toLowerCase().startsWith(prefix.toLowerCase())) {
-    return name.slice(prefix.length);
-  }
-  return name;
+  void modelId;
+
+  return name
+    .replace(/^[^:]+:\s+/, '')
+    .replace(/\s+\(free\)$/i, '')
+    .trim();
 }
 
 export type PricingDisplay =
