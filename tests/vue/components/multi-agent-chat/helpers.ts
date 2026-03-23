@@ -1,15 +1,26 @@
 import { mount } from '@vue/test-utils';
 import { createPinia, type Pinia } from 'pinia';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import MultiAgentChat from '../../../../src/vue/components/MultiAgentChat.vue';
 import { MultiChatRuntime } from '../../../../src/core/runtime';
-import { initializeChatApp } from '../../../../src/vue/bootstrap';
+import { disposeChatApp, initializeChatApp } from '../../../../src/vue/bootstrap';
 import { usePreferencesStore } from '../../../../src/vue/stores/preferences';
 import type {
   ChatMessage,
   OpenRouterTransport,
   TimelineMessageEntry,
 } from '../../../../src/core';
+
+// Track the last pinia for cleanup
+let lastPinia: Pinia | null = null;
+
+afterEach(() => {
+  if (lastPinia) {
+    disposeChatApp(lastPinia);
+    lastPinia = null;
+  }
+  localStorage.clear();
+});
 
 export function createRuntime(options?: {
   transport?: OpenRouterTransport;
@@ -75,6 +86,7 @@ export function mountChat(
   },
 ) {
   const pinia = createPinia();
+  lastPinia = pinia;
   initializeChatApp(pinia, runtime);
   options?.configure?.(pinia);
   return mount(MultiAgentChat, {
