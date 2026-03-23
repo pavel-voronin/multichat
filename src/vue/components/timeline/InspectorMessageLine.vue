@@ -3,13 +3,7 @@
     type="button"
     :class="lineClass"
     @click="handleClick"
-  >
-    <span class="inspector-line-time">[{{ formattedTime }}]</span
-    ><span class="inspector-line-sep"> </span
-    ><span class="inspector-line-sender">{{ authorLabel }}</span
-    ><span class="inspector-line-sep"> </span
-    ><span class="inspector-line-text">{{ message.content }}</span>
-  </button>
+  >{{ lineText }}</button>
 </template>
 
 <script setup lang="ts">
@@ -27,15 +21,13 @@ const props = defineProps<{
 
 const inspection = useInspectionStore();
 
-const formattedTime = computed(() =>
-  formatMessageTime(props.message.createdAt),
-);
-
-const authorLabel = computed(() =>
-  formatMessageAuthor(props.message, {
+const lineText = computed(() => {
+  const time = formatMessageTime(props.message.createdAt);
+  const author = formatMessageAuthor(props.message, {
     byId: inspection.participantName,
-  }),
-);
+  });
+  return `[${time}] ${author} ${props.message.content}`;
+});
 
 const lineClass = computed(() =>
   props.message.target === 'private'
@@ -57,21 +49,5 @@ function handleClick(): void {
 
 .inspector-line-private {
   @apply italic text-orange-700;
-}
-
-.inspector-line-time {
-  @apply text-neutral-500;
-}
-
-.inspector-line-sender {
-  @apply whitespace-nowrap font-semibold text-neutral-700;
-}
-
-.inspector-line-sep {
-  @apply whitespace-pre;
-}
-
-.inspector-line-text {
-  @apply whitespace-pre-wrap;
 }
 </style>
