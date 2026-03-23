@@ -267,6 +267,22 @@ describe('MultiAgentChat request inspection', () => {
     expect(backBtn!.disabled).toBe(false);
   });
 
+  it('system message timestamp is inspectable (active trigger)', async () => {
+    // createDefaultAgent adds "Alpha" — the runtime emits a participant_joined system message.
+    // System message rows have class message-line-system.
+    // Currently canInspectMessage returns false for system messages, so their timestamps
+    // have message-time-trigger but NOT message-time-trigger-active (disabled).
+    const runtime = createRuntime(); // default: creates Alpha agent
+    const wrapper = mountChat(runtime);
+
+    const systemLine = wrapper.find('.message-line-system');
+    expect(systemLine.exists()).toBe(true);
+    const trigger = systemLine.find('.message-time-trigger');
+    expect(trigger.exists()).toBe(true);
+    // This FAILS before the fix: the system message timestamp is not active
+    expect(trigger.classes()).toContain('message-time-trigger-active');
+  });
+
   it('closes the inspector', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({

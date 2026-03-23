@@ -61,12 +61,29 @@ export const useInspectionStore = defineStore('inspection', () => {
     return payload as AgentToolCall;
   });
 
+  const usedInMessagesForCurrentMessage = computed<ChatMessage[]>(() => {
+    const messageId = currentInspectedMessage.value?.id;
+    if (!messageId) return [];
+    const index = diagnostics.value.messageInspectionIndex[messageId];
+    if (!index) return [];
+    return index.downstreamTraceIds
+      .map((traceId) => diagnostics.value.requestTraces[traceId])
+      .filter(Boolean)
+      .map((trace) =>
+        trace.producedMessageId
+          ? findMessageById(state.value, trace.producedMessageId)
+          : null,
+      )
+      .filter((m): m is ChatMessage => m !== null);
+  });
+
   // ── Navigation ─────────────────────────────────────────────────
   function openForMessage(messageId: string): void {
     inspectionHistory.value = [messageId];
     inspectionHistoryIndex.value = 0;
     ui.showRequestInspection = true;
-    ui.activeInspectionTab = 'agent';
+    const message = findMessageById(state.value, messageId);
+    ui.activeInspectionTab = message ? isSystemMessage(message) ? 'used-in' : 'participant' : 'participant';
   }
 
   function navigateTo(messageId: string): void {
@@ -104,8 +121,8 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   // ── Utilities ──────────────────────────────────────────────────
-  function canInspectMessage(message: ChatMessage): boolean {
-    return !isSystemMessage(message);
+  function canInspectMessage(_message: ChatMessage): boolean {
+    return true;
   }
 
   function participantName(participantId?: string): string {
@@ -128,6 +145,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     agentForCurrentMessage,
     contextMessagesForCurrentTrace,
     currentActionForTrace,
+    usedInMessagesForCurrentMessage,
     // Actions
     openForMessage,
     navigateTo,
