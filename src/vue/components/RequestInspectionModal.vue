@@ -8,41 +8,36 @@
       <div class="inspection-card">
         <!-- Header -->
         <header class="inspection-header">
+          <div class="inspection-subject">
+            <span class="inspection-time">{{ timeLabel }}</span>
+            <span class="inspection-sep"> </span>
+            <span class="inspection-author">{{ authorLabel }}</span>
+            <template v-if="costLabel">
+              <span class="inspection-sep"> </span>
+              <span class="inspection-cost">{{ costLabel }}</span>
+            </template>
+            <span class="inspection-sep"> </span>
+            <span class="inspection-msg">{{ messageContentLabel }}</span>
+          </div>
           <div class="inspection-nav">
             <button
               class="inspection-nav-btn"
               :disabled="!inspection.canGoBack"
               aria-label="Back"
               @click="inspection.navigateBack"
-            >
-              ←
-            </button>
+            >←</button>
             <button
               class="inspection-nav-btn"
               :disabled="!inspection.canGoForward"
               aria-label="Forward"
               @click="inspection.navigateForward"
-            >
-              →
-            </button>
+            >→</button>
           </div>
-          <div class="inspection-subject">
-            <span class="inspection-author">{{ authorLabel }}</span>
-            <span class="inspection-sep"> · </span>
-            <span class="inspection-time">{{ timeLabel }}</span>
-            <template v-if="actionTypeLabel">
-              <span class="inspection-sep"> · </span>
-              <span class="inspection-action">{{ actionTypeLabel }}</span>
-            </template>
-          </div>
-          <span v-if="costLabel" class="inspection-cost">{{ costLabel }}</span>
           <button
             class="inspection-close"
             aria-label="Close"
             @click="inspection.close"
-          >
-            ✕
-          </button>
+          >✕</button>
         </header>
 
         <!-- Tab bar -->
@@ -59,40 +54,38 @@
           </button>
         </nav>
 
-        <!-- Tab: Agent -->
+        <!-- Tab: Participant -->
         <section
-          v-if="ui.activeInspectionTab === 'agent'"
+          v-if="ui.activeInspectionTab === 'participant'"
           class="inspection-panel"
         >
-          <div class="inspection-block">
-            <p class="inspection-field-label">Agent</p>
-            <p class="inspection-field-value">{{ agentNameLabel }}</p>
+          <template v-if="agent">
+            <p class="inspection-field-label">{{ agentNameLabel }}</p>
+            <ModelCard
+              :model-id="modelId"
+              :snapshot="modelSnapshot"
+              :readonly="true"
+              class="mb-4"
+            />
+          </template>
+          <p v-else class="inspection-field-label mb-4">Human</p>
+
+          <div class="inspection-prompt-block">
+            <p class="inspection-field-label">Agent Prompt</p>
+            <pre v-if="agentPrompt" class="inspection-prompt">{{ agentPrompt }}</pre>
+            <p v-else class="inspection-na">—</p>
           </div>
-          <div class="inspection-block">
-            <p class="inspection-field-label">Model</p>
-            <p class="inspection-field-value">{{ modelLabel }}</p>
-          </div>
-          <div class="inspection-block">
-            <p class="inspection-field-label">Provider</p>
-            <p class="inspection-field-value">{{ providerLabel }}</p>
-          </div>
-          <div class="inspection-block">
-            <p class="inspection-field-label">Context length</p>
-            <p class="inspection-field-value">{{ contextLengthLabel }}</p>
-          </div>
-          <div class="inspection-block">
-            <p class="inspection-field-label">System prompt</p>
-            <pre
-              v-if="agent"
-              class="inspection-prompt"
-            >{{ agent.systemPrompt }}</pre>
+
+          <div class="inspection-prompt-block">
+            <p class="inspection-field-label">Full System Prompt (sent)</p>
+            <pre v-if="fullSystemPrompt" class="inspection-prompt">{{ fullSystemPrompt }}</pre>
             <p v-else class="inspection-na">—</p>
           </div>
         </section>
 
-        <!-- Tab: Request -->
+        <!-- Tab: Input -->
         <section
-          v-else-if="ui.activeInspectionTab === 'request'"
+          v-else-if="ui.activeInspectionTab === 'input'"
           class="inspection-panel"
         >
           <template v-if="trace">
@@ -130,9 +123,9 @@
           <p v-else class="inspection-na">No request data.</p>
         </section>
 
-        <!-- Tab: Result -->
+        <!-- Tab: Output -->
         <section
-          v-else-if="ui.activeInspectionTab === 'result'"
+          v-else-if="ui.activeInspectionTab === 'output'"
           class="inspection-panel"
         >
           <template v-if="trace">
@@ -154,29 +147,41 @@
                 <p class="inspection-field-value">{{ durationLabel }}</p>
               </div>
             </div>
-            <!-- Raw JSON accordion -->
+
             <details class="inspection-raw-json">
               <summary class="inspection-raw-json-summary">
-                Raw JSON
-                <button
-                  type="button"
-                  class="inspection-copy-btn"
-                  @click.prevent="copyRawJson"
-                >
-                  Copy
-                </button>
+                Request Input
+                <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.requestInputJson)">Copy</button>
               </summary>
-              <div class="inspection-raw-json-body">
-                <p class="inspection-field-label">Request input</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
-                <p class="inspection-field-label">Response output</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
-                <p class="inspection-field-label">Normalized action</p>
-                <pre class="inspection-json">{{ formatJson(trace.payloads.normalizedActionJson) }}</pre>
-              </div>
+              <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
+            </details>
+
+            <details class="inspection-raw-json mt-2">
+              <summary class="inspection-raw-json-summary">
+                Response Output
+                <button type="button" class="inspection-copy-btn" @click.prevent="copyJson(trace?.payloads.responseOutputJson)">Copy</button>
+              </summary>
+              <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
             </details>
           </template>
           <p v-else class="inspection-na">No request data.</p>
+        </section>
+
+        <!-- Tab: Used In -->
+        <section
+          v-else-if="ui.activeInspectionTab === 'used-in'"
+          class="inspection-panel"
+        >
+          <div class="inspection-message-list">
+            <InspectorMessageLine
+              v-for="msg in usedInMessages"
+              :key="msg.id"
+              :message="msg"
+            />
+            <p v-if="!usedInMessages.length" class="inspection-na">
+              No messages used this in their context.
+            </p>
+          </div>
         </section>
       </div>
     </div>
@@ -194,11 +199,13 @@ import {
 } from '../utils/chatFormatting';
 import { formatMessageCost } from '../utils/costing';
 import InspectorMessageLine from './timeline/InspectorMessageLine.vue';
+import ModelCard from './ModelCard.vue';
 
 const tabs = [
-  { id: 'agent' as const, label: 'Agent' },
-  { id: 'request' as const, label: 'Request' },
-  { id: 'result' as const, label: 'Result' },
+  { id: 'participant' as const, label: 'Participant' },
+  { id: 'input' as const, label: 'Input' },
+  { id: 'output' as const, label: 'Output' },
+  { id: 'used-in' as const, label: 'Used In' },
 ];
 
 const inspection = useInspectionStore();
@@ -208,42 +215,37 @@ const {
   traceForCurrentMessage: trace,
   agentForCurrentMessage: agent,
   currentActionForTrace: action,
+  usedInMessagesForCurrentMessage: usedInMessages,
 } = storeToRefs(inspection);
 
-const authorLabel = computed(() => {
-  if (!message.value) return '—';
-  return formatMessageAuthor(message.value, {
-    byId: inspection.participantName,
-  });
-});
-
+// Header
 const timeLabel = computed(() =>
   message.value ? formatMessageTime(message.value.createdAt) : '—',
 );
-
-const actionTypeLabel = computed(() => {
-  if (!action.value) return null;
-  return action.value.type;
+const authorLabel = computed(() => {
+  if (!message.value) return '—';
+  return formatMessageAuthor(message.value, { byId: inspection.participantName });
 });
-
 const costLabel = computed(() => {
   const cost = trace.value?.usage?.requestCostUsd;
   if (cost == null) return null;
   return formatMessageCost(cost);
 });
+const messageContentLabel = computed(() => message.value?.content ?? '');
 
-// Agent tab
+// Participant tab
 const agentNameLabel = computed(() => agent.value?.name ?? 'Human');
-const modelLabel = computed(() => agent.value?.modelId ?? '—');
-const providerLabel = computed(
-  () => trace.value?.transport?.provider ?? '—',
-);
-const contextLengthLabel = computed(() => {
-  const len = agent.value?.modelSnapshot?.contextLength;
-  return len != null ? `${(len / 1000).toFixed(0)}k` : '—';
+const modelId = computed(() => agent.value?.modelId ?? '');
+const modelSnapshot = computed(() => agent.value?.modelSnapshot);
+const agentPrompt = computed(() => agent.value?.systemPrompt ?? null);
+const fullSystemPrompt = computed<string | null>(() => {
+  const json = trace.value?.payloads.requestInputJson;
+  if (!json || typeof json !== 'object') return null;
+  const messages = (json as { messages?: Array<{ role: string; content: string }> }).messages;
+  return messages?.find((m) => m.role === 'system')?.content ?? null;
 });
 
-// Request tab
+// Input tab
 const startedAtLabel = computed(() =>
   trace.value ? formatMessageTime(trace.value.startedAt) : '—',
 );
@@ -258,40 +260,25 @@ const promptTokensLabel = computed(
   () => trace.value?.usage?.promptTokens?.toString() ?? '—',
 );
 
-// Result tab
-const actionDetailLabel = computed(() => {
+// Output tab
+const actionDetailLabel = computed((): string => {
   if (!action.value) return '—';
   switch (action.value.type) {
-    case 'speak_public':
-      return 'Published to public chat';
-    case 'send_private':
-      return `Sent privately to ${inspection.participantName(action.value.to)}`;
-    case 'stay_silent':
-      return `Stayed silent: ${action.value.reason}`;
+    case 'speak_public': return 'Published to public chat';
+    case 'send_private': return `Sent privately to ${inspection.participantName(action.value.to)}`;
+    case 'stay_silent': return `Stayed silent: ${action.value.reason}`;
   }
 });
 const completionTokensLabel = computed(
   () => trace.value?.usage?.completionTokens?.toString() ?? '—',
 );
 
-const rawJsonText = computed(() =>
-  JSON.stringify(
-    {
-      request: trace.value?.payloads.requestInputJson,
-      response: trace.value?.payloads.responseOutputJson,
-      normalized: trace.value?.payloads.normalizedActionJson,
-    },
-    null,
-    2,
-  ),
-);
-
 function formatJson(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
 
-async function copyRawJson(): Promise<void> {
-  await globalThis.navigator?.clipboard?.writeText(rawJsonText.value);
+async function copyJson(value: unknown): Promise<void> {
+  await globalThis.navigator?.clipboard?.writeText(formatJson(value));
 }
 </script>
 
@@ -307,43 +294,43 @@ async function copyRawJson(): Promise<void> {
 }
 
 .inspection-header {
-  @apply flex items-center gap-3 border-b border-neutral-200 px-4 py-3;
+  @apply flex items-center gap-2 border-b border-neutral-200 px-4 py-3;
+}
+
+.inspection-subject {
+  @apply flex min-w-0 flex-1 items-center overflow-hidden text-[13px] whitespace-nowrap;
+}
+
+.inspection-time {
+  @apply shrink-0 text-neutral-500;
+}
+
+.inspection-sep {
+  @apply shrink-0 whitespace-pre text-neutral-400;
+}
+
+.inspection-author {
+  @apply shrink-0 font-semibold text-neutral-900;
+}
+
+.inspection-cost {
+  @apply shrink-0 text-emerald-700;
+}
+
+.inspection-msg {
+  @apply min-w-0 truncate text-neutral-600;
 }
 
 .inspection-nav {
-  @apply flex gap-1 shrink-0;
+  @apply flex shrink-0 gap-1;
 }
 
 .inspection-nav-btn {
   @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-default disabled:opacity-30;
 }
 
-.inspection-subject {
-  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-1 text-[13px];
-}
-
-.inspection-author {
-  @apply font-semibold text-neutral-900;
-}
-
-.inspection-sep {
-  @apply text-neutral-400;
-}
-
-.inspection-time {
-  @apply text-neutral-500;
-}
-
-.inspection-action {
-  @apply rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700;
-}
-
-.inspection-cost {
-  @apply shrink-0 text-[12px] text-neutral-500;
-}
-
 .inspection-close {
-  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
+  @apply ml-2 flex h-7 w-7 shrink-0 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .inspection-tabs {
@@ -355,7 +342,7 @@ async function copyRawJson(): Promise<void> {
 }
 
 .inspection-tab-active {
-  @apply border-neutral-900 bg-neutral-900 text-white;
+  @apply border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800;
 }
 
 .inspection-panel {
@@ -378,8 +365,12 @@ async function copyRawJson(): Promise<void> {
   @apply text-[13px] text-neutral-400;
 }
 
+.inspection-prompt-block {
+  @apply mb-4 flex flex-col;
+}
+
 .inspection-prompt {
-  @apply m-0 max-h-48 overflow-auto rounded border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[11px] leading-5 text-neutral-700;
+  @apply m-0 flex-1 overflow-auto rounded border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[11px] leading-5 text-neutral-700;
 }
 
 .inspection-message-list {
@@ -402,11 +393,7 @@ async function copyRawJson(): Promise<void> {
   @apply rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-50;
 }
 
-.inspection-raw-json-body {
-  @apply border-t border-neutral-200 p-3;
-}
-
 .inspection-json {
-  @apply m-0 mb-4 overflow-auto rounded bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
+  @apply m-0 overflow-auto rounded-b bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
 }
 </style>

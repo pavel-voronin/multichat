@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-export type InspectionTab = 'agent' | 'request' | 'result';
+export type InspectionTab = 'participant' | 'input' | 'output' | 'used-in';
 
 export interface UiStateSnapshot {
   showSettings: boolean;
@@ -44,7 +44,7 @@ function defaultUiState(): UiStateSnapshot {
     pendingDeleteAgentName: '',
     reopenAgentWizardAfterSettings: false,
     showRequestInspection: false,
-    activeInspectionTab: 'agent',
+    activeInspectionTab: 'participant',
   };
 }
 
@@ -60,7 +60,7 @@ export const useUiStore = defineStore('ui', () => {
   const pendingDeleteAgentName = ref('');
   const reopenAgentWizardAfterSettings = ref(false);
   const showRequestInspection = ref(false);
-  const activeInspectionTab = ref<InspectionTab>('agent');
+  const activeInspectionTab = ref<InspectionTab>('participant');
 
   function reset(): void {
     const defaults = defaultUiState();
