@@ -6,326 +6,178 @@
       @click.self="inspection.close"
     >
       <div class="inspection-card">
+        <!-- Header -->
         <header class="inspection-header">
-          <div class="inspection-header-copy">
-            <p class="inspection-kicker">{{ currentSubjectLabel }}</p>
-            <h2 class="inspection-title">{{ currentSubjectTitle }}</h2>
-            <p class="inspection-meta">
-              {{ currentSubjectMeta }}
-            </p>
+          <div class="inspection-nav">
+            <button
+              class="inspection-nav-btn"
+              :disabled="!inspection.canGoBack"
+              aria-label="Back"
+              @click="inspection.navigateBack"
+            >
+              ←
+            </button>
+            <button
+              class="inspection-nav-btn"
+              :disabled="!inspection.canGoForward"
+              aria-label="Forward"
+              @click="inspection.navigateForward"
+            >
+              →
+            </button>
           </div>
+          <div class="inspection-subject">
+            <span class="inspection-author">{{ authorLabel }}</span>
+            <span class="inspection-sep"> · </span>
+            <span class="inspection-time">{{ timeLabel }}</span>
+            <template v-if="actionTypeLabel">
+              <span class="inspection-sep"> · </span>
+              <span class="inspection-action">{{ actionTypeLabel }}</span>
+            </template>
+          </div>
+          <span v-if="costLabel" class="inspection-cost">{{ costLabel }}</span>
           <button
             class="inspection-close"
-            @click="inspection.close"
             aria-label="Close"
+            @click="inspection.close"
           >
             ✕
           </button>
         </header>
 
-        <div class="inspection-body">
-          <aside class="inspection-rail">
-            <section class="inspection-rail-group">
-              <h3 class="inspection-rail-title">Current</h3>
-              <button
-                v-if="currentMessage"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectMessage(currentMessage.id)"
-              >
-                {{ formatMessageCard(currentMessage) }}
-              </button>
-              <button
-                v-if="currentTrace"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectTrace(currentTrace.id)"
-              >
-                {{ formatTraceCard(currentTrace) }}
-              </button>
-            </section>
+        <!-- Tab bar -->
+        <nav class="inspection-tabs">
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            class="inspection-tab"
+            :class="{ 'inspection-tab-active': ui.activeInspectionTab === tab.id }"
+            @click="ui.activeInspectionTab = tab.id"
+          >
+            {{ tab.label }}
+          </button>
+        </nav>
 
-            <section class="inspection-rail-group">
-              <h3 class="inspection-rail-title">Caused by</h3>
-              <button
-                v-for="message in causalitySourceMessages"
-                :key="`source-message-${message.id}`"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectMessage(message.id)"
-              >
-                {{ formatMessageCard(message) }}
-              </button>
-              <button
-                v-if="parentTrace"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectTrace(parentTrace.id)"
-              >
-                {{ formatTraceCard(parentTrace) }}
-              </button>
-              <p
-                v-if="!causalitySourceMessages.length && !parentTrace"
-                class="inspection-empty"
-              >
-                Nothing upstream.
-              </p>
-            </section>
+        <!-- Tab: Agent -->
+        <section
+          v-if="ui.activeInspectionTab === 'agent'"
+          class="inspection-panel"
+        >
+          <div class="inspection-block">
+            <p class="inspection-field-label">Agent</p>
+            <p class="inspection-field-value">{{ agentNameLabel }}</p>
+          </div>
+          <div class="inspection-block">
+            <p class="inspection-field-label">Model</p>
+            <p class="inspection-field-value">{{ modelLabel }}</p>
+          </div>
+          <div class="inspection-block">
+            <p class="inspection-field-label">Provider</p>
+            <p class="inspection-field-value">{{ providerLabel }}</p>
+          </div>
+          <div class="inspection-block">
+            <p class="inspection-field-label">Context length</p>
+            <p class="inspection-field-value">{{ contextLengthLabel }}</p>
+          </div>
+          <div class="inspection-block">
+            <p class="inspection-field-label">System prompt</p>
+            <pre
+              v-if="agent"
+              class="inspection-prompt"
+            >{{ agent.systemPrompt }}</pre>
+            <p v-else class="inspection-na">—</p>
+          </div>
+        </section>
 
-            <section class="inspection-rail-group">
-              <h3 class="inspection-rail-title">Caused next</h3>
-              <button
-                v-for="trace in downstreamTraceCards"
-                :key="trace.id"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectTrace(trace.id)"
-              >
-                {{ formatTraceCard(trace) }}
-              </button>
-              <button
-                v-for="message in downstreamMessages"
-                :key="`downstream-message-${message.id}`"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectMessage(message.id)"
-              >
-                {{ formatMessageCard(message) }}
-              </button>
-              <p
-                v-if="
-                  !downstreamTraceCards.length && !downstreamMessages.length
-                "
-                class="inspection-empty"
-              >
-                Nothing downstream.
-              </p>
-            </section>
-
-            <section class="inspection-rail-group">
-              <h3 class="inspection-rail-title">Fallbacks / errors</h3>
-              <button
-                v-for="trace in fallbackOrErrorTraces"
-                :key="`fallback-${trace.id}`"
-                type="button"
-                class="inspection-link-card"
-                @click="inspection.selectTrace(trace.id)"
-              >
-                {{ formatTraceCard(trace) }}
-              </button>
-              <p v-if="!fallbackOrErrorTraces.length" class="inspection-empty">
-                No fallback or error traces.
-              </p>
-            </section>
-          </aside>
-
-          <main class="inspection-main">
-            <nav class="inspection-tabs">
-              <button
-                v-for="tab in tabs"
-                :key="tab.id"
-                type="button"
-                class="inspection-tab"
-                :class="{
-                  'inspection-tab-active': ui.activeInspectionTab === tab.id,
-                }"
-                @click="inspection.setTab(tab.id)"
-              >
-                {{ tab.label }}
-              </button>
-            </nav>
-
-            <section
-              v-if="ui.activeInspectionTab === 'overview'"
-              class="inspection-panel"
-            >
-              <p class="inspection-summary">{{ overviewText }}</p>
-              <div v-if="isMessageTarget" class="inspection-block">
-                <h3 class="inspection-section-title">Downstream traces</h3>
-                <p class="inspection-list-heading">Triggered by this message</p>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="trace in messageGraph?.triggeringTraces ?? []"
-                    :key="`triggering-${trace.id}`"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectTrace(trace.id)"
-                  >
-                    {{ formatTraceCard(trace) }}
-                  </button>
-                </div>
-                <p class="inspection-list-heading">Visible only</p>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="trace in messageGraph?.visibleOnlyTraces ?? []"
-                    :key="`visible-${trace.id}`"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectTrace(trace.id)"
-                  >
-                    {{ formatTraceCard(trace) }}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section
-              v-else-if="ui.activeInspectionTab === 'causality'"
-              class="inspection-panel"
-            >
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Messages</h3>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="message in causalityMessages"
-                    :key="message.id"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectMessage(message.id)"
-                  >
-                    {{ formatMessageCard(message) }}
-                  </button>
-                </div>
-              </div>
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Related traces</h3>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="trace in relatedTraceCards"
-                    :key="trace.id"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectTrace(trace.id)"
-                  >
-                    {{ formatTraceCard(trace) }}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section
-              v-else-if="ui.activeInspectionTab === 'context'"
-              class="inspection-panel"
-            >
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Triggering</h3>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="message in triggeringMessages"
-                    :key="message.id"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectMessage(message.id)"
-                  >
-                    {{ formatMessageCard(message) }}
-                  </button>
-                </div>
-              </div>
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Visible context</h3>
-                <div class="inspection-chip-list">
-                  <button
-                    v-for="message in visibleContextMessages"
-                    :key="message.id"
-                    type="button"
-                    class="inspection-chip"
-                    @click="inspection.selectMessage(message.id)"
-                  >
-                    {{ formatMessageCard(message) }}
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <section
-              v-else-if="ui.activeInspectionTab === 'output'"
-              class="inspection-panel"
-            >
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Outcome</h3>
-                <p class="inspection-summary">{{ outputSummary }}</p>
-              </div>
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">Normalized action</h3>
-                <pre class="inspection-json">{{
-                  formatJson(currentTrace?.payloads.normalizedActionJson)
-                }}</pre>
-              </div>
-              <div class="inspection-block">
-                <h3 class="inspection-section-title">
-                  {{
-                    currentAction?.type === 'stay_silent'
-                      ? 'Silent outcome'
-                      : 'Produced message'
-                  }}
-                </h3>
-                <button
-                  v-if="producedMessage"
-                  type="button"
-                  class="inspection-link-card"
-                  @click="inspection.selectMessage(producedMessage.id)"
-                >
-                  {{ formatMessageCard(producedMessage) }}
-                </button>
+        <!-- Tab: Request -->
+        <section
+          v-else-if="ui.activeInspectionTab === 'request'"
+          class="inspection-panel"
+        >
+          <template v-if="trace">
+            <div class="inspection-block">
+              <p class="inspection-field-label">Context</p>
+              <div class="inspection-message-list">
+                <InspectorMessageLine
+                  v-for="msg in inspection.contextMessagesForCurrentTrace"
+                  :key="msg.id"
+                  :message="msg"
+                />
                 <p
-                  v-else-if="currentAction?.type === 'stay_silent'"
-                  class="inspection-empty"
+                  v-if="!inspection.contextMessagesForCurrentTrace.length"
+                  class="inspection-na"
                 >
-                  Stayed silent: {{ currentAction.reason }}
+                  No context messages.
                 </p>
-                <p v-else class="inspection-empty">No produced message.</p>
               </div>
-            </section>
-
-            <section
-              v-else-if="ui.activeInspectionTab === 'infra'"
-              class="inspection-panel"
-            >
-              <dl class="inspection-grid">
-                <div>
-                  <dt>Provider</dt>
-                  <dd>{{ currentTrace?.transport?.provider ?? 'n/a' }}</dd>
-                </div>
-                <div>
-                  <dt>Model</dt>
-                  <dd>
-                    {{
-                      currentTrace?.transport?.modelId ??
-                      currentTrace?.agentName ??
-                      'n/a'
-                    }}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Mode</dt>
-                  <dd>{{ currentTrace?.mode ?? 'n/a' }}</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>{{ currentTrace?.status ?? 'n/a' }}</dd>
-                </div>
-                <div>
-                  <dt>Tokens</dt>
-                  <dd>{{ tokenSummary }}</dd>
-                </div>
-                <div>
-                  <dt>Cost</dt>
-                  <dd>{{ costSummary }}</dd>
-                </div>
-              </dl>
-              <pre class="inspection-json">{{
-                formatJson(currentTrace?.transport)
-              }}</pre>
-            </section>
-
-            <section v-else class="inspection-panel">
-              <div class="inspection-json-actions">
-                <UiButton size="sm" @click="copyRawJson">Copy</UiButton>
+            </div>
+            <div class="inspection-meta-grid">
+              <div>
+                <p class="inspection-field-label">Started</p>
+                <p class="inspection-field-value">{{ startedAtLabel }}</p>
               </div>
-              <pre class="inspection-json">{{ rawJsonText }}</pre>
-            </section>
-          </main>
-        </div>
+              <div>
+                <p class="inspection-field-label">Duration</p>
+                <p class="inspection-field-value">{{ durationLabel }}</p>
+              </div>
+              <div>
+                <p class="inspection-field-label">Input tokens</p>
+                <p class="inspection-field-value">{{ promptTokensLabel }}</p>
+              </div>
+            </div>
+          </template>
+          <p v-else class="inspection-na">No request data.</p>
+        </section>
+
+        <!-- Tab: Result -->
+        <section
+          v-else-if="ui.activeInspectionTab === 'result'"
+          class="inspection-panel"
+        >
+          <template v-if="trace">
+            <div class="inspection-block">
+              <p class="inspection-field-label">Action</p>
+              <p class="inspection-field-value">{{ actionDetailLabel }}</p>
+            </div>
+            <div class="inspection-meta-grid">
+              <div>
+                <p class="inspection-field-label">Output tokens</p>
+                <p class="inspection-field-value">{{ completionTokensLabel }}</p>
+              </div>
+              <div>
+                <p class="inspection-field-label">Cost</p>
+                <p class="inspection-field-value">{{ costLabel ?? '—' }}</p>
+              </div>
+              <div>
+                <p class="inspection-field-label">Duration</p>
+                <p class="inspection-field-value">{{ durationLabel }}</p>
+              </div>
+            </div>
+            <!-- Raw JSON accordion -->
+            <details class="inspection-raw-json">
+              <summary class="inspection-raw-json-summary">
+                Raw JSON
+                <button
+                  type="button"
+                  class="inspection-copy-btn"
+                  @click.prevent="copyRawJson"
+                >
+                  Copy
+                </button>
+              </summary>
+              <div class="inspection-raw-json-body">
+                <p class="inspection-field-label">Request input</p>
+                <pre class="inspection-json">{{ formatJson(trace.payloads.requestInputJson) }}</pre>
+                <p class="inspection-field-label">Response output</p>
+                <pre class="inspection-json">{{ formatJson(trace.payloads.responseOutputJson) }}</pre>
+                <p class="inspection-field-label">Normalized action</p>
+                <pre class="inspection-json">{{ formatJson(trace.payloads.normalizedActionJson) }}</pre>
+              </div>
+            </details>
+          </template>
+          <p v-else class="inspection-na">No request data.</p>
+        </section>
       </div>
     </div>
   </Teleport>
@@ -334,11 +186,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import {
-  getMessageSenderId,
-  type ChatMessage,
-  type RequestTrace,
-} from '../../core';
 import { useInspectionStore } from '../stores/inspection';
 import { useUiStore } from '../stores/ui';
 import {
@@ -346,253 +193,105 @@ import {
   formatMessageTime,
 } from '../utils/chatFormatting';
 import { formatMessageCost } from '../utils/costing';
-import UiButton from './ui/UiButton.vue';
+import InspectorMessageLine from './timeline/InspectorMessageLine.vue';
 
 const tabs = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'causality', label: 'Causality' },
-  { id: 'context', label: 'Context' },
-  { id: 'output', label: 'Output' },
-  { id: 'infra', label: 'Infra' },
-  { id: 'raw-json', label: 'Raw JSON' },
-] as const;
+  { id: 'agent' as const, label: 'Agent' },
+  { id: 'request' as const, label: 'Request' },
+  { id: 'result' as const, label: 'Result' },
+];
 
 const inspection = useInspectionStore();
-const { currentMessage, currentTrace, messageGraph, relatedTraces, state } =
-  storeToRefs(inspection);
 const ui = useUiStore();
-const isMessageTarget = computed(() => ui.inspectionTargetType === 'message');
-const currentAction = computed(() => {
-  const action = currentTrace.value?.payloads.normalizedActionJson;
-  return action && typeof action === 'object'
-    ? (action as {
-        type?: 'speak_public' | 'send_private' | 'stay_silent';
-        text?: string;
-        to?: string;
-        reason?: string;
-      })
-    : null;
+const {
+  currentInspectedMessage: message,
+  traceForCurrentMessage: trace,
+  agentForCurrentMessage: agent,
+  currentActionForTrace: action,
+} = storeToRefs(inspection);
+
+const authorLabel = computed(() => {
+  if (!message.value) return '—';
+  return formatMessageAuthor(message.value, {
+    byId: inspection.participantName,
+  });
 });
-const parentTrace = computed(() =>
-  currentTrace.value?.parentTraceId
-    ? inspection.getRequestTrace(currentTrace.value.parentTraceId)
-    : null,
+
+const timeLabel = computed(() =>
+  message.value ? formatMessageTime(message.value.createdAt) : '—',
 );
-const producedMessage = computed(() =>
-  currentTrace.value?.producedMessageId
-    ? findMessage(currentTrace.value.producedMessageId)
-    : null,
+
+const actionTypeLabel = computed(() => {
+  if (!action.value) return null;
+  return action.value.type;
+});
+
+const costLabel = computed(() => {
+  const cost = trace.value?.usage?.requestCostUsd;
+  if (cost == null) return null;
+  return formatMessageCost(cost);
+});
+
+// Agent tab
+const agentNameLabel = computed(() => agent.value?.name ?? 'Human');
+const modelLabel = computed(() => agent.value?.modelId ?? '—');
+const providerLabel = computed(
+  () => trace.value?.transport?.provider ?? '—',
 );
-const triggeringMessages = computed(() =>
-  currentTrace.value
-    ? currentTrace.value.triggeringMessageIds
-        .map((messageId) => findMessage(messageId))
-        .filter((message): message is ChatMessage => Boolean(message))
-    : [],
+const contextLengthLabel = computed(() => {
+  const len = agent.value?.modelSnapshot?.contextLength;
+  return len != null ? `${(len / 1000).toFixed(0)}k` : '—';
+});
+
+// Request tab
+const startedAtLabel = computed(() =>
+  trace.value ? formatMessageTime(trace.value.startedAt) : '—',
 );
-const visibleContextMessages = computed(() =>
-  currentTrace.value
-    ? currentTrace.value.visibleMessageIds
-        .map((messageId) => findMessage(messageId))
-        .filter((message): message is ChatMessage => Boolean(message))
-    : [],
+const durationLabel = computed(() => {
+  if (!trace.value?.finishedAt) return '—';
+  const ms =
+    new Date(trace.value.finishedAt).getTime() -
+    new Date(trace.value.startedAt).getTime();
+  return `${(ms / 1000).toFixed(1)} s`;
+});
+const promptTokensLabel = computed(
+  () => trace.value?.usage?.promptTokens?.toString() ?? '—',
 );
-const causalityMessages = computed(() =>
-  isMessageTarget.value
-    ? [
-        ...(messageGraph.value?.relatedMessages ?? []),
-        ...(currentMessage.value ? [currentMessage.value] : []),
-      ]
-    : currentTrace.value
-      ? inspection.relatedMessagesForTrace(currentTrace.value)
-      : [],
+
+// Result tab
+const actionDetailLabel = computed(() => {
+  if (!action.value) return '—';
+  switch (action.value.type) {
+    case 'speak_public':
+      return 'Published to public chat';
+    case 'send_private':
+      return `Sent privately to ${inspection.participantName(action.value.to)}`;
+    case 'stay_silent':
+      return `Stayed silent: ${action.value.reason}`;
+  }
+});
+const completionTokensLabel = computed(
+  () => trace.value?.usage?.completionTokens?.toString() ?? '—',
 );
-const causalitySourceMessages = computed(() =>
-  isMessageTarget.value && currentMessage.value
-    ? [currentMessage.value]
-    : triggeringMessages.value,
-);
-const downstreamTraceCards = computed(() =>
-  isMessageTarget.value
-    ? (messageGraph.value?.downstreamTraces ?? [])
-    : currentTrace.value
-      ? currentTrace.value.childTraceIds
-          .map((traceId) => inspection.getRequestTrace(traceId))
-          .filter((trace): trace is RequestTrace => Boolean(trace))
-      : [],
-);
-const downstreamMessages = computed(() =>
-  isMessageTarget.value
-    ? []
-    : currentTrace.value
-      ? currentTrace.value.downstreamMessageIds
-          .map((messageId) => findMessage(messageId))
-          .filter((message): message is ChatMessage => Boolean(message))
-      : [],
-);
-const relatedTraceCards = computed(() =>
-  isMessageTarget.value
-    ? (messageGraph.value?.downstreamTraces ?? [])
-    : relatedTraces.value,
-);
-const fallbackOrErrorTraces = computed(() =>
-  relatedTraceCards.value.filter(
-    (trace) =>
-      trace.fallback || trace.status === 'failed' || trace.status === 'aborted',
+
+const rawJsonText = computed(() =>
+  JSON.stringify(
+    {
+      request: trace.value?.payloads.requestInputJson,
+      response: trace.value?.payloads.responseOutputJson,
+      normalized: trace.value?.payloads.normalizedActionJson,
+    },
+    null,
+    2,
   ),
 );
-const currentSubjectLabel = computed(() => {
-  if (ui.inspectionTargetType === 'trace') {
-    return 'Request trace';
-  }
-
-  if (!currentMessage.value) {
-    return 'Request inspection';
-  }
-
-  return getMessageSenderId(currentMessage.value) === 'human'
-    ? 'Human message'
-    : 'Agent message';
-});
-const currentSubjectTitle = computed(() => {
-  if (ui.inspectionTargetType === 'trace') {
-    return currentTrace.value
-      ? `${currentTrace.value.agentName} · ${currentTrace.value.mode}`
-      : 'Trace not found';
-  }
-
-  return currentMessage.value
-    ? formatMessageCard(currentMessage.value)
-    : 'Message not found';
-});
-const currentSubjectMeta = computed(() => {
-  if (ui.inspectionTargetType === 'trace' && currentTrace.value) {
-    return [
-      currentTrace.value.status,
-      `sweep ${currentTrace.value.sweep}`,
-      currentTrace.value.transport?.modelId,
-      tokenSummary.value,
-      costSummary.value,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }
-
-  if (!currentMessage.value) {
-    return 'No message selected.';
-  }
-
-  return [
-    formatMessageTime(currentMessage.value.createdAt),
-    currentMessage.value.target,
-    currentMessage.value.sourceTraceId
-      ? `trace ${currentMessage.value.sourceTraceId}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-});
-const overviewText = computed(() => {
-  if (isMessageTarget.value && currentMessage.value) {
-    const triggered = messageGraph.value?.triggeringTraces.length ?? 0;
-    const visibleOnly = messageGraph.value?.visibleOnlyTraces.length ?? 0;
-    return `Message "${trimPreview(currentMessage.value.content)}" triggered ${triggered} trace(s) directly and appeared as passive context in ${visibleOnly} more.`;
-  }
-
-  if (currentTrace.value) {
-    if (currentAction.value?.type === 'stay_silent') {
-      return `${currentTrace.value.agentName} ran in ${currentTrace.value.mode} mode and stayed silent: ${currentAction.value.reason}.`;
-    }
-
-    const outcome = producedMessage.value
-      ? `produced ${formatMessageCard(producedMessage.value)}`
-      : currentTrace.value.status === 'succeeded'
-        ? 'completed without a message'
-        : (currentTrace.value.transport?.error ?? currentTrace.value.status);
-    return `${currentTrace.value.agentName} ran in ${currentTrace.value.mode} mode and ${outcome}.`;
-  }
-
-  return 'Nothing selected.';
-});
-const outputSummary = computed(() => {
-  if (!currentTrace.value) {
-    return 'No trace selected.';
-  }
-
-  if (currentAction.value?.type === 'stay_silent') {
-    return `Silent decision with reason: ${currentAction.value.reason}`;
-  }
-
-  if (producedMessage.value) {
-    return `Produced message: ${trimPreview(producedMessage.value.content)}`;
-  }
-
-  return 'No output message.';
-});
-const tokenSummary = computed(() => {
-  if (!currentTrace.value?.usage) {
-    return 'n/a';
-  }
-
-  const usage = currentTrace.value.usage;
-  return `${usage.promptTokens ?? 0}/${usage.completionTokens ?? 0}/${usage.totalTokens ?? 0}`;
-});
-const costSummary = computed(() => {
-  if (!currentTrace.value?.usage) {
-    return 'n/a';
-  }
-
-  return formatMessageCost(
-    currentTrace.value.usage.requestCostUsd ??
-      currentTrace.value.usage.estimatedCost ??
-      0,
-  );
-});
-const rawJsonText = computed(() =>
-  formatJson({
-    request: currentTrace.value?.payloads.requestInputJson,
-    response: currentTrace.value?.payloads.responseOutputJson,
-    normalized: currentTrace.value?.payloads.normalizedActionJson,
-  }),
-);
-
-function findMessage(messageId: string): ChatMessage | null {
-  for (const entry of state.value.timeline) {
-    if (entry.kind === 'message' && entry.message.id === messageId) {
-      return entry.message;
-    }
-  }
-
-  return null;
-}
-
-function participantName(participantId: string): string {
-  return inspection.participantName(participantId);
-}
-
-function formatMessageCard(message: ChatMessage): string {
-  return `${formatMessageTime(message.createdAt)} ${formatMessageAuthor(message, { byId: participantName })} ${trimPreview(message.content)}`;
-}
-
-function formatTraceCard(trace: RequestTrace): string {
-  return `${trace.agentName} · ${trace.mode}${trace.fallback ? ' fallback' : ''} · ${trace.status}`;
-}
-
-function trimPreview(text: string): string {
-  return text.length > 72 ? `${text.slice(0, 69)}...` : text;
-}
 
 function formatJson(value: unknown): string {
   return JSON.stringify(value ?? null, null, 2);
 }
 
-async function copyRawJson() {
-  const clipboard = globalThis.navigator?.clipboard;
-  if (!clipboard?.writeText) {
-    return;
-  }
-
-  await clipboard.writeText(rawJsonText.value);
+async function copyRawJson(): Promise<void> {
+  await globalThis.navigator?.clipboard?.writeText(rawJsonText.value);
 }
 </script>
 
@@ -604,70 +303,55 @@ async function copyRawJson() {
 }
 
 .inspection-card {
-  @apply grid h-[min(90vh,52rem)] w-full max-w-6xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl;
+  @apply grid h-[min(90vh,48rem)] w-full max-w-2xl grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-md border border-neutral-300 bg-white shadow-xl;
 }
 
 .inspection-header {
-  @apply flex items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4;
+  @apply flex items-center gap-3 border-b border-neutral-200 px-4 py-3;
+}
+
+.inspection-nav {
+  @apply flex gap-1 shrink-0;
+}
+
+.inspection-nav-btn {
+  @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-default disabled:opacity-30;
+}
+
+.inspection-subject {
+  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-1 text-[13px];
+}
+
+.inspection-author {
+  @apply font-semibold text-neutral-900;
+}
+
+.inspection-sep {
+  @apply text-neutral-400;
+}
+
+.inspection-time {
+  @apply text-neutral-500;
+}
+
+.inspection-action {
+  @apply rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700;
+}
+
+.inspection-cost {
+  @apply shrink-0 text-[12px] text-neutral-500;
 }
 
 .inspection-close {
-  @apply flex h-7 w-7 shrink-0 items-center justify-center self-start rounded text-[14px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
-}
-
-.inspection-header-copy {
-  @apply min-w-0;
-}
-
-.inspection-kicker {
-  @apply m-0 text-[11px] uppercase tracking-[0.08em] text-neutral-500;
-}
-
-.inspection-title {
-  @apply mt-1 text-base font-semibold text-neutral-900;
-}
-
-.inspection-meta {
-  @apply mt-1 text-[12px] text-neutral-600;
-}
-
-.inspection-body {
-  @apply grid min-h-0 grid-cols-[17rem_minmax(0,1fr)];
-}
-
-.inspection-rail {
-  @apply min-h-0 overflow-auto border-r border-neutral-200 bg-neutral-50 p-3;
-}
-
-.inspection-main {
-  @apply grid min-h-0 grid-rows-[auto_minmax(0,1fr)];
-}
-
-.inspection-rail-group {
-  @apply mb-4 grid gap-2;
-}
-
-.inspection-rail-title,
-.inspection-section-title {
-  @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-neutral-500;
-}
-
-.inspection-link-card,
-.inspection-chip {
-  @apply w-full rounded border border-neutral-200 bg-white px-3 py-2 text-left text-[12px] leading-5 text-neutral-800 transition hover:border-neutral-300 hover:bg-neutral-50;
-}
-
-.inspection-empty,
-.inspection-list-heading {
-  @apply text-[12px] text-neutral-500;
+  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded text-[13px] text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700;
 }
 
 .inspection-tabs {
-  @apply flex flex-wrap gap-2 border-b border-neutral-200 px-4 py-3;
+  @apply flex gap-1 border-b border-neutral-200 px-4 py-2;
 }
 
 .inspection-tab {
-  @apply rounded border border-neutral-200 bg-white px-3 py-1 text-[12px] text-neutral-700;
+  @apply rounded border border-neutral-200 bg-white px-3 py-1 text-[12px] text-neutral-700 transition hover:bg-neutral-50;
 }
 
 .inspection-tab-active {
@@ -678,49 +362,51 @@ async function copyRawJson() {
   @apply min-h-0 overflow-auto p-4;
 }
 
-.inspection-summary {
-  @apply text-[13px] leading-6 text-neutral-800;
-}
-
 .inspection-block {
-  @apply mt-4 grid gap-2;
+  @apply mb-4;
 }
 
-.inspection-chip-list {
-  @apply grid gap-2;
+.inspection-field-label {
+  @apply mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-neutral-500;
 }
 
-.inspection-grid {
-  @apply grid grid-cols-2 gap-3 text-[12px];
+.inspection-field-value {
+  @apply text-[13px] text-neutral-900;
 }
 
-.inspection-grid dt {
-  @apply text-neutral-500;
+.inspection-na {
+  @apply text-[13px] text-neutral-400;
 }
 
-.inspection-grid dd {
-  @apply m-0 text-neutral-900;
+.inspection-prompt {
+  @apply m-0 max-h-48 overflow-auto rounded border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[11px] leading-5 text-neutral-700;
 }
 
-.inspection-json-actions {
-  @apply mb-3 flex justify-end;
+.inspection-message-list {
+  @apply grid gap-0.5;
+}
+
+.inspection-meta-grid {
+  @apply grid grid-cols-3 gap-3;
+}
+
+.inspection-raw-json {
+  @apply mt-6 rounded border border-neutral-200;
+}
+
+.inspection-raw-json-summary {
+  @apply flex cursor-pointer items-center justify-between px-3 py-2 text-[12px] font-semibold text-neutral-700 hover:bg-neutral-50;
+}
+
+.inspection-copy-btn {
+  @apply rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-50;
+}
+
+.inspection-raw-json-body {
+  @apply border-t border-neutral-200 p-3;
 }
 
 .inspection-json {
-  @apply m-0 overflow-auto rounded border border-neutral-200 bg-neutral-950 px-3 py-3 text-[11px] leading-5 text-neutral-100;
-}
-
-@media (max-width: 900px) {
-  .inspection-card {
-    @apply h-[95vh];
-  }
-
-  .inspection-body {
-    @apply grid-cols-1 grid-rows-[12rem_minmax(0,1fr)];
-  }
-
-  .inspection-rail {
-    @apply border-r-0 border-b border-neutral-200;
-  }
+  @apply mb-4 m-0 overflow-auto rounded bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
 }
 </style>
