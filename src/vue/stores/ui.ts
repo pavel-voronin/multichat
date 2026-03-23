@@ -1,14 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-export type InspectionTargetType = 'message' | 'trace' | null;
-export type InspectionTab =
-  | 'overview'
-  | 'causality'
-  | 'context'
-  | 'output'
-  | 'infra'
-  | 'raw-json';
+export type InspectionTab = 'agent' | 'request' | 'result';
 
 export interface UiStateSnapshot {
   showSettings: boolean;
@@ -22,9 +15,6 @@ export interface UiStateSnapshot {
   pendingDeleteAgentName: string;
   reopenAgentWizardAfterSettings: boolean;
   showRequestInspection: boolean;
-  inspectionTargetType: InspectionTargetType;
-  selectedMessageId: string | null;
-  selectedTraceId: string | null;
   activeInspectionTab: InspectionTab;
 }
 
@@ -38,9 +28,6 @@ export interface ChatScopedUiStateSnapshot {
   pendingDeleteAgentName: string;
   reopenAgentWizardAfterSettings: boolean;
   showRequestInspection: boolean;
-  inspectionTargetType: InspectionTargetType;
-  selectedMessageId: string | null;
-  selectedTraceId: string | null;
   activeInspectionTab: InspectionTab;
 }
 
@@ -57,10 +44,7 @@ function defaultUiState(): UiStateSnapshot {
     pendingDeleteAgentName: '',
     reopenAgentWizardAfterSettings: false,
     showRequestInspection: false,
-    inspectionTargetType: null,
-    selectedMessageId: null,
-    selectedTraceId: null,
-    activeInspectionTab: 'overview',
+    activeInspectionTab: 'agent',
   };
 }
 
@@ -76,10 +60,7 @@ export const useUiStore = defineStore('ui', () => {
   const pendingDeleteAgentName = ref('');
   const reopenAgentWizardAfterSettings = ref(false);
   const showRequestInspection = ref(false);
-  const inspectionTargetType = ref<InspectionTargetType>(null);
-  const selectedMessageId = ref<string | null>(null);
-  const selectedTraceId = ref<string | null>(null);
-  const activeInspectionTab = ref<InspectionTab>('overview');
+  const activeInspectionTab = ref<InspectionTab>('agent');
 
   function reset(): void {
     const defaults = defaultUiState();
@@ -95,9 +76,6 @@ export const useUiStore = defineStore('ui', () => {
     reopenAgentWizardAfterSettings.value =
       defaults.reopenAgentWizardAfterSettings;
     showRequestInspection.value = defaults.showRequestInspection;
-    inspectionTargetType.value = defaults.inspectionTargetType;
-    selectedMessageId.value = defaults.selectedMessageId;
-    selectedTraceId.value = defaults.selectedTraceId;
     activeInspectionTab.value = defaults.activeInspectionTab;
   }
 
@@ -113,9 +91,6 @@ export const useUiStore = defineStore('ui', () => {
     reopenAgentWizardAfterSettings.value =
       defaults.reopenAgentWizardAfterSettings;
     showRequestInspection.value = defaults.showRequestInspection;
-    inspectionTargetType.value = defaults.inspectionTargetType;
-    selectedMessageId.value = defaults.selectedMessageId;
-    selectedTraceId.value = defaults.selectedTraceId;
     activeInspectionTab.value = defaults.activeInspectionTab;
   }
 
@@ -135,9 +110,6 @@ export const useUiStore = defineStore('ui', () => {
     pendingDeleteAgentName,
     reopenAgentWizardAfterSettings,
     showRequestInspection,
-    inspectionTargetType,
-    selectedMessageId,
-    selectedTraceId,
     activeInspectionTab,
     reset,
     resetChatScopedState,
