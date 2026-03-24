@@ -230,10 +230,93 @@ export interface TimelineHistoryCutoffEntry extends TimelineEntryBase {
   };
 }
 
-export type TimelineEntry =
-  | TimelineMessageEntry
-  | TimelineTechnicalEventEntry
-  | TimelineHistoryCutoffEntry;
+export interface ChatEntryBase {
+  id: string;
+  createdAt: string;
+  sourceTraceId?: string;
+  costUsd?: number;
+  requestCostUsd?: number;
+  ownPromptCostUsd?: number;
+  downstreamPromptCostUsd?: number;
+  downstreamPromptCostContributors?: Array<{
+    agentId: string;
+    promptCostUsd: number;
+    listenCount: number;
+  }>;
+}
+
+export interface ParticipantMessageEntry extends ChatEntryBase {
+  kind: 'participant-message';
+  authorId: string;
+  content: string;
+  target: MessageTarget;
+  recipientId?: string;
+  createdInSweep?: number;
+}
+
+export interface ParticipantJoinedEntry extends ChatEntryBase {
+  kind: 'participant-joined';
+  participantId: string;
+  participantName: string;
+}
+
+export interface ParticipantLeftEntry extends ChatEntryBase {
+  kind: 'participant-left';
+  participantId: string;
+  participantName: string;
+}
+
+export interface TopicChangedEntry extends ChatEntryBase {
+  kind: 'topic-changed';
+  topicTitle: string;
+}
+
+export interface SilentDecisionEntry extends ChatEntryBase {
+  kind: 'silent-decision';
+  agentId: string;
+  reason: string;
+}
+
+export interface RuntimeErrorEntry extends ChatEntryBase {
+  kind: 'runtime-error';
+  agentId: string;
+  details: string;
+}
+
+export interface SweepStartedEntry extends ChatEntryBase {
+  kind: 'sweep-started';
+  agentId?: string;
+}
+
+export interface SweepFinishedEntry extends ChatEntryBase {
+  kind: 'sweep-finished';
+  agentId?: string;
+}
+
+export interface SweepStoppedEntry extends ChatEntryBase {
+  kind: 'sweep-stopped';
+  agentId?: string;
+}
+
+export type ChatEntry =
+  | ParticipantMessageEntry
+  | ParticipantJoinedEntry
+  | ParticipantLeftEntry
+  | TopicChangedEntry
+  | SilentDecisionEntry
+  | RuntimeErrorEntry
+  | SweepStartedEntry
+  | SweepFinishedEntry
+  | SweepStoppedEntry;
+
+export interface EntryInspectionIndex {
+  sourceTraceId?: string;
+  downstreamTraceIds: string[];
+  triggeringTraceIds: string[];
+  visibleTraceIds: string[];
+}
+
+export type TimelineEntry = ChatEntry | TimelineHistoryCutoffEntry;
 
 export interface DebugLogEntry {
   id: string;
@@ -277,7 +360,7 @@ export interface ChatTabState {
   metrics: Record<string, AgentMetrics>;
   execution: ExecutionState;
   requestTraces: Record<string, RequestTrace>;
-  messageInspectionIndex: Record<string, MessageInspectionIndex>;
+  entryInspectionIndex: Record<string, EntryInspectionIndex>;
 }
 
 export interface WorkspaceState {
@@ -304,7 +387,7 @@ export interface DiagnosticsState {
   debugLogs: DebugLogEntry[];
   errors: RuntimeError[];
   requestTraces: Record<string, RequestTrace>;
-  messageInspectionIndex: Record<string, MessageInspectionIndex>;
+  entryInspectionIndex: Record<string, EntryInspectionIndex>;
 }
 
 export interface SendMessageInput {
