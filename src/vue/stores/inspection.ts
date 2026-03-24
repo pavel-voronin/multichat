@@ -6,7 +6,6 @@ import {
   type RequestTrace,
   type RuntimeState,
 } from '../../core';
-import { isSystemMessage } from '../../core/messages';
 import type { AgentToolCall } from '../../core/types';
 import { useDiagnosticsStore } from './diagnostics';
 import { useRuntimeStore } from './runtime';
@@ -82,9 +81,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     inspectionHistory.value = [messageId];
     inspectionHistoryIndex.value = 0;
     ui.showRequestInspection = true;
-    const message = findMessageById(state.value, messageId);
-    ui.activeInspectionTab =
-      message && isSystemMessage(message) ? 'used-in' : 'participant';
+    ui.activeInspectionTab = 'participant';
   }
 
   function navigateTo(messageId: string): void {

@@ -398,12 +398,6 @@ describe('MultiAgentChat request inspection', () => {
 
     const systemLine = wrapper.find('.chat-line-system');
     await systemLine.find('.chat-line-time-active').trigger('click');
-
-    const participantTab = Array.from(
-      document.body.querySelectorAll('button'),
-    ).find((b) => b.textContent?.trim() === 'Participant');
-    expect(participantTab).toBeDefined();
-    participantTab!.click();
     await wrapper.vm.$nextTick();
 
     expect(document.body.textContent).toContain('System');
