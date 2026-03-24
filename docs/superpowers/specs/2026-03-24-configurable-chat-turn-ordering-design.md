@@ -90,7 +90,7 @@ export function buildAgentQueue(
 
 ### Sourcing `triggeringMessage`
 
-At the `buildAgentQueue` call site in `runAgentSweepFn`, `triggeringMessage` is the most recent `ParticipantMessageEntry` authored by a human participant in `tab.timeline` at the moment the sweep begins. If no such entry exists (e.g. the sweep was triggered by an agent join or a manual trigger with no human message yet), `triggeringMessage` is `null`.
+At the `buildAgentQueue` call site in `runAgentSweepFn`, `triggeringMessage` is the most recent `ParticipantMessageEntry` in `tab.timeline` at the moment the sweep begins, regardless of whether it was authored by a human or an agent. If no such entry exists, `triggeringMessage` is `null`.
 
 This single lookup happens once at the start of each sweep, before the agent loop begins.
 
@@ -130,18 +130,17 @@ The `agents` list is the result of `getActiveAgents(tab)` (filtered for enabled,
 
 ### Step 3: Mention Boost
 
-Inspect `triggeringMessage.content`. Match the following pattern at the very start of the string (before any other content):
+Inspect `triggeringMessage.content`. Apply the following algorithm to detect mentions:
 
-```
-/^([A-Za-z0-9_ ]+(?:,\s*[A-Za-z0-9_ ]+)*)\s*:/
-```
-
-- Match is case-insensitive against agent names.
-- Capture group is split on `,` and each token is trimmed.
-- Only agents present in the active agent list are boosted; unknown names are ignored.
-- Boosted agents move to the front of the queue in the order they appear in the match.
-- Remaining agents keep their Step 2 order.
-- If the prefix does not match the pattern: queue is unchanged.
+1. Find the index of the first `:` in the content.
+2. If no `:` is found, or it appears after a newline: no mention detected; queue unchanged.
+3. Take the substring before `:` as the candidate prefix.
+4. Split the candidate prefix on `,`.
+5. Trim each token.
+6. Match each token case-insensitively against active agent names.
+7. Tokens that match a known agent name are "mentioned agents"; unmatched tokens are ignored.
+8. If at least one agent is matched: move matched agents to the front of the queue in the order they appeared; remaining agents keep their Step 2 order.
+9. If no agents are matched: queue is unchanged.
 
 ---
 
