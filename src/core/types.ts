@@ -1,30 +1,5 @@
 export type ParticipantRole = 'human' | 'agent';
 export type MessageTarget = 'public' | 'private';
-export type ChatMessageKind = 'participant' | 'system';
-export type SystemMessageType =
-  | 'participant_joined'
-  | 'participant_left'
-  | 'topic_changed';
-export type ChatMessageAuthor =
-  | {
-      type: 'participant';
-      participantId: string;
-    }
-  | {
-      type: 'system';
-    };
-export interface SystemMessagePayload {
-  type: SystemMessageType;
-  participantId?: string;
-  participantName?: string;
-  topicTitle?: string;
-}
-export type RuntimeEventType =
-  | 'sweep-started'
-  | 'sweep-finished'
-  | 'silent-decision'
-  | 'runtime-error'
-  | 'sweep-stopped';
 export type DebugLogKind =
   | 'tab-created'
   | 'tab-renamed'
@@ -73,28 +48,6 @@ export interface AgentConfig {
   };
   modelSnapshot?: ModelSnapshot;
   systemPrompt: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  author: ChatMessageAuthor;
-  kind: ChatMessageKind;
-  target: MessageTarget;
-  recipientId?: string;
-  content: string;
-  system?: SystemMessagePayload;
-  createdAt: string;
-  costUsd?: number;
-  requestCostUsd?: number;
-  ownPromptCostUsd?: number;
-  downstreamPromptCostUsd?: number;
-  downstreamPromptCostContributors?: Array<{
-    agentId: string;
-    promptCostUsd: number;
-    listenCount: number;
-  }>;
-  createdInSweep?: number;
-  sourceTraceId?: string;
 }
 
 export interface RequestTraceUsage {
@@ -156,13 +109,6 @@ export interface RequestTrace {
   links: RequestTraceLink[];
 }
 
-export interface MessageInspectionIndex {
-  sourceTraceId?: string;
-  downstreamTraceIds: string[];
-  triggeringTraceIds: string[];
-  visibleTraceIds: string[];
-}
-
 export interface AgentMetrics {
   requestCount: number;
   promptTokens: number;
@@ -190,40 +136,9 @@ export interface RuntimeError {
   sourceTraceId?: string;
 }
 
-export interface RuntimeEvent {
+export interface TimelineHistoryCutoffEntry {
   id: string;
   createdAt: string;
-  type: RuntimeEventType;
-  agentId?: string;
-  details?: string;
-  sourceTraceId?: string;
-  costUsd?: number;
-  requestCostUsd?: number;
-  ownPromptCostUsd?: number;
-  downstreamPromptCostUsd?: number;
-  downstreamPromptCostContributors?: Array<{
-    agentId: string;
-    promptCostUsd: number;
-    listenCount: number;
-  }>;
-}
-
-export interface TimelineEntryBase {
-  id: string;
-  createdAt: string;
-}
-
-export interface TimelineMessageEntry extends TimelineEntryBase {
-  kind: 'message';
-  message: ChatMessage;
-}
-
-export interface TimelineTechnicalEventEntry extends TimelineEntryBase {
-  kind: 'technical-event';
-  event: RuntimeEvent;
-}
-
-export interface TimelineHistoryCutoffEntry extends TimelineEntryBase {
   kind: 'history-cutoff';
   cutoff: {
     source: 'manual';
@@ -409,12 +324,6 @@ export interface SendMessageInput {
   triggerSweep?: boolean;
 }
 
-export interface SendSystemMessageInput {
-  content: string;
-  system: SystemMessagePayload;
-  triggerSweep?: boolean;
-}
-
 export interface OpenRouterModel {
   id: string;
   name: string;
@@ -454,7 +363,7 @@ export interface AgentTurnResult {
 
 export interface AgentContextMessage {
   id: string;
-  authorType: ChatMessageAuthor['type'];
+  authorType: 'participant' | 'system';
   senderName: string;
   senderId?: string;
   target: MessageTarget;

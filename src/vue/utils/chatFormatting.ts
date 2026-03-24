@@ -1,10 +1,4 @@
-import {
-  getMessageSenderId,
-  isSystemMessage as isSystemMessageCore,
-  type ChatMessage,
-  type DebugLogEntry,
-  type RuntimeEvent,
-} from '../../core';
+import { type DebugLogEntry } from '../../core';
 
 export interface ParticipantNameLookup {
   byId: (participantId: string) => string | null;
@@ -17,58 +11,6 @@ export function formatMessageTime(createdAt: string): string {
     second: '2-digit',
     hour12: false,
   });
-}
-
-export function formatMessageAuthor(
-  message: ChatMessage,
-  lookup: ParticipantNameLookup,
-): string {
-  if (isSystemMessageCore(message)) {
-    return '[System]';
-  }
-
-  const senderId = getMessageSenderId(message);
-  const sender = senderId ? (lookup.byId(senderId) ?? senderId) : 'unknown';
-
-  if (message.target === 'private') {
-    const recipient = message.recipientId
-      ? (lookup.byId(message.recipientId) ?? message.recipientId)
-      : 'all';
-    return `<${sender} -> ${recipient}>`;
-  }
-
-  return `<${sender}>`;
-}
-
-export function isSystemMessage(message: ChatMessage): boolean {
-  return isSystemMessageCore(message);
-}
-
-export function formatTechnicalEventLabel(
-  event: RuntimeEvent,
-  lookup: ParticipantNameLookup,
-): string {
-  const agentName = event.agentId ? lookup.byId(event.agentId) : null;
-
-  if (event.type === 'silent-decision') {
-    return agentName ? `[silent ${agentName}]` : '[silent]';
-  }
-
-  return agentName ? `[error ${agentName}]` : '[error]';
-}
-
-export function formatTechnicalEventText(event: RuntimeEvent): string {
-  if (event.type === 'silent-decision') {
-    return `stayed silent: ${event.details}`;
-  }
-
-  return event.details ? `request failed: ${event.details}` : 'request failed';
-}
-
-export function technicalEventClasses(event: RuntimeEvent): string {
-  return event.type === 'runtime-error'
-    ? 'runtime-line runtime-line-error'
-    : 'runtime-line runtime-line-silent';
 }
 
 export function formatParticipantName(

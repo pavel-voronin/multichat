@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentConfig, ChatMessage, RuntimeEvent } from '../../../src/core';
+import type { AgentConfig } from '../../../src/core';
+import type { CostTrackedItem } from '../../../src/vue/types';
 import {
   aggregateAgentSpendFromTraces,
   agentCompletionSpend,
@@ -11,25 +12,12 @@ import {
   shouldShowMessageCost,
 } from '../../../src/vue/utils/costing';
 
-function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
-  return {
-    id: 'm-1',
-    author: { type: 'participant', participantId: 'human' },
-    kind: 'participant',
-    target: 'public',
-    content: 'hello',
-    createdAt: '2026-01-01T10:00:00.000Z',
-    ...overrides,
-  };
+function createMessage(overrides: Partial<CostTrackedItem> = {}): CostTrackedItem {
+  return { ...overrides };
 }
 
-function createEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
-  return {
-    id: 'e-1',
-    createdAt: '2026-01-01T10:00:00.000Z',
-    type: 'silent-decision',
-    ...overrides,
-  };
+function createEvent(overrides: Partial<CostTrackedItem> = {}): CostTrackedItem {
+  return { ...overrides };
 }
 
 describe('costing utils', () => {
