@@ -1,4 +1,7 @@
+import type { TurnOrderingConfig } from './turn-ordering/types';
+
 export type ParticipantRole = 'human' | 'agent';
+
 export type MessageTarget = 'public' | 'private';
 export type DebugLogKind =
   | 'tab-created'
@@ -276,6 +279,7 @@ export interface ChatTabState {
   execution: ExecutionState;
   requestTraces: Record<string, RequestTrace>;
   entryInspectionIndex: Record<string, EntryInspectionIndex>;
+  turnOrdering: TurnOrderingConfig;
 }
 
 export interface WorkspaceState {
@@ -295,6 +299,7 @@ export interface RuntimeState {
   metrics: Record<string, AgentMetrics>;
   settings: SettingsState;
   execution: ExecutionState;
+  turnOrdering: TurnOrderingConfig;
 }
 
 export interface DiagnosticsState {

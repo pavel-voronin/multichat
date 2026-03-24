@@ -33,6 +33,7 @@ import {
   hasNewVisibleInputForAgent,
   markVisibleContextProcessed,
 } from './context-routing';
+import { buildAgentQueue } from './turn-ordering';
 import { deepClone } from './utils';
 
 export interface ExecutionContext {
@@ -54,6 +55,7 @@ export interface ExecutionContext {
     patch: Partial<Omit<AgentConfig, 'id'>>,
     tabId: string,
   ) => AgentConfig;
+  advanceSlidingCycleOffset: (tabId: string) => void;
   persistAndNotify: () => void;
 }
 
@@ -396,6 +398,7 @@ export async function runAgentTurnFn(
 
 export async function runAgentSweepFn(
   trigger: string,
+  triggeringMessage: ParticipantMessageEntry | null,
   tabId: string,
   ctx: ExecutionContext,
 ): Promise<void> {
@@ -419,6 +422,7 @@ export async function runAgentSweepFn(
 
     let loops = 0;
     tab.execution.stopRequested = false;
+    let currentTriggeringMessage = triggeringMessage;
 
     do {
       const currentTab = getTab(tabId, ctx);
@@ -443,7 +447,7 @@ export async function runAgentSweepFn(
       });
       ctx.persistAndNotify();
 
-      for (const agent of getActiveAgents(currentTab)) {
+      for (const agent of buildAgentQueue(currentTab, currentTriggeringMessage)) {
         const latestTab = getTab(tabId, ctx);
         if (!latestTab || latestTab.execution.stopRequested) break;
         await runAgentTurnFn(agent, tabId, ctx);
@@ -453,6 +457,9 @@ export async function runAgentSweepFn(
       if (!latestTab) break;
 
       latestTab.execution.isSweepRunning = false;
+      if (!latestTab.execution.stopRequested) {
+        ctx.advanceSlidingCycleOffset(tabId);
+      }
       pushSweepFinished({
         createId: ctx.createId,
         now: ctx.now,
@@ -469,6 +476,15 @@ export async function runAgentSweepFn(
       });
       ctx.persistAndNotify();
       loops += 1;
+
+      const nextTab = getTab(tabId, ctx);
+      if (nextTab) {
+        currentTriggeringMessage =
+          nextTab.timeline.findLast(
+            (entry): entry is ParticipantMessageEntry =>
+              entry.kind === 'participant-message',
+          ) ?? null;
+      }
     } while (
       getTab(tabId, ctx)?.execution.queuedSweep &&
       loops < ctx.maxAutoSweeps &&

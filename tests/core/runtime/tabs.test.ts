@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MultiChatRuntime } from '../../../src/core/runtime';
+import { mergePersistedWorkspace } from '../../../src/core/workspace';
 import { createTransport, timelineMessages } from './helpers';
 
 function createEmptyRuntime() {
@@ -217,5 +218,33 @@ describe('MultiChatRuntime tabs', () => {
         .filter((entry) => entry.kind === 'participant-message')
         .map((entry) => entry.content),
     ).toContain('background reply');
+  });
+
+  it('initializes new tabs with sequential turn ordering', () => {
+    const runtime = createEmptyRuntime();
+
+    expect(runtime.getState().turnOrdering).toEqual({
+      strategy: 'sequential',
+    });
+    expect(runtime.getWorkspaceState().tabs[0]?.turnOrdering).toEqual({
+      strategy: 'sequential',
+    });
+  });
+
+  it('normalizes persisted tabs without turnOrdering to sequential', () => {
+    const base = createEmptyRuntime().getWorkspaceState();
+    const merged = mergePersistedWorkspace(base, {
+      ...base,
+      tabs: [
+        {
+          ...base.tabs[0]!,
+          turnOrdering: undefined as never,
+        },
+      ],
+    });
+
+    expect(merged.tabs[0]?.turnOrdering).toEqual({
+      strategy: 'sequential',
+    });
   });
 });

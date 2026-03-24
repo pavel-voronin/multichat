@@ -30,6 +30,12 @@
         Invalidate models cache
       </UiButton>
     </div>
+    <div class="modal-field">
+      <TurnOrderingSettings
+        v-model="draftTurnOrdering"
+        :active-agents="activeAgents"
+      />
+    </div>
     <div class="modal-actions">
       <UiButton class="modal-primary-button" variant="primary" @click="save">
         Save
@@ -45,10 +51,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
+import type { AgentConfig } from '../../core';
 import { useRuntimeStore } from '../stores/runtime';
 import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
 import { useModelsStore } from '../stores/models';
+import TurnOrderingSettings from './TurnOrderingSettings.vue';
 import UiButton from './ui/UiButton.vue';
 import UiInput from './ui/UiInput.vue';
 import UiModal from './ui/UiModal.vue';
@@ -59,6 +67,12 @@ const { state, workspace } = storeToRefs(runtimeStore);
 const ui = useUiStore();
 const modelsStore = useModelsStore();
 const draftKey = ref(state.value.settings.openRouterApiKey);
+const draftTurnOrdering = ref(state.value.turnOrdering);
+const activeAgents = computed<AgentConfig[]>(() =>
+  state.value.agents.filter(
+    (agent) => agent.isEnabled !== false && agent.isHidden !== true,
+  ),
+);
 const modelsCacheLabel = computed(() => {
   const snapshot = workspace.value.modelsCatalogSnapshot;
   if (!snapshot) {
@@ -76,6 +90,7 @@ watch(
     }
 
     draftKey.value = state.value.settings.openRouterApiKey;
+    draftTurnOrdering.value = state.value.turnOrdering;
   },
 );
 
@@ -88,6 +103,7 @@ function save() {
   session.updateRuntimeSettings({
     openRouterApiKey: nextKey,
   });
+  session.updateTurnOrdering(draftTurnOrdering.value);
   close();
 }
 

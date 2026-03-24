@@ -28,6 +28,7 @@ import {
 } from './traces';
 import {
   type ContextEntry,
+  getActiveAgents,
   getVisibleMessagesForAgent as getVisibleMessagesForAgentFn,
   isEntryVisibleToAgent as isEntryVisibleToAgentFn,
   isEntryVisibleToParticipant as isEntryVisibleToParticipantFn,
@@ -41,6 +42,7 @@ import {
 import { runAgentSweepFn, type ExecutionContext } from './execution';
 import { IndexedDbPersistenceAdapter, NoopPersistenceAdapter } from './storage';
 import { createId, deepClone, fingerprintApiKey } from './utils';
+import type { TurnOrderingConfig } from './turn-ordering/types';
 import {
   DEFAULT_HUMAN,
   createEmptyTabState,
@@ -190,7 +192,7 @@ export class MultiChatRuntime {
     const { entry, triggersSweep } = this.publishMessage(input, tabId);
 
     if (triggersSweep) {
-      await this.runAgentSweep('message', tabId);
+      await this.runAgentSweep('message', entry, tabId);
     }
 
     return entry;
@@ -235,7 +237,7 @@ export class MultiChatRuntime {
     );
     this.persistAndNotify();
     if (triggersSweep) {
-      void this.runAgentSweep('message', tab.id);
+      void this.runAgentSweep('participant-joined', null, tab.id);
     }
     return deepClone(agent);
   }
@@ -302,7 +304,7 @@ export class MultiChatRuntime {
     );
     this.persistAndNotify();
     if (triggersSweep) {
-      void this.runAgentSweep('message', tab.id);
+      void this.runAgentSweep('participant-left', null, tab.id);
     }
   }
 
@@ -324,6 +326,23 @@ export class MultiChatRuntime {
       payload: {
         kind: 'settings-updated',
         details: JSON.stringify(patch),
+      },
+    });
+    this.persistAndNotify();
+  }
+
+  updateTurnOrdering(
+    patch: TurnOrderingConfig,
+    tabId = this.workspace.activeTabId,
+  ): void {
+    const tab = this.requireTab(tabId);
+    tab.turnOrdering = deepClone(patch);
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
+        kind: 'settings-updated',
+        details: `turnOrdering=${JSON.stringify(patch)}`,
       },
     });
     this.persistAndNotify();
@@ -550,7 +569,7 @@ export class MultiChatRuntime {
     );
     this.persistAndNotify();
     if (triggersSweep) {
-      void this.runAgentSweep('message', tab.id);
+      void this.runAgentSweep('topic-changed', null, tab.id);
     }
   }
 
@@ -653,9 +672,15 @@ export class MultiChatRuntime {
 
   async runAgentSweep(
     trigger: string,
+    triggeringMessage: ParticipantMessageEntry | null = null,
     tabId = this.workspace.activeTabId,
   ): Promise<void> {
-    await runAgentSweepFn(trigger, tabId, this.buildExecutionContext());
+    await runAgentSweepFn(
+      trigger,
+      triggeringMessage,
+      tabId,
+      this.buildExecutionContext(),
+    );
   }
 
   private buildExecutionContext(): ExecutionContext {
@@ -673,6 +698,8 @@ export class MultiChatRuntime {
       sendMessage: (input, tabId) => this.sendMessage(input, tabId),
       updateAgent: (agentId, patch, tabId) =>
         this.updateAgent(agentId, patch, tabId),
+      advanceSlidingCycleOffset: (tabId) =>
+        this.advanceSlidingCycleOffset(tabId),
       persistAndNotify: () => this.persistAndNotify(),
     };
   }
@@ -752,7 +779,29 @@ export class MultiChatRuntime {
       metrics: tab.metrics,
       settings: this.workspace.settings,
       execution: tab.execution,
+      turnOrdering: tab.turnOrdering,
     });
+  }
+
+  private advanceSlidingCycleOffset(tabId: string): void {
+    const tab = this.requireTab(tabId);
+    if (tab.turnOrdering.strategy !== 'sliding_cycle') {
+      return;
+    }
+
+    const activeAgentCount = getActiveAgents(tab).length;
+    if (!activeAgentCount) {
+      tab.turnOrdering = {
+        strategy: 'sliding_cycle',
+        offset: 0,
+      };
+      return;
+    }
+
+    tab.turnOrdering = {
+      strategy: 'sliding_cycle',
+      offset: (tab.turnOrdering.offset + 1) % activeAgentCount,
+    };
   }
 
   private buildDiagnosticsState(tab: ChatTabState): DiagnosticsState {

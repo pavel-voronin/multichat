@@ -7,6 +7,7 @@ import type {
   SettingsState,
   WorkspaceState,
 } from './types';
+import { DEFAULT_TURN_ORDERING } from './turn-ordering/types';
 import { deepClone } from './utils';
 
 export const DEFAULT_HUMAN = {
@@ -66,6 +67,7 @@ export function createEmptyTabState(input: {
     execution: initialExecutionState(),
     requestTraces: {},
     entryInspectionIndex: {},
+    turnOrdering: deepClone(DEFAULT_TURN_ORDERING),
   };
 }
 
@@ -150,6 +152,7 @@ export function normalizeTabState(
     },
     requestTraces: tab.requestTraces ?? {},
     entryInspectionIndex: tab.entryInspectionIndex ?? {},
+    turnOrdering: deepClone(tab.turnOrdering ?? DEFAULT_TURN_ORDERING),
   };
 }
 

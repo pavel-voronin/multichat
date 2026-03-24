@@ -7,6 +7,17 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+function createDragEvent(
+  type: string,
+  dataTransfer: DataTransfer | object,
+): Event {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'dataTransfer', {
+    value: dataTransfer,
+  });
+  return event;
+}
+
 describe('MultiAgentChat layout and workflow', () => {
   it('switches from blocked agent wizard to settings instead of stacking modals', async () => {
     const transport: OpenRouterTransport = {
@@ -131,6 +142,66 @@ describe('MultiAgentChat layout and workflow', () => {
     expect(document.body.textContent).toContain(
       'No persisted models snapshot.',
     );
+    wrapper.unmount();
+  });
+
+  it('saves per-chat turn ordering from settings', async () => {
+    const runtime = createRuntime({ createDefaultAgent: false });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+    });
+    const beta = runtime.createAgent({
+      name: 'Beta',
+      modelId: 'model-a:free',
+      systemPrompt: 'prompt',
+    });
+    const wrapper = mountChat(runtime);
+
+    const settingsButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text() === 'Settings');
+    expect(settingsButton).toBeDefined();
+    await settingsButton?.trigger('click');
+
+    const selects = Array.from(
+      document.body.querySelectorAll('select'),
+    ) as HTMLSelectElement[];
+    const strategySelect = selects[0];
+    expect(strategySelect).toBeDefined();
+    strategySelect.value = 'manual_order';
+    strategySelect.dispatchEvent(new Event('change'));
+    await wrapper.vm.$nextTick();
+
+    const items = Array.from(
+      document.body.querySelectorAll('.turn-ordering-manual-item'),
+    ) as HTMLDivElement[];
+    const dataTransfer = {
+      setData() {},
+      getData() {
+        return beta.id;
+      },
+      setDragImage() {},
+    };
+    items[1]!.dispatchEvent(createDragEvent('dragstart', dataTransfer));
+    items[0]!.dispatchEvent(createDragEvent('dragover', dataTransfer));
+    items[1]!.dispatchEvent(createDragEvent('dragend', dataTransfer));
+    await wrapper.vm.$nextTick();
+
+    const saveButton = Array.from(
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
+    ).find((button) => button.textContent?.trim() === 'Save') as
+      | HTMLButtonElement
+      | undefined;
+    expect(saveButton).toBeDefined();
+    saveButton?.click();
+    await wrapper.vm.$nextTick();
+
+    expect(runtime.getState().turnOrdering).toEqual({
+      strategy: 'manual_order',
+      order: [beta.id, runtime.getState().agents[0]!.id],
+    });
     wrapper.unmount();
   });
 

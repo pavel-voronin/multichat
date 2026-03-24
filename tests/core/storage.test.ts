@@ -28,6 +28,9 @@ function createState(): WorkspaceState {
         },
         requestTraces: {},
         entryInspectionIndex: {},
+        turnOrdering: {
+          strategy: 'sequential',
+        },
       },
     ],
   };

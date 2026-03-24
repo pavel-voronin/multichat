@@ -296,6 +296,9 @@ describe('MultiChatRuntime history cutoffs', () => {
             },
             requestTraces: {},
             entryInspectionIndex: {},
+            turnOrdering: {
+              strategy: 'sequential',
+            },
           },
         ],
       },

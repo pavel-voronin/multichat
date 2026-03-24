@@ -288,4 +288,266 @@ describe('MultiChatRuntime sweeps', () => {
       timelineEvents(runtime).some((event) => event.kind === 'sweep-stopped'),
     ).toBe(true);
   });
+
+  it('applies mention boost on top of configured strategy', async () => {
+    const order: string[] = [];
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        order.push(
+          runtime.getState().agents.find((agent) => agent.id === agentId)
+            ?.name ?? agentId,
+        );
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'ordered' },
+        };
+      }),
+    });
+
+    runtime.createAgent({
+      name: 'Cheap',
+      modelId: 'cheap',
+      systemPrompt: 'prompt',
+      pricing: { prompt: '0.1', completion: '0.1' },
+    });
+    runtime.createAgent({
+      name: 'Mid',
+      modelId: 'mid',
+      systemPrompt: 'prompt',
+      pricing: { prompt: '1', completion: '1' },
+    });
+    runtime.createAgent({
+      name: 'Expensive',
+      modelId: 'expensive',
+      systemPrompt: 'prompt',
+      pricing: { prompt: '2', completion: '2' },
+    });
+    runtime.updateTurnOrdering({ strategy: 'cheap_first' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Expensive: check this',
+      target: 'public',
+    });
+
+    expect(order).toEqual(['Expensive', 'Cheap', 'Mid']);
+  });
+
+  it('runs private triggering sweeps only for the recipient', async () => {
+    const order: string[] = [];
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        order.push(
+          runtime.getState().agents.find((agent) => agent.id === agentId)
+            ?.name ?? agentId,
+        );
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'ordered' },
+        };
+      }),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'b',
+      systemPrompt: 'prompt',
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+    const betaId = runtime
+      .getState()
+      .agents.find((agent) => agent.name === 'Beta')!.id;
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'private ping',
+      target: 'private',
+      recipientId: betaId,
+    });
+
+    expect(order).toEqual(['Beta']);
+  });
+
+  it('advances sliding cycle offset after completed sweeps only', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async () => ({
+        mode: 'tools',
+        action: { type: 'stay_silent', reason: 'ordered' },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'b',
+      systemPrompt: 'prompt',
+    });
+    runtime.updateTurnOrdering({
+      strategy: 'sliding_cycle',
+      offset: 0,
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.runAgentSweep('manual');
+    expect(runtime.getState().turnOrdering).toEqual({
+      strategy: 'sliding_cycle',
+      offset: 1,
+    });
+
+    runtime.stop();
+    expect(runtime.getState().turnOrdering).toEqual({
+      strategy: 'sliding_cycle',
+      offset: 1,
+    });
+  });
+
+  it('non-message sweep is not restricted by a prior private message', async () => {
+    const turns: string[] = [];
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        turns.push(
+          runtime.getState().agents.find((agent) => agent.id === agentId)
+            ?.name ?? agentId,
+        );
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'test' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const betaId = runtime.getState().agents.find((a) => a.name === 'Beta')!.id;
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'private ping',
+      target: 'private',
+      recipientId: betaId,
+    });
+
+    turns.length = 0;
+
+    runtime.renameTab(runtime.getState().activeTabId, '#renamed');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(turns).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('sendMessage sweep uses the sent entry as triggeringMessage for mention boost', async () => {
+    const turns: string[] = [];
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        turns.push(
+          runtime.getState().agents.find((agent) => agent.id === agentId)
+            ?.name ?? agentId,
+        );
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'test' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'Beta: please respond',
+      target: 'public',
+    });
+
+    expect(turns).toEqual(['Beta', 'Alpha']);
+  });
+
+  it('sendMessage sweep is restricted to the private recipient when message is private', async () => {
+    const turns: string[] = [];
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        turns.push(
+          runtime.getState().agents.find((agent) => agent.id === agentId)
+            ?.name ?? agentId,
+        );
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'test' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    const betaId = runtime.getState().agents.find((a) => a.name === 'Beta')!.id;
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'private ping',
+      target: 'private',
+      recipientId: betaId,
+    });
+
+    expect(turns).toEqual(['Beta']);
+  });
+
+  it('queued sweep uses the message that arrived during the sweep, not the original trigger', async () => {
+    const allTurns: string[] = [];
+    let gammaId = '';
+
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        allTurns.push(
+          runtime.getState().agents.find((a) => a.id === agentId)?.name ??
+            agentId,
+        );
+
+        if (agentId === gammaId) {
+          const visible = runtime.getVisibleMessagesForAgent(agentId);
+          const hasSpoken = visible.some((m) => m.senderId === gammaId);
+          if (!hasSpoken) {
+            return {
+              mode: 'tools',
+              action: { type: 'speak_public', text: 'Beta: your turn' },
+            };
+          }
+        }
+
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'done' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Gamma', modelId: 'c', systemPrompt: 'prompt' });
+    runtime.resetAgentHistoryContext();
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+    gammaId = runtime.getState().agents[2]!.id;
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'start',
+      target: 'public',
+    });
+
+    expect(allTurns).toEqual(['Alpha', 'Beta', 'Gamma', 'Beta', 'Alpha']);
+  });
 });
