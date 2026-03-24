@@ -12,13 +12,19 @@
         :class="{ 'message-time-trigger-active': canInspect }"
         :disabled="!canInspect"
         @click="handleInspectClick"
-        >[{{ timeLabel }}]</button
-      >{{ ' '
-      }}<span class="runtime-label">{{ label }}</span
+      >
+        [{{ timeLabel }}]</button
+      >{{ ' ' }}<span class="runtime-label">{{ label }}</span
       ><template v-if="showCost"
-        >{{ ' ' }}<CostBadge :item="entry" :item-id="entry.id" :cost-display-mode="costDisplayMode"
-      /></template
-      >{{ ' ' }}<span class="runtime-text">{{ entry.details ? `request failed: ${entry.details}` : 'request failed' }}</span>
+        >{{ ' '
+        }}<CostBadge
+          :item="entry"
+          :item-id="entry.id"
+          :cost-display-mode="costDisplayMode" /></template
+      >{{ ' '
+      }}<span class="runtime-text">{{
+        entry.details ? `request failed: ${entry.details}` : 'request failed'
+      }}</span>
     </div>
   </article>
 </template>
@@ -33,11 +39,15 @@ import { useTimelineStore } from '../../../stores/timeline';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 import CostBadge from '../CostBadge.vue';
 
-const props = defineProps<{ entry: RuntimeErrorEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: RuntimeErrorEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeline = useTimelineStore();
-const { canInspect, handleInspectClick } = useEntryInspectionByTrace(props.entry);
+const { canInspect, handleInspectClick } = useEntryInspectionByTrace(
+  props.entry,
+);
 const { showCost, costDisplayMode } = useEntryCost(props.entry);
 const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));
 const label = computed(() => {

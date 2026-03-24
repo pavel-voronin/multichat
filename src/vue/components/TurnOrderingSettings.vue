@@ -48,8 +48,7 @@
           :key="agent.id"
           class="turn-ordering-manual-item"
           :class="{
-            'turn-ordering-manual-item-dragging':
-              draggingAgentId === agent.id,
+            'turn-ordering-manual-item-dragging': draggingAgentId === agent.id,
           }"
           draggable="true"
           @dragstart="handleDragStart(agent.id, $event)"
@@ -99,10 +98,10 @@ function currentKeywords(): Record<string, string[]> {
 
 const keywordTextByAgentId = computed<Record<string, string>>(() => {
   const keywordsByAgentId = currentKeywords();
-  const entries = props.activeAgents.map((agent) => [
-    agent.id,
-    (keywordsByAgentId[agent.id] ?? []).join(', '),
-  ] as const);
+  const entries = props.activeAgents.map(
+    (agent) =>
+      [agent.id, (keywordsByAgentId[agent.id] ?? []).join(', ')] as const,
+  );
 
   return Object.fromEntries(entries);
 });
@@ -152,10 +151,9 @@ function buildKeywordsRecord(
   overrides?: Record<string, string[]>,
 ): Record<string, string[]> {
   const currentKeywordsByAgentId = currentKeywords();
-  const baseEntries = props.activeAgents.map((agent) => [
-    agent.id,
-    currentKeywordsByAgentId[agent.id] ?? [],
-  ] as const);
+  const baseEntries = props.activeAgents.map(
+    (agent) => [agent.id, currentKeywordsByAgentId[agent.id] ?? []] as const,
+  );
 
   const keywords: Record<string, string[]> = Object.fromEntries(baseEntries);
   return {
@@ -164,10 +162,7 @@ function buildKeywordsRecord(
   };
 }
 
-function updateKeywords(
-  agentId: string,
-  value: string | number | null,
-): void {
+function updateKeywords(agentId: string, value: string | number | null): void {
   const nextKeywords = String(value ?? '')
     .split(',')
     .map((keyword) => keyword.trim())
@@ -194,8 +189,12 @@ function handleDragOver(targetAgentId: string): void {
   }
 
   const orderedIds = manualOrderAgents.value.map((agent) => agent.id);
-  const sourceIndex = orderedIds.findIndex((agentId) => agentId === sourceAgentId);
-  const targetIndex = orderedIds.findIndex((agentId) => agentId === targetAgentId);
+  const sourceIndex = orderedIds.findIndex(
+    (agentId) => agentId === sourceAgentId,
+  );
+  const targetIndex = orderedIds.findIndex(
+    (agentId) => agentId === targetAgentId,
+  );
   if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) {
     return;
   }

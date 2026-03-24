@@ -1,4 +1,8 @@
-import type { ChatTabState, ParticipantMessageEntry, RequestTrace } from './types';
+import type {
+  ChatTabState,
+  ParticipantMessageEntry,
+  RequestTrace,
+} from './types';
 import {
   cloneTraces,
   getEntryInspectionIndexEntry,

@@ -5,9 +5,14 @@
     :data-timeline-entry-id="entry.id"
     :data-cutoff-drop-active="dragPreviewTargetId === entry.id"
   >
-    <div class="system-line chat-line-system" :class="{ 'chat-line-muted': entry.isMuted }">
+    <div
+      class="system-line chat-line-system"
+      :class="{ 'chat-line-muted': entry.isMuted }"
+    >
       <span class="chat-line-time">[{{ timeLabel }}]</span>{{ ' '
-      }}<span class="system-text">{{ entry.participantName }} joined the chat</span>
+      }}<span class="system-text"
+        >{{ entry.participantName }} joined the chat</span
+      >
     </div>
   </article>
 </template>
@@ -18,7 +23,9 @@ import type { ParticipantJoinedEntry } from '../../../../core';
 import { useCutoffDrag } from '../../../composables/useCutoffDrag';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 
-const props = defineProps<{ entry: ParticipantJoinedEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: ParticipantJoinedEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));

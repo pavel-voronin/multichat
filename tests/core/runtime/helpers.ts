@@ -45,7 +45,9 @@ export function createRuntime(config?: Partial<RuntimeConfig>) {
   });
 }
 
-export function timelineMessages(runtime: MultiChatRuntime): ParticipantMessageEntry[] {
+export function timelineMessages(
+  runtime: MultiChatRuntime,
+): ParticipantMessageEntry[] {
   return runtime
     .getTimelineEntries()
     .filter(
@@ -62,11 +64,14 @@ type TechnicalEntry =
   | RuntimeErrorEntry;
 
 export function timelineEvents(runtime: MultiChatRuntime): TechnicalEntry[] {
-  return runtime.getTimelineEntries().filter((entry): entry is TechnicalEntry =>
-    entry.kind === 'silent-decision' ||
-    entry.kind === 'sweep-started' ||
-    entry.kind === 'sweep-finished' ||
-    entry.kind === 'sweep-stopped' ||
-    entry.kind === 'runtime-error',
-  );
+  return runtime
+    .getTimelineEntries()
+    .filter(
+      (entry): entry is TechnicalEntry =>
+        entry.kind === 'silent-decision' ||
+        entry.kind === 'sweep-started' ||
+        entry.kind === 'sweep-finished' ||
+        entry.kind === 'sweep-stopped' ||
+        entry.kind === 'runtime-error',
+    );
 }

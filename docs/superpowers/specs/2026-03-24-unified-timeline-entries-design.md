@@ -19,37 +19,37 @@ All timeline entries except `HistoryCutoffEntry` become members of `ChatEntry`:
 
 ```typescript
 type ChatEntry =
-  | ParticipantMessageEntry   // kind: 'participant-message'
-  | ParticipantJoinedEntry    // kind: 'participant-joined'
-  | ParticipantLeftEntry      // kind: 'participant-left'
-  | TopicChangedEntry         // kind: 'topic-changed'
-  | SilentDecisionEntry       // kind: 'silent-decision'
-  | RuntimeErrorEntry         // kind: 'runtime-error'
-  | SweepStartedEntry         // kind: 'sweep-started'
-  | SweepFinishedEntry        // kind: 'sweep-finished'
-  | SweepStoppedEntry         // kind: 'sweep-stopped'
+  | ParticipantMessageEntry // kind: 'participant-message'
+  | ParticipantJoinedEntry // kind: 'participant-joined'
+  | ParticipantLeftEntry // kind: 'participant-left'
+  | TopicChangedEntry // kind: 'topic-changed'
+  | SilentDecisionEntry // kind: 'silent-decision'
+  | RuntimeErrorEntry // kind: 'runtime-error'
+  | SweepStartedEntry // kind: 'sweep-started'
+  | SweepFinishedEntry // kind: 'sweep-finished'
+  | SweepStoppedEntry; // kind: 'sweep-stopped'
 
-type TimelineEntry = ChatEntry | HistoryCutoffEntry
+type TimelineEntry = ChatEntry | HistoryCutoffEntry;
 ```
 
 ### Shared base
 
 ```typescript
 interface ChatEntryBase {
-  id: string
-  createdAt: string
-  sourceTraceId?: string
+  id: string;
+  createdAt: string;
+  sourceTraceId?: string;
   // Cost fields are meaningful only on entries that have cost data;
   // other entry kinds carry these as undefined.
-  costUsd?: number
-  requestCostUsd?: number
-  ownPromptCostUsd?: number
-  downstreamPromptCostUsd?: number
+  costUsd?: number;
+  requestCostUsd?: number;
+  ownPromptCostUsd?: number;
+  downstreamPromptCostUsd?: number;
   downstreamPromptCostContributors?: Array<{
-    agentId: string
-    promptCostUsd: number
-    listenCount: number
-  }>
+    agentId: string;
+    promptCostUsd: number;
+    listenCount: number;
+  }>;
 }
 ```
 
@@ -57,60 +57,60 @@ interface ChatEntryBase {
 
 ```typescript
 interface ParticipantMessageEntry extends ChatEntryBase {
-  kind: 'participant-message'
-  authorId: string              // participantId of the sender
-  content: string               // supports markdown, mentions; multimodal in future
-  target: MessageTarget         // 'public' | 'private'
-  recipientId?: string
-  createdInSweep?: number
+  kind: 'participant-message';
+  authorId: string; // participantId of the sender
+  content: string; // supports markdown, mentions; multimodal in future
+  target: MessageTarget; // 'public' | 'private'
+  recipientId?: string;
+  createdInSweep?: number;
 }
 
 // System events — no authorId, always public, included in agent context.
 interface ParticipantJoinedEntry extends ChatEntryBase {
-  kind: 'participant-joined'
-  participantId: string
-  participantName: string
+  kind: 'participant-joined';
+  participantId: string;
+  participantName: string;
 }
 
 interface ParticipantLeftEntry extends ChatEntryBase {
-  kind: 'participant-left'
-  participantId: string
-  participantName: string
+  kind: 'participant-left';
+  participantId: string;
+  participantName: string;
 }
 
 interface TopicChangedEntry extends ChatEntryBase {
-  kind: 'topic-changed'
-  topicTitle: string
+  kind: 'topic-changed';
+  topicTitle: string;
 }
 
 interface SilentDecisionEntry extends ChatEntryBase {
-  kind: 'silent-decision'
-  agentId: string
-  reason: string
+  kind: 'silent-decision';
+  agentId: string;
+  reason: string;
 }
 
 interface RuntimeErrorEntry extends ChatEntryBase {
-  kind: 'runtime-error'
-  agentId: string
-  details: string
+  kind: 'runtime-error';
+  agentId: string;
+  details: string;
 }
 
 // Sweep events are session-level, not per-agent.
 // agentId is absent for sweep-started/finished; present for sweep-stopped
 // (which records which agent or user triggered the stop).
 interface SweepStartedEntry extends ChatEntryBase {
-  kind: 'sweep-started'
-  agentId?: string
+  kind: 'sweep-started';
+  agentId?: string;
 }
 
 interface SweepFinishedEntry extends ChatEntryBase {
-  kind: 'sweep-finished'
-  agentId?: string
+  kind: 'sweep-finished';
+  agentId?: string;
 }
 
 interface SweepStoppedEntry extends ChatEntryBase {
-  kind: 'sweep-stopped'
-  agentId?: string
+  kind: 'sweep-stopped';
+  agentId?: string;
 }
 ```
 
@@ -123,10 +123,10 @@ because `TimelineMessageEntry.id` was always set to `ChatMessage.id` (same value
 ```typescript
 // Previously: MessageInspectionIndex
 interface EntryInspectionIndex {
-  sourceTraceId?: string
-  downstreamTraceIds: string[]
-  triggeringTraceIds: string[]
-  visibleTraceIds: string[]
+  sourceTraceId?: string;
+  downstreamTraceIds: string[];
+  triggeringTraceIds: string[];
+  visibleTraceIds: string[];
 }
 ```
 
@@ -139,6 +139,7 @@ interface EntryInspectionIndex {
 ### `VisibleTimelineEntry` removed
 
 The current `VisibleTimelineEntry` augmentation (adds `sortAt`, `isMuted` to each entry) is removed.
+
 - `sortAt` — computed inside `buildVisibleTimelineEntries`, not stored on entries
 - `isMuted` — provided by `useEntryMuted(entry)` composable inside each entry component
 
@@ -166,15 +167,15 @@ and is rendered separately in `ChatTimeline.vue`.
 // src/vue/components/timeline/entryRegistry.ts
 const registry: Record<ChatEntry['kind'], Component> = {
   'participant-message': ParticipantMessageEntry,
-  'participant-joined':  ParticipantJoinedEntry,
-  'participant-left':    ParticipantLeftEntry,
-  'topic-changed':       TopicChangedEntry,
-  'silent-decision':     SilentDecisionEntry,
-  'runtime-error':       RuntimeErrorEntry,
-  'sweep-started':       SweepStartedEntry,
-  'sweep-finished':      SweepFinishedEntry,
-  'sweep-stopped':       SweepStoppedEntry,
-}
+  'participant-joined': ParticipantJoinedEntry,
+  'participant-left': ParticipantLeftEntry,
+  'topic-changed': TopicChangedEntry,
+  'silent-decision': SilentDecisionEntry,
+  'runtime-error': RuntimeErrorEntry,
+  'sweep-started': SweepStartedEntry,
+  'sweep-finished': SweepFinishedEntry,
+  'sweep-stopped': SweepStoppedEntry,
+};
 ```
 
 ### `ChatTimeline.vue`
@@ -203,6 +204,7 @@ Each component is fully free in layout. Shared behavior via composables:
 ### Inspection store migration
 
 `inspection.ts` currently works against `ChatMessage` as the inspectable object. After the rewrite:
+
 - `currentInspectedEntry: computed<ParticipantMessageEntry | null>` replaces `currentInspectedMessage`
 - `findEntryById` traverses entries where `kind === 'participant-message'`. Only participant messages are inspectable: system events do not carry `sourceTraceId` in practice (they are triggered by user actions, not agent sweeps), so there is nothing to inspect. The existing test that asserts system message timestamps are inspectable should be updated to reflect this.
 - `contextMessagesForCurrentTrace` returns `ParticipantMessageEntry[]`
@@ -211,6 +213,7 @@ Each component is fully free in layout. Shared behavior via composables:
 ### Extensibility
 
 Adding a new entry type (e.g. `PollEntry`):
+
 1. Add `PollEntry` to the `ChatEntry` union in `types.ts`
 2. Create `PollEntry.vue`
 3. Register in `entryRegistry.ts`
@@ -244,11 +247,16 @@ No gradual migration. Storage is reset. All existing code is updated in one pass
 `SystemEventEntry` has no `content` field. `getVisibleMessagesForAgent` must synthesize `AgentContextMessage.content` from the structured fields:
 
 ```typescript
-function systemEventContent(entry: ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry): string {
+function systemEventContent(
+  entry: ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry,
+): string {
   switch (entry.kind) {
-    case 'participant-joined': return `${entry.participantName} joined the chat`
-    case 'participant-left':   return `${entry.participantName} left the chat`
-    case 'topic-changed':      return `Topic changed to: ${entry.topicTitle}`
+    case 'participant-joined':
+      return `${entry.participantName} joined the chat`;
+    case 'participant-left':
+      return `${entry.participantName} left the chat`;
+    case 'topic-changed':
+      return `Topic changed to: ${entry.topicTitle}`;
   }
 }
 ```

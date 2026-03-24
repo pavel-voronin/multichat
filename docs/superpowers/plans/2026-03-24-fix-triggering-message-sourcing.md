@@ -17,6 +17,7 @@
 ## File Map
 
 ### Modified files
+
 - `src/core/execution.ts` — `runAgentSweepFn` gains `triggeringMessage` parameter; do-while loop uses it for first iteration, searches timeline for subsequent iterations
 - `src/core/runtime.ts` — `runAgentSweep` gains `triggeringMessage` parameter; all internal call sites updated with correct values
 - `tests/core/runtime/sweeps.test.ts` — new integration tests for all sweep trigger scenarios
@@ -26,13 +27,14 @@
 ## Task 1: Write failing tests
 
 **Files:**
+
 - Modify: `tests/core/runtime/sweeps.test.ts`
 
 These tests use the new `runAgentSweep(trigger, triggeringMessage, tabId?)` API that does not exist yet. They will fail at runtime because TypeScript is transpiled without type-checking by Vitest/Vite — `tabId` will receive a string argument intended for `triggeringMessage` and break, or the behavior will be wrong.
 
 - [ ] **Append these tests to `tests/core/runtime/sweeps.test.ts`**
 
-```typescript
+````typescript
   it('non-message sweep is not restricted by a prior private message', async () => {
     const turns: string[] = [];
     const runtime = createRuntime({
@@ -171,7 +173,7 @@ These tests use the new `runAgentSweep(trigger, triggeringMessage, tabId?)` API 
 
 ```bash
 cd /Users/pavel/.codex/worktrees/bf24/multichat && npm test -- tests/core/runtime/sweeps.test.ts 2>&1 | tail -30
-```
+````
 
 Expected: test 1 (`non-message sweep`) fails — currently `turns` is `['Beta']` because private exclusive fires. Tests 2 and 3 may already pass.
 
@@ -188,27 +190,30 @@ git commit -m "test: add failing tests for triggeringMessage sourcing via explic
 ## Task 2: Fix `runAgentSweepFn` in execution.ts
 
 **Files:**
+
 - Modify: `src/core/execution.ts`
 
 - [ ] **Replace the `runAgentSweepFn` signature and do-while body**
 
 Change the signature from:
+
 ```typescript
 export async function runAgentSweepFn(
   trigger: string,
   tabId: string,
   ctx: ExecutionContext,
-): Promise<void>
+): Promise<void>;
 ```
 
 To:
+
 ```typescript
 export async function runAgentSweepFn(
   trigger: string,
   triggeringMessage: ParticipantMessageEntry | null,
   tabId: string,
   ctx: ExecutionContext,
-): Promise<void>
+): Promise<void>;
 ```
 
 Inside the function, replace the entire `do { ... } while (...)` block. The key change:
@@ -220,92 +225,92 @@ Inside the function, replace the entire `do { ... } while (...)` block. The key 
 Replace lines 417–497 (the `sweepPromise` IIFE body) with:
 
 ```typescript
-  const sweepPromise = (async () => {
-    if (trigger === 'manual') {
-      ctx.lastProcessedKeys.get(tabId)?.clear();
-    }
+const sweepPromise = (async () => {
+  if (trigger === 'manual') {
+    ctx.lastProcessedKeys.get(tabId)?.clear();
+  }
 
-    let loops = 0;
-    tab.execution.stopRequested = false;
-    let currentTriggeringMessage = triggeringMessage;
+  let loops = 0;
+  tab.execution.stopRequested = false;
+  let currentTriggeringMessage = triggeringMessage;
 
-    do {
-      const currentTab = getTab(tabId, ctx);
-      if (!currentTab || currentTab.execution.stopRequested) break;
+  do {
+    const currentTab = getTab(tabId, ctx);
+    if (!currentTab || currentTab.execution.stopRequested) break;
 
-      currentTab.execution.isSweepRunning = true;
-      currentTab.execution.queuedSweep = false;
-      currentTab.execution.sweepCount += 1;
-      pushSweepStarted({
-        createId: ctx.createId,
-        now: ctx.now,
-        tab: currentTab,
-      });
-      pushDebugLog({
-        now: ctx.now,
-        workspace: ctx.workspace,
-        payload: {
-          kind: 'sweep-started',
-          sweep: currentTab.execution.sweepCount,
-          trigger,
-        },
-      });
-      ctx.persistAndNotify();
-
-      for (const agent of buildAgentQueue(currentTab, currentTriggeringMessage)) {
-        const latestTab = getTab(tabId, ctx);
-        if (!latestTab || latestTab.execution.stopRequested) break;
-        await runAgentTurnFn(agent, tabId, ctx);
-      }
-
-      const latestTab = getTab(tabId, ctx);
-      if (!latestTab) break;
-
-      latestTab.execution.isSweepRunning = false;
-      if (!latestTab.execution.stopRequested) {
-        ctx.advanceSlidingCycleOffset(tabId);
-      }
-      pushSweepFinished({
-        createId: ctx.createId,
-        now: ctx.now,
-        tab: latestTab,
-      });
-      pushDebugLog({
-        now: ctx.now,
-        workspace: ctx.workspace,
-        payload: {
-          kind: 'sweep-finished',
-          sweep: latestTab.execution.sweepCount,
-          trigger,
-        },
-      });
-      ctx.persistAndNotify();
-      loops += 1;
-
-      // For the next queued-sweep iteration, the triggering message is whatever
-      // participant-message arrived during this sweep.
-      const nextTab = getTab(tabId, ctx);
-      if (nextTab) {
-        currentTriggeringMessage =
-          nextTab.timeline.findLast(
-            (entry): entry is ParticipantMessageEntry =>
-              entry.kind === 'participant-message',
-          ) ?? null;
-      }
-    } while (
-      getTab(tabId, ctx)?.execution.queuedSweep &&
-      loops < ctx.maxAutoSweeps &&
-      !getTab(tabId, ctx)?.execution.stopRequested
-    );
-
-    const finalTab = getTab(tabId, ctx);
-    if (finalTab) {
-      finalTab.execution.isSweepRunning = false;
-      finalTab.execution.queuedSweep = false;
-    }
-    ctx.abortControllers.delete(tabId);
+    currentTab.execution.isSweepRunning = true;
+    currentTab.execution.queuedSweep = false;
+    currentTab.execution.sweepCount += 1;
+    pushSweepStarted({
+      createId: ctx.createId,
+      now: ctx.now,
+      tab: currentTab,
+    });
+    pushDebugLog({
+      now: ctx.now,
+      workspace: ctx.workspace,
+      payload: {
+        kind: 'sweep-started',
+        sweep: currentTab.execution.sweepCount,
+        trigger,
+      },
+    });
     ctx.persistAndNotify();
-  })();
+
+    for (const agent of buildAgentQueue(currentTab, currentTriggeringMessage)) {
+      const latestTab = getTab(tabId, ctx);
+      if (!latestTab || latestTab.execution.stopRequested) break;
+      await runAgentTurnFn(agent, tabId, ctx);
+    }
+
+    const latestTab = getTab(tabId, ctx);
+    if (!latestTab) break;
+
+    latestTab.execution.isSweepRunning = false;
+    if (!latestTab.execution.stopRequested) {
+      ctx.advanceSlidingCycleOffset(tabId);
+    }
+    pushSweepFinished({
+      createId: ctx.createId,
+      now: ctx.now,
+      tab: latestTab,
+    });
+    pushDebugLog({
+      now: ctx.now,
+      workspace: ctx.workspace,
+      payload: {
+        kind: 'sweep-finished',
+        sweep: latestTab.execution.sweepCount,
+        trigger,
+      },
+    });
+    ctx.persistAndNotify();
+    loops += 1;
+
+    // For the next queued-sweep iteration, the triggering message is whatever
+    // participant-message arrived during this sweep.
+    const nextTab = getTab(tabId, ctx);
+    if (nextTab) {
+      currentTriggeringMessage =
+        nextTab.timeline.findLast(
+          (entry): entry is ParticipantMessageEntry =>
+            entry.kind === 'participant-message',
+        ) ?? null;
+    }
+  } while (
+    getTab(tabId, ctx)?.execution.queuedSweep &&
+    loops < ctx.maxAutoSweeps &&
+    !getTab(tabId, ctx)?.execution.stopRequested
+  );
+
+  const finalTab = getTab(tabId, ctx);
+  if (finalTab) {
+    finalTab.execution.isSweepRunning = false;
+    finalTab.execution.queuedSweep = false;
+  }
+  ctx.abortControllers.delete(tabId);
+  ctx.persistAndNotify();
+})();
 ```
 
 - [ ] **Run tests — expect TypeScript-level failures at the call site in runtime.ts**
@@ -321,11 +326,13 @@ Expected: compile errors in `runtime.ts` because `runAgentSweepFn` now requires 
 ## Task 3: Fix `runAgentSweep` and all call sites in runtime.ts
 
 **Files:**
+
 - Modify: `src/core/runtime.ts`
 
 - [ ] **Update `runAgentSweep` signature**
 
 Change from:
+
 ```typescript
 async runAgentSweep(
   trigger: string,
@@ -336,6 +343,7 @@ async runAgentSweep(
 ```
 
 To:
+
 ```typescript
 async runAgentSweep(
   trigger: string,
@@ -351,6 +359,7 @@ Add `ParticipantMessageEntry` to the imports at the top of `runtime.ts` if not a
 - [ ] **Fix `sendMessage` call site (line ~195)**
 
 Change from:
+
 ```typescript
 const { entry, triggersSweep } = this.publishMessage(input, tabId);
 if (triggersSweep) {
@@ -359,6 +368,7 @@ if (triggersSweep) {
 ```
 
 To:
+
 ```typescript
 const { entry, triggersSweep } = this.publishMessage(input, tabId);
 if (triggersSweep) {
@@ -369,11 +379,13 @@ if (triggersSweep) {
 - [ ] **Fix `createAgent` call site (line ~240)**
 
 Change from:
+
 ```typescript
 void this.runAgentSweep('message', tab.id);
 ```
 
 To:
+
 ```typescript
 void this.runAgentSweep('participant-joined', null, tab.id);
 ```
@@ -381,11 +393,13 @@ void this.runAgentSweep('participant-joined', null, tab.id);
 - [ ] **Fix `removeAgent` call site (line ~307)**
 
 Change from:
+
 ```typescript
 void this.runAgentSweep('message', tab.id);
 ```
 
 To:
+
 ```typescript
 void this.runAgentSweep('participant-left', null, tab.id);
 ```
@@ -393,11 +407,13 @@ void this.runAgentSweep('participant-left', null, tab.id);
 - [ ] **Fix `topicChanged` call site (line ~572)**
 
 Change from:
+
 ```typescript
 void this.runAgentSweep('message', tab.id);
 ```
 
 To:
+
 ```typescript
 void this.runAgentSweep('topic-changed', null, tab.id);
 ```
@@ -429,6 +445,7 @@ cd /Users/pavel/.codex/worktrees/bf24/multichat && npm test 2>&1 | tail -10
 ```
 
 Expected output:
+
 ```
 Test Files  37 passed (37)
      Tests  NNN passed (NNN)

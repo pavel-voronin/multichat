@@ -10,11 +10,7 @@
         :dragged-cutoff-id="drag.draggedCutoffId.value"
         :drag-preview-target-id="drag.dragPreviewTargetId.value"
       />
-      <component
-        v-else
-        :is="entryRegistry[entry.kind]"
-        :entry="entry"
-      />
+      <component v-else :is="entryRegistry[entry.kind]" :entry="entry" />
     </template>
   </div>
 </template>

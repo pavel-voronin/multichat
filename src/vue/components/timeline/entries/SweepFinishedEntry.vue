@@ -9,8 +9,11 @@
       <span class="chat-line-time">[{{ timeLabel }}]</span>{{ ' '
       }}<span class="runtime-label">{{ label }}</span
       ><template v-if="showCost"
-        >{{ ' ' }}<CostBadge :item="entry" :item-id="entry.id" :cost-display-mode="costDisplayMode"
-      /></template
+        >{{ ' '
+        }}<CostBadge
+          :item="entry"
+          :item-id="entry.id"
+          :cost-display-mode="costDisplayMode" /></template
       >{{ ' ' }}<span class="runtime-text">sweep finished</span>
     </div>
   </article>
@@ -25,7 +28,9 @@ import { useTimelineStore } from '../../../stores/timeline';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 import CostBadge from '../CostBadge.vue';
 
-const props = defineProps<{ entry: SweepFinishedEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: SweepFinishedEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeline = useTimelineStore();

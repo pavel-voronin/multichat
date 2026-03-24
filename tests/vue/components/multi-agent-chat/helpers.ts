@@ -78,7 +78,9 @@ export function createRuntime(options?: {
   return runtime;
 }
 
-export function timelineMessages(runtime: MultiChatRuntime): ParticipantMessageEntry[] {
+export function timelineMessages(
+  runtime: MultiChatRuntime,
+): ParticipantMessageEntry[] {
   return runtime
     .getTimelineEntries()
     .filter(

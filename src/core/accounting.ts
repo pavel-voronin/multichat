@@ -69,7 +69,6 @@ export function applyDownstreamPromptCost(
       });
     }
     entry.downstreamPromptCostContributors = existingContributors;
-    entry.costUsd =
-      (entry.requestCostUsd ?? 0) + entry.downstreamPromptCostUsd;
+    entry.costUsd = (entry.requestCostUsd ?? 0) + entry.downstreamPromptCostUsd;
   }
 }

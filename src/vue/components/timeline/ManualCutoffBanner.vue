@@ -18,11 +18,12 @@
       @keydown.enter.prevent
       @keydown.space.prevent
     >
-      <IconMdiDragVertical class="cutoff-drag-icon" aria-hidden="true" />
-    </span><span class="cutoff-title">New topic starts below.</span>{{ ' '
+      <IconMdiDragVertical class="cutoff-drag-icon" aria-hidden="true" /> </span
+    ><span class="cutoff-title">New topic starts below.</span>{{ ' '
     }}<span class="cutoff-manual-copy"
       >Messages above stay visible but are excluded from agent context.</span
-    >{{ ' ' }}<span
+    >{{ ' '
+    }}<span
       class="cutoff-link"
       role="button"
       tabindex="0"
@@ -30,7 +31,8 @@
       @keydown.enter="session.clearHistoryBeforeAgentCutoff()"
       @keydown.space.prevent="session.clearHistoryBeforeAgentCutoff()"
       >Delete messages above</span
-    >{{ ' ' }}<span
+    >{{ ' '
+    }}<span
       class="cutoff-link cutoff-link-secondary"
       role="button"
       tabindex="0"
@@ -114,5 +116,4 @@ const drag = useCutoffDrag();
 .cutoff-link-secondary:hover {
   @apply text-neutral-700 decoration-neutral-600;
 }
-
 </style>

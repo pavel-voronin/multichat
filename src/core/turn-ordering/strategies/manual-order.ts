@@ -4,7 +4,9 @@ export function applyManualOrder(
   agents: AgentConfig[],
   order: string[],
 ): AgentConfig[] {
-  const byId = new Map(order.map((agentId, index) => [agentId, index] as const));
+  const byId = new Map(
+    order.map((agentId, index) => [agentId, index] as const),
+  );
 
   return agents
     .map((agent, index) => ({

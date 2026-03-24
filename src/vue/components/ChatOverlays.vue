@@ -67,7 +67,9 @@ const agents = computed(() => state.value.agents);
 const chatTimelineEntries = visibleTimelineEntries;
 const visibleMessages = computed(() =>
   chatTimelineEntries.value.filter(
-    (entry): entry is Extract<VisibleChatEntry, { kind: 'participant-message' }> =>
+    (
+      entry,
+    ): entry is Extract<VisibleChatEntry, { kind: 'participant-message' }> =>
       entry.kind === 'participant-message',
   ),
 );

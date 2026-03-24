@@ -1,10 +1,7 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import type { MultiChatRuntime } from '../../core';
-import type {
-  ChatViewPreferences,
-  VisibleTimelineEntry,
-} from '../types';
+import type { ChatViewPreferences, VisibleTimelineEntry } from '../types';
 import { buildVisibleTimelineEntries } from '../utils/timeline';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';

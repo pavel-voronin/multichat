@@ -20,7 +20,9 @@ import { useCutoffDrag } from '../../../composables/useCutoffDrag';
 import { useTimelineStore } from '../../../stores/timeline';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 
-const props = defineProps<{ entry: SweepStartedEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: SweepStartedEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeline = useTimelineStore();

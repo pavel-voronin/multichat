@@ -44,9 +44,9 @@ type TurnOrderingConfig =
   | { strategy: 'random' }
   | { strategy: 'keywords'; keywords: Record<string, string[]> }
   | { strategy: 'manual_order'; order: string[] }
-  | { strategy: 'sliding_cycle'; offset: number }
+  | { strategy: 'sliding_cycle'; offset: number };
 
-const DEFAULT_TURN_ORDERING: TurnOrderingConfig = { strategy: 'sequential' }
+const DEFAULT_TURN_ORDERING: TurnOrderingConfig = { strategy: 'sequential' };
 ```
 
 ### `ChatTabState`
@@ -56,7 +56,7 @@ Add one field:
 ```typescript
 interface ChatTabState {
   // ...existing fields
-  turnOrdering: TurnOrderingConfig
+  turnOrdering: TurnOrderingConfig;
 }
 ```
 
@@ -81,7 +81,7 @@ interface ChatTabState {
 export function buildAgentQueue(
   tab: ChatTabState,
   triggeringMessage: ParticipantMessageEntry | null,
-): AgentConfig[]
+): AgentConfig[];
 ```
 
 `execution.ts` replaces the `getActiveAgents(tab)` call in the **sweep loop** with `buildAgentQueue(tab, triggeringMessage)`. The separate `getActiveAgents(tab)` call in `getPromptParticipants` is **not replaced** — it is about prompt context, not turn ordering.
@@ -101,6 +101,7 @@ This single lookup happens once at the start of each sweep, before the agent loo
 ### Step 1: Private Exclusive Delivery
 
 If `triggeringMessage` is private and has a named recipient:
+
 - Return `[recipient]` immediately; steps 2 and 3 are skipped.
 - Other agents are excluded from the queue and receive no turn this sweep.
 - Context visibility of the private message for non-recipients is already enforced separately by `isEntryVisibleToAgent` in `context-routing.ts`; `buildAgentQueue` does not change visibility logic.
@@ -116,15 +117,15 @@ Each strategy file exports a pure function:
 
 The `agents` list is the result of `getActiveAgents(tab)` (filtered for enabled, non-hidden agents) before any ordering is applied.
 
-| Strategy | Logic |
-|---|---|
-| `sequential` | Chat agent order |
-| `cheap_first` | Sort ascending by model price; agents with missing pricing treated as price 0 (sort first); tie-break by chat order |
-| `expensive_first` | Sort descending by model price; agents with missing pricing treated as price 0 (sort last); tie-break by chat order |
-| `random` | Seeded shuffle; seed = `sweepCount`; reproducible within a session (same sweep count → same order); cross-session reproducibility is not required |
-| `keywords` | Agents with keyword match in triggering message go first; tie-break by chat order; no match or `triggeringMessage` is `null` → fallback to chat order |
-| `manual_order` | Follow `order[]` by agent name (case-insensitive); unlisted agents appended by chat order |
-| `sliding_cycle` | Rotate ring by `offset` positions; ring defined by chat agent order |
+| Strategy          | Logic                                                                                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sequential`      | Chat agent order                                                                                                                                      |
+| `cheap_first`     | Sort ascending by model price; agents with missing pricing treated as price 0 (sort first); tie-break by chat order                                   |
+| `expensive_first` | Sort descending by model price; agents with missing pricing treated as price 0 (sort last); tie-break by chat order                                   |
+| `random`          | Seeded shuffle; seed = `sweepCount`; reproducible within a session (same sweep count → same order); cross-session reproducibility is not required     |
+| `keywords`        | Agents with keyword match in triggering message go first; tie-break by chat order; no match or `triggeringMessage` is `null` → fallback to chat order |
+| `manual_order`    | Follow `order[]` by agent name (case-insensitive); unlisted agents appended by chat order                                                             |
+| `sliding_cycle`   | Rotate ring by `offset` positions; ring defined by chat agent order                                                                                   |
 
 **Fallback rule:** All tie-breaking and unlisted-agent ordering falls back to the agent's position in `tab.agents`.
 
@@ -161,7 +162,8 @@ Located in chat settings panel only — no always-visible indicator.
 ### Strategy Selector
 
 Dropdown with options (displayed in this order):
-- Sequential *(default)*
+
+- Sequential _(default)_
 - Random
 - Cheap first
 - Expensive first
@@ -173,11 +175,11 @@ Dropdown with options (displayed in this order):
 
 Rendered below the dropdown, conditional on selection:
 
-| Strategy | UI |
-|---|---|
-| `sequential`, `cheap_first`, `expensive_first`, `random`, `sliding_cycle` | No parameters shown |
-| `keywords` | Table: one row per active agent, agent name label + text input for comma-separated keywords |
-| `manual_order` | Drag-and-drop list of all currently active (enabled, non-hidden) agents |
+| Strategy                                                                  | UI                                                                                          |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `sequential`, `cheap_first`, `expensive_first`, `random`, `sliding_cycle` | No parameters shown                                                                         |
+| `keywords`                                                                | Table: one row per active agent, agent name label + text input for comma-separated keywords |
+| `manual_order`                                                            | Drag-and-drop list of all currently active (enabled, non-hidden) agents                     |
 
 ### `manual_order` drag-and-drop
 

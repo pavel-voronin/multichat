@@ -20,8 +20,8 @@ describe('manual_order strategy', () => {
     const gamma = makeAgent('gamma', 'Gamma');
 
     expect(
-      applyManualOrder([alpha, beta, gamma], ['gamma', 'alpha']).map((agent) =>
-        agent.name,
+      applyManualOrder([alpha, beta, gamma], ['gamma', 'alpha']).map(
+        (agent) => agent.name,
       ),
     ).toEqual(['Gamma', 'Alpha', 'Beta']);
   });

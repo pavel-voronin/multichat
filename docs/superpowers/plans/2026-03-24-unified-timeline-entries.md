@@ -15,6 +15,7 @@
 ## File Map
 
 **Modify:**
+
 - `src/core/types.ts` — all new entry types, remove old wrappers
 - `src/core/messaging.ts` — create entries directly, not `ChatMessage` + wrapper
 - `src/core/diagnostics.ts` — `pushRuntimeEvent` creates entries directly; rename `messageInspectionIndex`
@@ -34,6 +35,7 @@
 - `tests/vue/components/multi-agent-chat/inspection.test.ts` — remove two system-message inspection tests (lines 380–408)
 
 **Create:**
+
 - `src/vue/composables/useEntryInspection.ts`
 - `src/vue/composables/useEntryCost.ts`
 - `src/vue/components/timeline/entryRegistry.ts`
@@ -48,6 +50,7 @@
 - `src/vue/components/timeline/entries/SweepStoppedEntry.vue`
 
 **Delete:**
+
 - `src/vue/components/timeline/MessageEntry.vue`
 - `src/vue/components/timeline/TechnicalEventEntry.vue`
 - `src/vue/components/timeline/ChatMessageLine.vue`
@@ -57,6 +60,7 @@
 ## Task 1: New core types
 
 **Files:**
+
 - Modify: `src/core/types.ts`
 
 Replace `TimelineMessageEntry`, `TimelineTechnicalEventEntry`, `ChatMessage`, `RuntimeEvent` usage in the timeline with flat entry types. Keep `ChatMessage` for now — it is still used by `AgentContextMessage` construction; it will be deleted in Task 9.
@@ -195,6 +199,7 @@ git commit -m "feat: add ChatEntry union and EntryInspectionIndex types"
 ## Task 2: Core messaging — create entries directly
 
 **Files:**
+
 - Modify: `src/core/messaging.ts`
 
 `publishMessageToTab` currently creates a `ChatMessage` and wraps it in `TimelineMessageEntry`. Replace with direct entry creation. The function now returns `{ entry: ParticipantMessageEntry; triggersSweep: boolean }` for participant messages.
@@ -297,7 +302,11 @@ export function publishParticipantMessage(
 }
 
 export function publishParticipantJoined(
-  input: { participantId: string; participantName: string; triggerSweep?: boolean },
+  input: {
+    participantId: string;
+    participantName: string;
+    triggerSweep?: boolean;
+  },
   tab: ChatTabState,
   _workspace: WorkspaceState,
   now: () => Date,
@@ -315,7 +324,11 @@ export function publishParticipantJoined(
 }
 
 export function publishParticipantLeft(
-  input: { participantId: string; participantName: string; triggerSweep?: boolean },
+  input: {
+    participantId: string;
+    participantName: string;
+    triggerSweep?: boolean;
+  },
   tab: ChatTabState,
   _workspace: WorkspaceState,
   now: () => Date,
@@ -351,7 +364,6 @@ export function publishTopicChanged(
 ```
 
 - [ ] **Step 2: Update `src/core/runtime.ts`** — replace `publishSystemMessageToTab`/`publishMessageToTab` with typed functions. Specific changes:
-
   - `private publishMessage(...)` → calls `publishParticipantMessage(...)`, returns `{ entry: ParticipantMessageEntry; triggersSweep: boolean }`
   - `private publishSystemMessage(...)` → three call sites in the file: `createAgent` (line 233) calls with `participant_joined`, `removeAgent`/update call with `participant_left`, topic change calls with `topic_changed`. Replace each with the typed function: `publishParticipantJoined`, `publishParticipantLeft`, `publishTopicChanged`
   - `async sendMessage(...)` return type: `Promise<ParticipantMessageEntry>`
@@ -361,7 +373,6 @@ export function publishTopicChanged(
   - `sendMessage` in `ExecutionContext` interface (line ~45 of `execution.ts`) → return type `Promise<ParticipantMessageEntry>`
 
 - [ ] **Step 3: Update `src/core/execution.ts`** — 4 `pushRuntimeEvent` calls, replace with per-kind functions:
-
   - Line 127: `pushRuntimeEvent({ ..., payload: { type: 'silent-decision', ... } })` → `pushSilentDecision({ ..., agentId, reason: result.action.reason, sourceTraceId: traceId, requestCostUsd, ownPromptCostUsd, costUsd: requestCostUsd })`
   - Lines 341, 431, 458: `pushRuntimeEvent({ ..., payload: { type: 'sweep-started' } })` etc. → `pushSweepStarted(...)`, `pushSweepFinished(...)`, `pushSweepStopped(...)`. Check exact types at each site.
   - Line 174: `attachProducedMessageToTrace(traceId, sentMessage.id, tab)` — `sentMessage` was `ChatMessage`, now `ParticipantMessageEntry`. `.id` field stays the same name, so this line needs no change beyond updated type.
@@ -386,6 +397,7 @@ git commit -m "feat: replace publishMessageToTab with typed entry creation funct
 ## Task 3: Core diagnostics — entry creation and index rename
 
 **Files:**
+
 - Modify: `src/core/diagnostics.ts`
 
 `pushRuntimeEvent` creates a `RuntimeEvent` and wraps it in `TimelineTechnicalEventEntry`. Replace with direct entry creation per kind. Rename all `messageInspectionIndex` references.
@@ -493,7 +505,10 @@ export function pushRuntimeError(input: {
   now: () => Date;
   tab: ChatTabState;
   workspace: WorkspaceState;
-  payload: Pick<RuntimeError, 'agentId' | 'message' | 'details' | 'sourceTraceId'>;
+  payload: Pick<
+    RuntimeError,
+    'agentId' | 'message' | 'details' | 'sourceTraceId'
+  >;
   participantName: (participantId: string, tab: ChatTabState) => string;
 }): void {
   input.workspace.errors.push({
@@ -600,19 +615,23 @@ git commit -m "feat: replace pushRuntimeEvent with per-kind push functions; rena
 ## Task 4: Core context-routing and traces
 
 **Files:**
+
 - Modify: `src/core/context-routing.ts`
 - Modify: `src/core/traces.ts`
 
 - [ ] **Step 1: Rewrite `getVisibleContextMessages` in `context-routing.ts`** to return entries visible to agents. Now returns both `ParticipantMessageEntry` and system entries (`ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry`):
 
 ```typescript
-type ContextEntry = ParticipantMessageEntry | ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry;
+type ContextEntry =
+  | ParticipantMessageEntry
+  | ParticipantJoinedEntry
+  | ParticipantLeftEntry
+  | TopicChangedEntry;
 
 export function getVisibleContextEntries(tab: ChatTabState): ContextEntry[] {
   const cutoffIndex = getActiveManualCutoffIndex(tab);
-  const source = cutoffIndex === null
-    ? tab.timeline
-    : tab.timeline.slice(cutoffIndex + 1);
+  const source =
+    cutoffIndex === null ? tab.timeline : tab.timeline.slice(cutoffIndex + 1);
 
   return source.filter(
     (entry): entry is ContextEntry =>
@@ -640,11 +659,16 @@ export function isEntryVisibleToAgent(
 - [ ] **Step 3: Rewrite `getVisibleMessagesForAgent`** to build `AgentContextMessage[]` from new entry types:
 
 ```typescript
-function systemEventContent(entry: ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry): string {
+function systemEventContent(
+  entry: ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry,
+): string {
   switch (entry.kind) {
-    case 'participant-joined': return `${entry.participantName} joined the chat`;
-    case 'participant-left':   return `${entry.participantName} left the chat`;
-    case 'topic-changed':      return `Topic changed to: ${entry.topicTitle}`;
+    case 'participant-joined':
+      return `${entry.participantName} joined the chat`;
+    case 'participant-left':
+      return `${entry.participantName} left the chat`;
+    case 'topic-changed':
+      return `Topic changed to: ${entry.topicTitle}`;
   }
 }
 
@@ -657,7 +681,9 @@ export function getVisibleMessagesForAgent(
     .map((entry) => {
       if (entry.kind === 'participant-message') {
         const sender = tab.participants.find((p) => p.id === entry.authorId);
-        const recipient = tab.participants.find((p) => p.id === entry.recipientId);
+        const recipient = tab.participants.find(
+          (p) => p.id === entry.recipientId,
+        );
         return {
           id: entry.id,
           authorType: 'participant' as const,
@@ -704,10 +730,11 @@ export function isEntryVisibleToParticipant(
 - [ ] **Step 6: Update `traces.ts`** — rename `tab.messageInspectionIndex` → `tab.entryInspectionIndex` in `getRelatedRequestTraces` (line 26–32) and `getMessageInspectionGraph`. Update `getMessageById` calls to `getParticipantEntryById`. Rename result fields:
 
 In `getInspectionSubjectForMessage` and `getMessageInspectionGraph`, update the return type to use `ParticipantMessageEntry` instead of `ChatMessage`:
+
 ```typescript
 // return type of getInspectionSubjectForMessage:
 {
-  entry: ParticipantMessageEntry | null;  // was: message
+  entry: ParticipantMessageEntry | null; // was: message
   sourceTrace: RequestTrace | null;
   // ... rest unchanged
 }
@@ -731,6 +758,7 @@ git commit -m "feat: update context-routing and traces for new entry types"
 ## Task 5: Vue types and timeline utils
 
 **Files:**
+
 - Modify: `src/vue/types.ts`
 - Modify: `src/vue/utils/timeline.ts`
 - Modify: `src/vue/utils/chatFormatting.ts`
@@ -755,7 +783,9 @@ export interface ChatViewPreferences {
 // All ChatEntry kinds get isMuted; HistoryCutoffEntry does not.
 export type VisibleChatEntry = ChatEntry & { isMuted: boolean };
 // HistoryCutoffEntry gets sortAt for ordering but not isMuted.
-export type VisibleHistoryCutoffEntry = TimelineHistoryCutoffEntry & { sortAt: number };
+export type VisibleHistoryCutoffEntry = TimelineHistoryCutoffEntry & {
+  sortAt: number;
+};
 export type VisibleTimelineEntry = VisibleChatEntry | VisibleHistoryCutoffEntry;
 
 // CostTrackedItem now references ChatEntryBase fields directly
@@ -786,12 +816,15 @@ export function buildVisibleTimelineEntries(input: {
   participantId: string;
   preferences: Pick<ChatViewPreferences, 'showSilentDecisions'>;
 }): VisibleTimelineEntry[] {
-  const activeManualCutoffIndex = getActiveManualCutoffIndex(input.state.timeline);
+  const activeManualCutoffIndex = getActiveManualCutoffIndex(
+    input.state.timeline,
+  );
   const visibleEntries: VisibleTimelineEntry[] = [];
 
   for (const [index, entry] of input.state.timeline.entries()) {
     const sortAt = index * 2;
-    const isMuted = activeManualCutoffIndex !== null && index < activeManualCutoffIndex;
+    const isMuted =
+      activeManualCutoffIndex !== null && index < activeManualCutoffIndex;
 
     if (entry.kind === 'history-cutoff') {
       visibleEntries.push({ ...entry, sortAt });
@@ -808,7 +841,9 @@ export function buildVisibleTimelineEntries(input: {
     }
 
     if (entry.kind === 'participant-message') {
-      if (!input.runtime.isEntryVisibleToParticipant(entry, input.participantId)) {
+      if (
+        !input.runtime.isEntryVisibleToParticipant(entry, input.participantId)
+      ) {
         continue;
       }
     }
@@ -889,6 +924,7 @@ git commit -m "feat: update Vue types and timeline utils for unified ChatEntry"
 ## Task 6: Vue stores
 
 **Files:**
+
 - Modify: `src/vue/stores/timeline.ts`
 - Modify: `src/vue/stores/inspection.ts`
 
@@ -898,7 +934,11 @@ git commit -m "feat: update Vue types and timeline utils for unified ChatEntry"
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import type { MultiChatRuntime } from '../../core';
-import type { ChatViewPreferences, VisibleChatEntry, VisibleTimelineEntry } from '../types';
+import type {
+  ChatViewPreferences,
+  VisibleChatEntry,
+  VisibleTimelineEntry,
+} from '../types';
 import { buildVisibleTimelineEntries } from '../utils/timeline';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';
@@ -907,7 +947,9 @@ export const useTimelineStore = defineStore('timeline', () => {
   const runtimeStore = useRuntimeStore();
   const preferencesStore = usePreferencesStore();
   const { state } = storeToRefs(runtimeStore);
-  const runtime = computed<MultiChatRuntime>(() => runtimeStore.requireRuntime());
+  const runtime = computed<MultiChatRuntime>(() =>
+    runtimeStore.requireRuntime(),
+  );
 
   const preferences = computed<ChatViewPreferences>(() => ({
     showSilentDecisions: preferencesStore.showSilentDecisions,
@@ -937,7 +979,9 @@ export const useTimelineStore = defineStore('timeline', () => {
   });
 
   function participantNameById(participantId: string): string | null {
-    return state.value.participants.find((p) => p.id === participantId)?.name ?? null;
+    return (
+      state.value.participants.find((p) => p.id === participantId)?.name ?? null
+    );
   }
 
   return {
@@ -1000,13 +1044,15 @@ export const useInspectionStore = defineStore('inspection', () => {
     return state.value.agents.find((a) => a.id === trace.agentId) ?? null;
   });
 
-  const contextEntriesForCurrentTrace = computed<ParticipantMessageEntry[]>(() => {
-    const trace = traceForCurrentEntry.value;
-    if (!trace) return [];
-    return trace.visibleMessageIds
-      .map((id) => findParticipantEntryById(state.value, id))
-      .filter((e): e is ParticipantMessageEntry => e !== null);
-  });
+  const contextEntriesForCurrentTrace = computed<ParticipantMessageEntry[]>(
+    () => {
+      const trace = traceForCurrentEntry.value;
+      if (!trace) return [];
+      return trace.visibleMessageIds
+        .map((id) => findParticipantEntryById(state.value, id))
+        .filter((e): e is ParticipantMessageEntry => e !== null);
+    },
+  );
 
   const currentActionForTrace = computed<AgentToolCall | null>(() => {
     const payload = traceForCurrentEntry.value?.payloads.normalizedActionJson;
@@ -1014,21 +1060,23 @@ export const useInspectionStore = defineStore('inspection', () => {
     return payload as AgentToolCall;
   });
 
-  const usedInEntriesForCurrentEntry = computed<ParticipantMessageEntry[]>(() => {
-    const entryId = currentInspectedEntry.value?.id;
-    if (!entryId) return [];
-    const index = diagnostics.value.entryInspectionIndex[entryId];
-    if (!index) return [];
-    return index.downstreamTraceIds
-      .map((traceId) => diagnostics.value.requestTraces[traceId])
-      .filter(Boolean)
-      .map((trace) =>
-        trace.producedMessageId
-          ? findParticipantEntryById(state.value, trace.producedMessageId)
-          : null,
-      )
-      .filter((e): e is ParticipantMessageEntry => e !== null);
-  });
+  const usedInEntriesForCurrentEntry = computed<ParticipantMessageEntry[]>(
+    () => {
+      const entryId = currentInspectedEntry.value?.id;
+      if (!entryId) return [];
+      const index = diagnostics.value.entryInspectionIndex[entryId];
+      if (!index) return [];
+      return index.downstreamTraceIds
+        .map((traceId) => diagnostics.value.requestTraces[traceId])
+        .filter(Boolean)
+        .map((trace) =>
+          trace.producedMessageId
+            ? findParticipantEntryById(state.value, trace.producedMessageId)
+            : null,
+        )
+        .filter((e): e is ParticipantMessageEntry => e !== null);
+    },
+  );
 
   function openForEntry(entryId: string): void {
     inspectionHistory.value = [entryId];
@@ -1038,7 +1086,10 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   function navigateTo(entryId: string): void {
-    inspectionHistory.value = inspectionHistory.value.slice(0, inspectionHistoryIndex.value + 1);
+    inspectionHistory.value = inspectionHistory.value.slice(
+      0,
+      inspectionHistoryIndex.value + 1,
+    );
     inspectionHistory.value.push(entryId);
     inspectionHistoryIndex.value = inspectionHistory.value.length - 1;
     if (!ui.showRequestInspection) ui.showRequestInspection = true;
@@ -1063,7 +1114,10 @@ export const useInspectionStore = defineStore('inspection', () => {
 
   function participantName(participantId?: string): string {
     if (!participantId) return '';
-    return state.value.participants.find((p) => p.id === participantId)?.name ?? participantId;
+    return (
+      state.value.participants.find((p) => p.id === participantId)?.name ??
+      participantId
+    );
   }
 
   return {
@@ -1107,6 +1161,7 @@ grep -rn "openForMessage\|canInspectMessage\|currentInspectedMessage\|traceForCu
 ```
 
 Known locations:
+
 - `src/vue/components/RequestInspectionModal.vue` line 232: `agentForCurrentMessage: agent` → `agentForCurrentEntry: agent`
 - `src/vue/components/RequestInspectionModal.vue`: any reference to `currentInspectedMessage`, `contextMessagesForCurrentTrace`, `usedInMessagesForCurrentMessage` → rename to `currentInspectedEntry`, `contextEntriesForCurrentTrace`, `usedInEntriesForCurrentEntry`
 - Any component that calls `inspection.openForMessage(id)` → `inspection.openForEntry(id)`
@@ -1140,6 +1195,7 @@ git commit -m "feat: update timeline and inspection stores for unified ChatEntry
 ## Task 7: Entry composables
 
 **Files:**
+
 - Create: `src/vue/composables/useEntryInspection.ts`
 - Create: `src/vue/composables/useEntryCost.ts`
 
@@ -1208,7 +1264,9 @@ import { shouldShowMessageCost } from '../utils/costing';
 export function useEntryCost(entry: ChatEntry) {
   const preferences = usePreferencesStore();
   const costDisplayMode = computed(() => preferences.costDisplayMode);
-  const showCost = computed(() => shouldShowMessageCost(entry, costDisplayMode.value));
+  const showCost = computed(() =>
+    shouldShowMessageCost(entry, costDisplayMode.value),
+  );
   return { costDisplayMode, showCost };
 }
 ```
@@ -1231,6 +1289,7 @@ git commit -m "feat: add useEntryInspection and useEntryCost composables"
 ## Task 8: New entry components
 
 **Files:**
+
 - Create: `src/vue/components/timeline/entries/` (9 components)
 
 Each component receives a `VisibleChatEntry` of its specific kind and is fully free in layout. All preserve the `data-manual-cutoff-drop-target` and `data-timeline-entry-id` data attributes for the drag system. Use `useCutoffDrag` to get `dragPreviewTargetId`.
@@ -1256,16 +1315,19 @@ This replaces `MessageEntry.vue` + `ChatMessageLine.vue`. Preserves `.chat-line-
         @click="handleInspectClick"
         @keydown.enter="handleInspectClick"
         @keydown.space.prevent="handleInspectClick"
-      >[{{ timeLabel }}]</span
+        >[{{ timeLabel }}]</span
       >{{ ' '
       }}<span
         class="chat-line-sender"
         :class="{ 'chat-line-sender-interactive': true }"
         @dblclick="handleMention"
-      >{{ authorLabel }}</span
+        >{{ authorLabel }}</span
       ><template v-if="showCost.value"
-        >{{ ' ' }}<CostBadge :item="entry" :item-id="entry.id" :cost-display-mode="costDisplayMode.value"
-      /></template
+        >{{ ' '
+        }}<CostBadge
+          :item="entry"
+          :item-id="entry.id"
+          :cost-display-mode="costDisplayMode.value" /></template
       >{{ ' ' }}<span class="chat-line-text">{{ entry.content }}</span>
     </div>
   </article>
@@ -1279,10 +1341,15 @@ import { useEntryInspection } from '../../../composables/useEntryInspection';
 import { useEntryCost } from '../../../composables/useEntryCost';
 import { useMessageInputStore } from '../../../stores/messageInput';
 import { useTimelineStore } from '../../../stores/timeline';
-import { formatMessageTime, formatParticipantName } from '../../../utils/chatFormatting';
+import {
+  formatMessageTime,
+  formatParticipantName,
+} from '../../../utils/chatFormatting';
 import CostBadge from '../CostBadge.vue';
 
-const props = defineProps<{ entry: ParticipantMessageEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: ParticipantMessageEntry & { isMuted: boolean };
+}>();
 
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
@@ -1374,7 +1441,9 @@ Note: `mentionById` may not exist yet on `messageInput` store — check and adap
   >
     <div class="system-line" :class="{ 'chat-line-muted': entry.isMuted }">
       <span class="chat-line-time">[{{ timeLabel }}]</span>{{ ' '
-      }}<span class="system-text">{{ entry.participantName }} joined the chat</span>
+      }}<span class="system-text"
+        >{{ entry.participantName }} joined the chat</span
+      >
     </div>
   </article>
 </template>
@@ -1385,7 +1454,9 @@ import type { ParticipantJoinedEntry } from '../../../../core';
 import { useCutoffDrag } from '../../../composables/useCutoffDrag';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 
-const props = defineProps<{ entry: ParticipantJoinedEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: ParticipantJoinedEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));
@@ -1393,11 +1464,21 @@ const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));
 
 <style scoped>
 @reference "../../../../styles.css";
-.entry-article { @apply relative; }
-.system-line { @apply block text-[13px] leading-6 text-neutral-500; }
-.chat-line-time { @apply text-neutral-500; }
-.system-text { @apply italic; }
-.chat-line-muted { @apply opacity-50; }
+.entry-article {
+  @apply relative;
+}
+.system-line {
+  @apply block text-[13px] leading-6 text-neutral-500;
+}
+.chat-line-time {
+  @apply text-neutral-500;
+}
+.system-text {
+  @apply italic;
+}
+.chat-line-muted {
+  @apply opacity-50;
+}
 [data-cutoff-drop-active='true']::before {
   content: '';
   @apply absolute left-0 right-0 top-[-2px] border-t-2 border-amber-500;
@@ -1425,13 +1506,17 @@ Create `ParticipantLeftEntry.vue` and `TopicChangedEntry.vue` following the same
         :class="{ 'message-time-trigger-active': canInspect }"
         :disabled="!canInspect"
         @click="handleInspectClick"
-      >[{{ timeLabel }}]</button
-      >{{ ' '
-      }}<span class="runtime-label">{{ label }}</span
+      >
+        [{{ timeLabel }}]</button
+      >{{ ' ' }}<span class="runtime-label">{{ label }}</span
       ><template v-if="showCost.value"
-        >{{ ' ' }}<CostBadge :item="entry" :item-id="entry.id" :cost-display-mode="costDisplayMode.value"
-      /></template
-      >{{ ' ' }}<span class="runtime-text">stayed silent: {{ entry.reason }}</span>
+        >{{ ' '
+        }}<CostBadge
+          :item="entry"
+          :item-id="entry.id"
+          :cost-display-mode="costDisplayMode.value" /></template
+      >{{ ' '
+      }}<span class="runtime-text">stayed silent: {{ entry.reason }}</span>
     </div>
   </article>
 </template>
@@ -1446,11 +1531,15 @@ import { useTimelineStore } from '../../../stores/timeline';
 import { formatMessageTime } from '../../../utils/chatFormatting';
 import CostBadge from '../CostBadge.vue';
 
-const props = defineProps<{ entry: SilentDecisionEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: SilentDecisionEntry & { isMuted: boolean };
+}>();
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;
 const timeline = useTimelineStore();
-const { canInspect, handleInspectClick } = useEntryInspectionByTrace(props.entry);
+const { canInspect, handleInspectClick } = useEntryInspectionByTrace(
+  props.entry,
+);
 const { showCost, costDisplayMode } = useEntryCost(props.entry);
 const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));
 const label = computed(() => {
@@ -1461,14 +1550,30 @@ const label = computed(() => {
 
 <style scoped>
 @reference "../../../../styles.css";
-.entry-article { @apply relative; }
-.runtime-line { @apply block break-words text-[13px] leading-6; }
-.runtime-line-silent { @apply text-sky-800; }
-.runtime-label { @apply font-semibold text-sky-900; }
-.runtime-text { @apply whitespace-pre-wrap text-current; }
-.message-time { @apply text-neutral-500; }
-.message-time-trigger { @apply cursor-default border-0 bg-transparent p-0 text-current; }
-.message-time-trigger-active { @apply cursor-pointer rounded transition-colors hover:bg-neutral-200/80; }
+.entry-article {
+  @apply relative;
+}
+.runtime-line {
+  @apply block break-words text-[13px] leading-6;
+}
+.runtime-line-silent {
+  @apply text-sky-800;
+}
+.runtime-label {
+  @apply font-semibold text-sky-900;
+}
+.runtime-text {
+  @apply whitespace-pre-wrap text-current;
+}
+.message-time {
+  @apply text-neutral-500;
+}
+.message-time-trigger {
+  @apply cursor-default border-0 bg-transparent p-0 text-current;
+}
+.message-time-trigger-active {
+  @apply cursor-pointer rounded transition-colors hover:bg-neutral-200/80;
+}
 [data-cutoff-drop-active='true']::before {
   content: '';
   @apply absolute left-0 right-0 top-[-2px] border-t-2 border-amber-500;
@@ -1500,6 +1605,7 @@ git commit -m "feat: add entry components and composables for all ChatEntry kind
 ## Task 9: Registry and ChatTimeline
 
 **Files:**
+
 - Create: `src/vue/components/timeline/entryRegistry.ts`
 - Modify: `src/vue/components/ChatTimeline.vue`
 
@@ -1520,14 +1626,14 @@ import SweepStoppedEntry from './entries/SweepStoppedEntry.vue';
 
 export const entryRegistry: Record<ChatEntry['kind'], Component> = {
   'participant-message': ParticipantMessageEntry,
-  'participant-joined':  ParticipantJoinedEntry,
-  'participant-left':    ParticipantLeftEntry,
-  'topic-changed':       TopicChangedEntry,
-  'silent-decision':     SilentDecisionEntry,
-  'runtime-error':       RuntimeErrorEntry,
-  'sweep-started':       SweepStartedEntry,
-  'sweep-finished':      SweepFinishedEntry,
-  'sweep-stopped':       SweepStoppedEntry,
+  'participant-joined': ParticipantJoinedEntry,
+  'participant-left': ParticipantLeftEntry,
+  'topic-changed': TopicChangedEntry,
+  'silent-decision': SilentDecisionEntry,
+  'runtime-error': RuntimeErrorEntry,
+  'sweep-started': SweepStartedEntry,
+  'sweep-finished': SweepFinishedEntry,
+  'sweep-stopped': SweepStoppedEntry,
 };
 ```
 
@@ -1546,11 +1652,7 @@ export const entryRegistry: Record<ChatEntry['kind'], Component> = {
         :dragged-cutoff-id="drag.draggedCutoffId.value"
         :drag-preview-target-id="drag.dragPreviewTargetId.value"
       />
-      <component
-        v-else
-        :is="entryRegistry[entry.kind]"
-        :entry="entry"
-      />
+      <component v-else :is="entryRegistry[entry.kind]" :entry="entry" />
     </template>
   </div>
 </template>
@@ -1612,6 +1714,7 @@ git commit -m "feat: dispatch timeline rendering via entry registry"
 ## Task 10: Cleanup
 
 **Files:**
+
 - Delete: `src/vue/components/timeline/MessageEntry.vue`
 - Delete: `src/vue/components/timeline/TechnicalEventEntry.vue`
 - Delete: `src/vue/components/timeline/ChatMessageLine.vue`
@@ -1679,6 +1782,7 @@ npm run dev
 ```
 
 Verify:
+
 - Chat messages render correctly
 - System events (join/leave) render as text lines with no sender
 - Silent decisions render with `[silent AgentName]` label

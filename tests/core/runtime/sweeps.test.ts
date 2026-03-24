@@ -426,7 +426,11 @@ describe('MultiChatRuntime sweeps', () => {
       }),
     });
 
-    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
     runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -462,7 +466,11 @@ describe('MultiChatRuntime sweeps', () => {
       }),
     });
 
-    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
     runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -490,7 +498,11 @@ describe('MultiChatRuntime sweeps', () => {
       }),
     });
 
-    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
     runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
 
@@ -535,9 +547,17 @@ describe('MultiChatRuntime sweeps', () => {
       }),
     });
 
-    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
     runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
-    runtime.createAgent({ name: 'Gamma', modelId: 'c', systemPrompt: 'prompt' });
+    runtime.createAgent({
+      name: 'Gamma',
+      modelId: 'c',
+      systemPrompt: 'prompt',
+    });
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'test-key' });
     gammaId = runtime.getState().agents[2]!.id;

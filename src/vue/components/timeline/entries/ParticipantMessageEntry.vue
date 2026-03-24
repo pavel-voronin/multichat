@@ -20,8 +20,11 @@
         @dblclick="handleMention"
         >{{ authorLabel }}</span
       ><template v-if="showCost"
-        >{{ ' ' }}<CostBadge :item="entry" :item-id="entry.id" :cost-display-mode="costDisplayMode"
-      /></template
+        >{{ ' '
+        }}<CostBadge
+          :item="entry"
+          :item-id="entry.id"
+          :cost-display-mode="costDisplayMode" /></template
       >{{ ' ' }}<span class="chat-line-text">{{ entry.content }}</span>
     </div>
   </article>
@@ -35,10 +38,15 @@ import { useEntryInspection } from '../../../composables/useEntryInspection';
 import { useEntryCost } from '../../../composables/useEntryCost';
 import { useMessageInputStore } from '../../../stores/messageInput';
 import { useTimelineStore } from '../../../stores/timeline';
-import { formatMessageTime, formatParticipantName } from '../../../utils/chatFormatting';
+import {
+  formatMessageTime,
+  formatParticipantName,
+} from '../../../utils/chatFormatting';
 import CostBadge from '../CostBadge.vue';
 
-const props = defineProps<{ entry: ParticipantMessageEntry & { isMuted: boolean } }>();
+const props = defineProps<{
+  entry: ParticipantMessageEntry & { isMuted: boolean };
+}>();
 
 const drag = useCutoffDrag();
 const dragPreviewTargetId = drag.dragPreviewTargetId;

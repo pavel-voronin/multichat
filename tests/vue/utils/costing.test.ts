@@ -12,11 +12,15 @@ import {
   shouldShowMessageCost,
 } from '../../../src/vue/utils/costing';
 
-function createMessage(overrides: Partial<CostTrackedItem> = {}): CostTrackedItem {
+function createMessage(
+  overrides: Partial<CostTrackedItem> = {},
+): CostTrackedItem {
   return { ...overrides };
 }
 
-function createEvent(overrides: Partial<CostTrackedItem> = {}): CostTrackedItem {
+function createEvent(
+  overrides: Partial<CostTrackedItem> = {},
+): CostTrackedItem {
   return { ...overrides };
 }
 

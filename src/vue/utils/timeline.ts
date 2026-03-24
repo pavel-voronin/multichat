@@ -1,8 +1,4 @@
-import type {
-  MultiChatRuntime,
-  RuntimeState,
-  TimelineEntry,
-} from '../../core';
+import type { MultiChatRuntime, RuntimeState, TimelineEntry } from '../../core';
 import type { ChatViewPreferences, VisibleTimelineEntry } from '../types';
 
 export function buildVisibleTimelineEntries(input: {

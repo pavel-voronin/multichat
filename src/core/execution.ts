@@ -447,7 +447,10 @@ export async function runAgentSweepFn(
       });
       ctx.persistAndNotify();
 
-      for (const agent of buildAgentQueue(currentTab, currentTriggeringMessage)) {
+      for (const agent of buildAgentQueue(
+        currentTab,
+        currentTriggeringMessage,
+      )) {
         const latestTab = getTab(tabId, ctx);
         if (!latestTab || latestTab.execution.stopRequested) break;
         await runAgentTurnFn(agent, tabId, ctx);

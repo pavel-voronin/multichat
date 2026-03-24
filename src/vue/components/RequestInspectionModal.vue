@@ -101,7 +101,9 @@
                   <span class="inspection-entry-sender">{{
                     inspection.participantName(msg.authorId)
                   }}</span>
-                  <span class="inspection-entry-snippet">{{ msg.content }}</span>
+                  <span class="inspection-entry-snippet">{{
+                    msg.content
+                  }}</span>
                 </p>
               </div>
               <p
