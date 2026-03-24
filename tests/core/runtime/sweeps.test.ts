@@ -285,7 +285,7 @@ describe('MultiChatRuntime sweeps', () => {
     expect(runtime.getState().execution.isSweepRunning).toBe(false);
     expect(runtime.getState().execution.queuedSweep).toBe(false);
     expect(
-      timelineEvents(runtime).some((event) => event.type === 'sweep-stopped'),
+      timelineEvents(runtime).some((event) => event.kind === 'sweep-stopped'),
     ).toBe(true);
   });
 });

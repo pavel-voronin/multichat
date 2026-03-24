@@ -65,7 +65,7 @@ export function createEmptyTabState(input: {
     metrics: {},
     execution: initialExecutionState(),
     requestTraces: {},
-    messageInspectionIndex: {},
+    entryInspectionIndex: {},
   };
 }
 
@@ -149,7 +149,7 @@ export function normalizeTabState(
       stopRequested: false,
     },
     requestTraces: tab.requestTraces ?? {},
-    messageInspectionIndex: tab.messageInspectionIndex ?? {},
+    entryInspectionIndex: tab.entryInspectionIndex ?? {},
   };
 }
 

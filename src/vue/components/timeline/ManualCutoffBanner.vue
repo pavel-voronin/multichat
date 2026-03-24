@@ -44,12 +44,12 @@
 
 <script setup lang="ts">
 import IconMdiDragVertical from '~icons/mdi/drag-vertical';
-import type { VisibleTimelineManualCutoffEntry } from '../../types';
+import type { VisibleHistoryCutoffEntry } from '../../types';
 import { useSessionStore } from '../../stores/session';
 import { useCutoffDrag } from '../../composables/useCutoffDrag';
 
 defineProps<{
-  entry: VisibleTimelineManualCutoffEntry;
+  entry: VisibleHistoryCutoffEntry;
   draggedCutoffId: string | null;
   dragPreviewTargetId: string | null | undefined;
 }>();

@@ -6,13 +6,13 @@
     @close="inspection.close"
   >
     <template #title>
-      <ChatMessageLine
-        v-if="message"
-        :message="message"
-        :interactive="false"
-        class="truncate min-w-0"
-      />
-      <p v-else class="truncate min-w-0">—</p>
+      <p v-if="message" class="inspection-entry-title">
+        <span class="inspection-entry-sender">{{
+          inspection.participantName(message.authorId)
+        }}</span>
+        <span class="inspection-entry-snippet">{{ message.content }}</span>
+      </p>
+      <p v-else class="inspection-entry-title">—</p>
     </template>
     <template #header-actions>
       <button
@@ -92,15 +92,20 @@
             <p class="inspection-field-label">Context</p>
             <div class="inspection-message-list">
               <div
-                v-for="msg in inspection.contextMessagesForCurrentTrace"
+                v-for="msg in inspection.contextEntriesForCurrentTrace"
                 :key="msg.id"
                 class="inspector-line-wrapper"
                 @click="inspection.navigateTo(msg.id)"
               >
-                <ChatMessageLine :message="msg" :interactive="false" />
+                <p class="inspection-entry-line">
+                  <span class="inspection-entry-sender">{{
+                    inspection.participantName(msg.authorId)
+                  }}</span>
+                  <span class="inspection-entry-snippet">{{ msg.content }}</span>
+                </p>
               </div>
               <p
-                v-if="!inspection.contextMessagesForCurrentTrace.length"
+                v-if="!inspection.contextEntriesForCurrentTrace.length"
                 class="inspection-na"
               >
                 No context messages.
@@ -195,7 +200,12 @@
             class="inspector-line-wrapper"
             @click="inspection.navigateTo(msg.id)"
           >
-            <ChatMessageLine :message="msg" :interactive="false" />
+            <p class="inspection-entry-line">
+              <span class="inspection-entry-sender">{{
+                inspection.participantName(msg.authorId)
+              }}</span>
+              <span class="inspection-entry-snippet">{{ msg.content }}</span>
+            </p>
           </div>
           <p v-if="!usedInMessages.length" class="inspection-na">
             No messages used this in their context.
@@ -213,7 +223,6 @@ import { useInspectionStore } from '../stores/inspection';
 import { useUiStore } from '../stores/ui';
 import { formatMessageTime } from '../utils/chatFormatting';
 import { formatMessageCost } from '../utils/costing';
-import ChatMessageLine from './timeline/ChatMessageLine.vue';
 import ModelCard from './ModelCard.vue';
 import UiModal from './ui/UiModal.vue';
 
@@ -227,18 +236,17 @@ const tabs = [
 const inspection = useInspectionStore();
 const ui = useUiStore();
 const {
-  currentInspectedMessage: message,
-  traceForCurrentMessage: trace,
-  agentForCurrentMessage: agent,
+  currentInspectedEntry: message,
+  traceForCurrentEntry: trace,
+  agentForCurrentEntry: agent,
   currentActionForTrace: action,
-  usedInMessagesForCurrentMessage: usedInMessages,
+  usedInEntriesForCurrentEntry: usedInMessages,
 } = storeToRefs(inspection);
 
 // Participant tab
 const agentNameLabel = computed(() => agent.value?.name ?? 'Human');
 const participantLabel = computed(() => {
   if (agent.value) return agentNameLabel.value;
-  if (message.value?.author.type === 'system') return 'System';
   return 'Human';
 });
 const modelId = computed(() => agent.value?.modelId ?? '');
@@ -380,5 +388,21 @@ async function copyJson(value: unknown): Promise<void> {
 
 .inspection-json {
   @apply m-0 overflow-auto rounded-b bg-neutral-950 px-3 py-2 text-[11px] leading-5 text-neutral-100;
+}
+
+.inspection-entry-title {
+  @apply flex min-w-0 truncate items-baseline gap-2 text-[13px] text-neutral-900;
+}
+
+.inspection-entry-line {
+  @apply flex min-w-0 items-baseline gap-2 text-[13px] text-neutral-900;
+}
+
+.inspection-entry-sender {
+  @apply shrink-0 font-semibold;
+}
+
+.inspection-entry-snippet {
+  @apply min-w-0 truncate text-neutral-500;
 }
 </style>

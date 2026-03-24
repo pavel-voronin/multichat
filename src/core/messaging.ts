@@ -1,29 +1,40 @@
 import type {
-  ChatMessage,
   ChatTabState,
-  SendMessageInput,
-  SendSystemMessageInput,
+  MessageTarget,
+  ParticipantJoinedEntry,
+  ParticipantLeftEntry,
+  ParticipantMessageEntry,
+  TopicChangedEntry,
   WorkspaceState,
 } from './types';
-import { pushDebugLog, updateMessageSourceTrace } from './diagnostics';
-import { SYSTEM_AUTHOR_NAME } from './messages';
+import { pushDebugLog, updateEntrySourceTrace } from './diagnostics';
 
-export function publishMessageToTab(
-  input: Omit<SendMessageInput, 'senderId'> & {
-    senderId?: string;
-    kind?: ChatMessage['kind'];
-    system?: ChatMessage['system'];
+export function publishParticipantMessage(
+  input: {
+    senderId: string;
+    content: string;
+    target: MessageTarget;
+    recipientId?: string;
+    costUsd?: number;
+    requestCostUsd?: number;
+    ownPromptCostUsd?: number;
+    downstreamPromptCostUsd?: number;
+    downstreamPromptCostContributors?: Array<{
+      agentId: string;
+      promptCostUsd: number;
+      listenCount: number;
+    }>;
+    createdInSweep?: number;
+    sourceTraceId?: string;
+    triggerSweep?: boolean;
   },
   tab: ChatTabState,
   workspace: WorkspaceState,
   now: () => Date,
   createId: () => string,
-): { message: ChatMessage; triggersSweep: boolean } {
+): { entry: ParticipantMessageEntry; triggersSweep: boolean } {
   if (input.target === 'private' && !input.recipientId) {
     throw new Error('Private message requires recipientId');
-  }
-  if (input.kind !== 'system' && !input.senderId) {
-    throw new Error('Participant message requires senderId');
   }
 
   const triggersSweep = input.triggerSweep ?? true;
@@ -31,18 +42,14 @@ export function publishMessageToTab(
     input.createdInSweep ??
     (triggersSweep ? tab.execution.sweepCount + 1 : undefined);
 
-  const message: ChatMessage = {
+  const entry: ParticipantMessageEntry = {
     id: createId(),
-    author:
-      input.kind === 'system'
-        ? { type: 'system' }
-        : { type: 'participant', participantId: input.senderId! },
-    kind: input.kind ?? 'participant',
+    kind: 'participant-message',
+    createdAt: now().toISOString(),
+    authorId: input.senderId,
+    content: input.content.trim(),
     target: input.target,
     recipientId: input.recipientId,
-    content: input.content.trim(),
-    system: input.system,
-    createdAt: now().toISOString(),
     requestCostUsd: input.requestCostUsd ?? input.costUsd,
     ownPromptCostUsd: input.ownPromptCostUsd,
     downstreamPromptCostUsd: input.downstreamPromptCostUsd,
@@ -54,60 +61,92 @@ export function publishMessageToTab(
     sourceTraceId: input.sourceTraceId,
   };
 
-  tab.timeline.push({
-    id: message.id,
-    createdAt: message.createdAt,
-    kind: 'message',
-    message,
-  });
-  updateMessageSourceTrace(message.id, input.sourceTraceId, tab);
+  tab.timeline.push(entry);
+  updateEntrySourceTrace(entry.id, input.sourceTraceId, tab);
 
   const senderName =
-    input.kind === 'system'
-      ? SYSTEM_AUTHOR_NAME
-      : (tab.participants.find((p) => p.id === input.senderId)?.name ??
-        input.senderId ??
-        '');
+    tab.participants.find((p) => p.id === input.senderId)?.name ??
+    input.senderId ??
+    '';
 
   pushDebugLog({
     now,
     workspace,
     payload: {
       kind: 'message-created',
-      sweep: message.createdInSweep,
-      messageId: message.id,
-      agentId: input.kind === 'system' ? undefined : input.senderId,
+      sweep: entry.createdInSweep,
+      messageId: entry.id,
+      agentId: input.senderId,
       agentName: senderName,
-      target: message.target,
-      recipientId: message.recipientId,
-      content: message.content,
+      target: entry.target,
+      recipientId: entry.recipientId,
+      content: entry.content,
       details: triggersSweep
         ? 'message triggers sweep'
         : 'message does not trigger sweep',
     },
   });
 
-  return { message, triggersSweep };
+  return { entry, triggersSweep };
 }
 
-export function publishSystemMessageToTab(
-  input: SendSystemMessageInput,
+export function publishParticipantJoined(
+  input: {
+    participantId: string;
+    participantName: string;
+    triggerSweep?: boolean;
+  },
   tab: ChatTabState,
-  workspace: WorkspaceState,
+  _workspace: WorkspaceState,
   now: () => Date,
   createId: () => string,
-): { message: ChatMessage; triggersSweep: boolean } {
-  return publishMessageToTab(
-    {
-      content: input.content,
-      target: 'public',
-      triggerSweep: input.triggerSweep,
-      kind: 'system',
-      system: input.system,
-    },
-    tab,
-    workspace,
-    now,
-    createId,
-  );
+): { entry: ParticipantJoinedEntry; triggersSweep: boolean } {
+  const entry: ParticipantJoinedEntry = {
+    id: createId(),
+    kind: 'participant-joined',
+    createdAt: now().toISOString(),
+    participantId: input.participantId,
+    participantName: input.participantName,
+  };
+  tab.timeline.push(entry);
+  return { entry, triggersSweep: input.triggerSweep ?? true };
+}
+
+export function publishParticipantLeft(
+  input: {
+    participantId: string;
+    participantName: string;
+    triggerSweep?: boolean;
+  },
+  tab: ChatTabState,
+  _workspace: WorkspaceState,
+  now: () => Date,
+  createId: () => string,
+): { entry: ParticipantLeftEntry; triggersSweep: boolean } {
+  const entry: ParticipantLeftEntry = {
+    id: createId(),
+    kind: 'participant-left',
+    createdAt: now().toISOString(),
+    participantId: input.participantId,
+    participantName: input.participantName,
+  };
+  tab.timeline.push(entry);
+  return { entry, triggersSweep: input.triggerSweep ?? true };
+}
+
+export function publishTopicChanged(
+  input: { topicTitle: string; triggerSweep?: boolean },
+  tab: ChatTabState,
+  _workspace: WorkspaceState,
+  now: () => Date,
+  createId: () => string,
+): { entry: TopicChangedEntry; triggersSweep: boolean } {
+  const entry: TopicChangedEntry = {
+    id: createId(),
+    kind: 'topic-changed',
+    createdAt: now().toISOString(),
+    topicTitle: input.topicTitle,
+  };
+  tab.timeline.push(entry);
+  return { entry, triggersSweep: input.triggerSweep ?? true };
 }

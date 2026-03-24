@@ -71,6 +71,22 @@ export function technicalEventClasses(event: RuntimeEvent): string {
     : 'runtime-line runtime-line-silent';
 }
 
+export function formatParticipantName(
+  authorId: string,
+  target: 'public' | 'private',
+  recipientId: string | undefined,
+  lookup: ParticipantNameLookup,
+): string {
+  const sender = lookup.byId(authorId) ?? authorId;
+  if (target === 'private') {
+    const recipient = recipientId
+      ? (lookup.byId(recipientId) ?? recipientId)
+      : 'all';
+    return `<${sender} -> ${recipient}>`;
+  }
+  return `<${sender}>`;
+}
+
 export function formatDebugLogLine(entry: DebugLogEntry): string {
   const segments = [`[${formatMessageTime(entry.createdAt)}]`, entry.kind];
 

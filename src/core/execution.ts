@@ -2,9 +2,9 @@ import type {
   AgentConfig,
   AgentContextMessage,
   AgentTurnResult,
-  ChatMessage,
   ChatTabState,
   OpenRouterTransport,
+  ParticipantMessageEntry,
   SendMessageInput,
   WorkspaceState,
 } from './types';
@@ -14,7 +14,10 @@ import {
   createRequestTrace,
   pushDebugLog,
   pushRuntimeError,
-  pushRuntimeEvent,
+  pushSilentDecision,
+  pushSweepFinished,
+  pushSweepStarted,
+  pushSweepStopped,
 } from './diagnostics';
 import {
   applyDownstreamPromptCost,
@@ -42,7 +45,10 @@ export interface ExecutionContext {
   createId: () => string;
   lastProcessedKeys: Map<string, Map<string, string>>;
   participantName: (participantId: string, tab: ChatTabState) => string;
-  sendMessage: (input: SendMessageInput, tabId: string) => Promise<ChatMessage>;
+  sendMessage: (
+    input: SendMessageInput,
+    tabId: string,
+  ) => Promise<ParticipantMessageEntry>;
   updateAgent: (
     agentId: string,
     patch: Partial<Omit<AgentConfig, 'id'>>,
@@ -124,19 +130,16 @@ export async function handleSuccessfulAgentTurnResultFn({
   if (result.action.type === 'stay_silent') {
     const requestCostUsd = result.usage?.estimatedCost;
     const ownPromptCostUsd = getPromptCostUsd(agent, result.usage);
-    pushRuntimeEvent({
+    pushSilentDecision({
       createId: ctx.createId,
       now: ctx.now,
       tab,
-      payload: {
-        type: 'silent-decision',
-        agentId: agent.id,
-        details: result.action.reason,
-        sourceTraceId: traceId,
-        requestCostUsd,
-        ownPromptCostUsd,
-        costUsd: requestCostUsd,
-      },
+      agentId: agent.id,
+      reason: result.action.reason,
+      sourceTraceId: traceId,
+      requestCostUsd,
+      ownPromptCostUsd,
+      costUsd: requestCostUsd,
     });
     pushDebugLog({
       now: ctx.now,
@@ -338,15 +341,11 @@ export async function runAgentTurnFn(
         error: 'Agent request aborted',
         promptCostUsd: 0,
       });
-      pushRuntimeEvent({
+      pushSweepStopped({
         createId: ctx.createId,
         now: ctx.now,
         tab,
-        payload: {
-          type: 'sweep-stopped',
-          agentId: agent.id,
-          details: 'Agent request aborted',
-        },
+        agentId: agent.id,
       });
       pushDebugLog({
         now: ctx.now,
@@ -428,11 +427,10 @@ export async function runAgentSweepFn(
       currentTab.execution.isSweepRunning = true;
       currentTab.execution.queuedSweep = false;
       currentTab.execution.sweepCount += 1;
-      pushRuntimeEvent({
+      pushSweepStarted({
         createId: ctx.createId,
         now: ctx.now,
         tab: currentTab,
-        payload: { type: 'sweep-started', details: trigger },
       });
       pushDebugLog({
         now: ctx.now,
@@ -455,11 +453,10 @@ export async function runAgentSweepFn(
       if (!latestTab) break;
 
       latestTab.execution.isSweepRunning = false;
-      pushRuntimeEvent({
+      pushSweepFinished({
         createId: ctx.createId,
         now: ctx.now,
         tab: latestTab,
-        payload: { type: 'sweep-finished', details: trigger },
       });
       pushDebugLog({
         now: ctx.now,

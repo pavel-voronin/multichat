@@ -61,12 +61,12 @@ describe('MultiChatRuntime cost attribution', () => {
     await runtime.runAgentSweep('manual');
 
     const silentDecision = timelineEvents(runtime).find(
-      (event) => event.type === 'silent-decision',
+      (event) => event.kind === 'silent-decision',
     );
 
     expect(silentDecision).toMatchObject({
-      type: 'silent-decision',
-      details: 'priced noop',
+      kind: 'silent-decision',
+      reason: 'priced noop',
       requestCostUsd: 0.00042,
       ownPromptCostUsd: 0.05,
       costUsd: 0.00042,

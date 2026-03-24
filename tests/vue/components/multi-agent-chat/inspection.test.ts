@@ -121,7 +121,7 @@ describe('MultiAgentChat request inspection', () => {
 
     // Click the third trigger (triggers[0]=system, [1]=human, [2]=agent reply)
     const triggers = wrapper.findAll('.chat-line-time-active');
-    await triggers[2]!.trigger('click');
+    await triggers[1]!.trigger('click');
 
     // Participant tab: model id should be visible
     expect(document.body.textContent).toContain('model-a:free');
@@ -169,7 +169,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.chat-line-time-active');
-    await triggers[2]!.trigger('click');
+    await triggers[1]!.trigger('click');
 
     const prompts = document.body.querySelectorAll('.inspection-prompt');
 
@@ -214,7 +214,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.chat-line-time-active');
-    await triggers[2]!.trigger('click');
+    await triggers[1]!.trigger('click');
     await wrapper.vm.$nextTick();
     await Promise.resolve();
     await wrapper.vm.$nextTick();
@@ -259,7 +259,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.chat-line-time-active');
-    await triggers[2]!.trigger('click'); // triggers[0]=system, [1]=human, [2]=agent reply
+    await triggers[1]!.trigger('click'); // triggers[0]=human, [1]=agent reply
 
     const resultTab = Array.from(document.body.querySelectorAll('button')).find(
       (b) => b.textContent?.trim() === 'Output',
@@ -353,7 +353,7 @@ describe('MultiAgentChat request inspection', () => {
 
     const wrapper = mountChat(runtime);
     const triggers = wrapper.findAll('.chat-line-time-active');
-    await triggers[2]!.trigger('click'); // triggers[0]=system, [1]=human, [2]=agent reply
+    await triggers[1]!.trigger('click'); // triggers[0]=human, [1]=agent reply
 
     // Switch to Input tab to see context messages
     const requestTab = Array.from(
@@ -375,36 +375,6 @@ describe('MultiAgentChat request inspection', () => {
       'button[aria-label="Back"]',
     ) as HTMLButtonElement | null;
     expect(backBtn!.disabled).toBe(false);
-  });
-
-  it('system message timestamp is inspectable (active trigger)', async () => {
-    // createDefaultAgent adds "Alpha" — the runtime emits a participant_joined system message.
-    // System message rows have class chat-line-system.
-    // canInspectMessage returns true for all messages, so their timestamps
-    // have chat-line-time-active (enabled).
-    const runtime = createRuntime(); // default: creates Alpha agent
-    const wrapper = mountChat(runtime);
-
-    const systemLine = wrapper.find('.chat-line-system');
-    expect(systemLine.exists()).toBe(true);
-    const trigger = systemLine.find('.chat-line-time');
-    expect(trigger.exists()).toBe(true);
-    expect(trigger.classes()).toContain('chat-line-time-active');
-  });
-
-  it('shows System label on Participant tab for a system message', async () => {
-    const runtime = createRuntime();
-    const wrapper = mountChat(runtime);
-
-    const systemLine = wrapper.find('.chat-line-system');
-    await systemLine.find('.chat-line-time-active').trigger('click');
-    await wrapper.vm.$nextTick();
-
-    expect(document.body.textContent).toContain('System');
-    expect(document.body.textContent).not.toContain('Agent Prompt');
-    expect(document.body.textContent).not.toContain(
-      'Full System Prompt (sent)',
-    );
   });
 
   it('closes the inspector', async () => {

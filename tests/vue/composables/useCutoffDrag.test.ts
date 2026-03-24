@@ -12,7 +12,7 @@ afterEach(() => {
 
 function makeMessage(id: string): VisibleTimelineEntry {
   return {
-    kind: 'message',
+    kind: 'participant-message',
     id,
     sortAt: 0,
     isMuted: false,

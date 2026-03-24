@@ -171,7 +171,7 @@ describe('MultiChatRuntime request traces', () => {
     });
 
     const silentEvent = timelineEvents(runtime).find(
-      (event) => event.type === 'silent-decision',
+      (event) => event.kind === 'silent-decision',
     );
 
     expect(silentEvent?.sourceTraceId).toBeTruthy();

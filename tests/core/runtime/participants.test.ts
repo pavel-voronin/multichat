@@ -64,36 +64,18 @@ describe('MultiChatRuntime participant lifecycle', () => {
       systemPrompt: 'prompt',
     });
 
-    let messages = runtime
-      .getTimelineEntries()
-      .filter((entry) => entry.kind === 'message')
-      .map((entry) => entry.message);
-    expect(messages.at(-1)).toMatchObject({
-      author: { type: 'system' },
-      kind: 'system',
-      content: 'Alpha joined the chat',
-      system: {
-        type: 'participant_joined',
-        participantId: agent.id,
-        participantName: 'Alpha',
-      },
+    expect(runtime.getTimelineEntries().at(-1)).toMatchObject({
+      kind: 'participant-joined',
+      participantId: agent.id,
+      participantName: 'Alpha',
     });
 
     runtime.removeAgent(agent.id);
 
-    messages = runtime
-      .getTimelineEntries()
-      .filter((entry) => entry.kind === 'message')
-      .map((entry) => entry.message);
-    expect(messages.at(-1)).toMatchObject({
-      author: { type: 'system' },
-      kind: 'system',
-      content: 'Alpha left the chat',
-      system: {
-        type: 'participant_left',
-        participantId: agent.id,
-        participantName: 'Alpha',
-      },
+    expect(runtime.getTimelineEntries().at(-1)).toMatchObject({
+      kind: 'participant-left',
+      participantId: agent.id,
+      participantName: 'Alpha',
     });
   });
 
@@ -144,34 +126,20 @@ describe('MultiChatRuntime participant lifecycle', () => {
 
     runtime.renameTab(runtime.getState().activeTabId, 'New topic');
 
-    const messages = runtime
-      .getTimelineEntries()
-      .filter((entry) => entry.kind === 'message')
-      .map((entry) => entry.message);
-
-    expect(messages.at(-1)).toMatchObject({
-      author: { type: 'system' },
-      kind: 'system',
-      content: 'Topic changed to: New topic',
-      system: {
-        type: 'topic_changed',
-        topicTitle: 'New topic',
-      },
+    expect(runtime.getTimelineEntries().at(-1)).toMatchObject({
+      kind: 'topic-changed',
+      topicTitle: 'New topic',
     });
   });
 
   it('does not publish a system message for a no-op tab rename', () => {
     const runtime = createRuntime();
     const tab = runtime.getWorkspaceState().tabs[0]!;
-    const beforeCount = runtime
-      .getTimelineEntries()
-      .filter((entry) => entry.kind === 'message').length;
+    const beforeCount = runtime.getTimelineEntries().length;
 
     runtime.renameTab(tab.id, tab.title);
 
-    const afterCount = runtime
-      .getTimelineEntries()
-      .filter((entry) => entry.kind === 'message').length;
+    const afterCount = runtime.getTimelineEntries().length;
 
     expect(afterCount).toBe(beforeCount);
   });

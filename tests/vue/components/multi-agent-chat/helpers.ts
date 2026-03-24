@@ -9,9 +9,8 @@ import {
 } from '../../../../src/vue/bootstrap';
 import { usePreferencesStore } from '../../../../src/vue/stores/preferences';
 import type {
-  ChatMessage,
   OpenRouterTransport,
-  TimelineMessageEntry,
+  ParticipantMessageEntry,
 } from '../../../../src/core';
 
 // Track the last pinia and wrapper for cleanup
@@ -79,12 +78,13 @@ export function createRuntime(options?: {
   return runtime;
 }
 
-export function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
+export function timelineMessages(runtime: MultiChatRuntime): ParticipantMessageEntry[] {
   return runtime
     .getTimelineEntries()
-    .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
-    .filter((entry) => entry.message.kind !== 'system')
-    .map((entry) => entry.message);
+    .filter(
+      (entry): entry is ParticipantMessageEntry =>
+        entry.kind === 'participant-message',
+    );
 }
 
 export function mountChat(

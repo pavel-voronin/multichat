@@ -228,13 +228,7 @@ describe('MultiAgentChat cost display', () => {
     runtime.resetAgentHistoryContext();
     runtime.updateSettings({ openRouterApiKey: 'key' });
 
-    await runtime.sendSystemMessage({
-      content: 'Topic changed to: System topic',
-      system: {
-        type: 'topic_changed',
-        topicTitle: 'System topic',
-      },
-    });
+    runtime.renameTab(runtime.getState().activeTabId, 'System topic');
 
     const wrapper = mountChat(runtime);
 
@@ -253,8 +247,5 @@ describe('MultiAgentChat cost display', () => {
       ),
     ).toBe(true);
     expect(wrapper.text()).toContain('Topic changed to: System topic');
-    expect(
-      wrapper.find('.chat-line-system .message-cost-trigger').exists(),
-    ).toBe(true);
   });
 });

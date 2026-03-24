@@ -1,8 +1,8 @@
-import type { ChatMessage, ChatTabState, RequestTrace } from './types';
+import type { ChatTabState, ParticipantMessageEntry, RequestTrace } from './types';
 import {
   cloneTraces,
-  getMessageById,
-  getMessageInspectionIndexEntry,
+  getEntryInspectionIndexEntry,
+  getParticipantEntryById,
 } from './diagnostics';
 import { deepClone } from './utils';
 
@@ -23,7 +23,7 @@ export function getRelatedRequestTraces(
     ...trace.visibleMessageIds,
     ...trace.downstreamMessageIds,
   ]) {
-    const index = tab.messageInspectionIndex[messageId];
+    const index = tab.entryInspectionIndex[messageId];
     for (const relatedTraceId of index?.downstreamTraceIds ?? []) {
       if (relatedTraceId !== traceId) relatedTraceIds.add(relatedTraceId);
     }
@@ -42,14 +42,14 @@ export function getInspectionSubjectForMessage(
   messageId: string,
   tab: ChatTabState,
 ): {
-  message: ChatMessage | null;
+  entry: ParticipantMessageEntry | null;
   sourceTrace: RequestTrace | null;
   triggeringTraces: RequestTrace[];
   visibleOnlyTraces: RequestTrace[];
   downstreamTraces: RequestTrace[];
 } {
-  const message = getMessageById(messageId, tab);
-  const index = getMessageInspectionIndexEntry(messageId, tab);
+  const entry = getParticipantEntryById(messageId, tab);
+  const index = getEntryInspectionIndexEntry(messageId, tab);
   const sourceTrace = index.sourceTraceId
     ? (tab.requestTraces[index.sourceTraceId] ?? null)
     : null;
@@ -63,7 +63,7 @@ export function getInspectionSubjectForMessage(
   ];
 
   return {
-    message: deepClone(message ?? null),
+    entry: deepClone(entry ?? null),
     sourceTrace: deepClone(sourceTrace),
     triggeringTraces: cloneTraces(index.triggeringTraceIds, tab),
     visibleOnlyTraces: cloneTraces(visibleOnlyTraceIds, tab),
@@ -75,12 +75,12 @@ export function getMessageInspectionGraph(
   messageId: string,
   tab: ChatTabState,
 ): {
-  message: ChatMessage | null;
+  entry: ParticipantMessageEntry | null;
   sourceTrace: RequestTrace | null;
   triggeringTraces: RequestTrace[];
   visibleOnlyTraces: RequestTrace[];
   downstreamTraces: RequestTrace[];
-  relatedMessages: ChatMessage[];
+  relatedEntries: ParticipantMessageEntry[];
 } {
   const subject = getInspectionSubjectForMessage(messageId, tab);
   const relatedMessageIds = new Set<string>();
@@ -103,9 +103,9 @@ export function getMessageInspectionGraph(
 
   return {
     ...subject,
-    relatedMessages: Array.from(relatedMessageIds)
-      .map((id) => getMessageById(id, tab))
-      .filter((item): item is ChatMessage => Boolean(item))
+    relatedEntries: Array.from(relatedMessageIds)
+      .map((id) => getParticipantEntryById(id, tab))
+      .filter((item): item is ParticipantMessageEntry => Boolean(item))
       .map((item) => deepClone(item)),
   };
 }

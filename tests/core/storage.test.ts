@@ -27,7 +27,7 @@ function createState(): WorkspaceState {
           stopRequested: false,
         },
         requestTraces: {},
-        messageInspectionIndex: {},
+        entryInspectionIndex: {},
       },
     ],
   };

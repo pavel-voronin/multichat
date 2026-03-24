@@ -1,7 +1,5 @@
 import type {
-  ChatMessage,
   MultiChatRuntime,
-  RuntimeEvent,
   RuntimeState,
   TimelineEntry,
 } from '../../core';
@@ -20,45 +18,32 @@ export function buildVisibleTimelineEntries(input: {
 
   for (const [index, entry] of input.state.timeline.entries()) {
     const sortAt = index * 2;
+    const isMuted =
+      activeManualCutoffIndex !== null && index < activeManualCutoffIndex;
 
-    if (entry.kind === 'message') {
-      if (
-        !input.runtime.isMessageVisibleToParticipant(
-          entry.message,
-          input.participantId,
-        )
-      ) {
-        continue;
-      }
-
-      visibleEntries.push({
-        ...entry,
-        sortAt,
-        isMuted:
-          activeManualCutoffIndex !== null && index < activeManualCutoffIndex,
-      });
+    if (entry.kind === 'history-cutoff') {
+      visibleEntries.push({ ...entry, sortAt });
       continue;
     }
 
-    if (entry.kind === 'technical-event') {
+    if (
+      entry.kind === 'silent-decision' ||
+      entry.kind === 'sweep-started' ||
+      entry.kind === 'sweep-finished' ||
+      entry.kind === 'sweep-stopped'
+    ) {
+      if (!input.preferences.showSilentDecisions) continue;
+    }
+
+    if (entry.kind === 'participant-message') {
       if (
-        !input.preferences.showSilentDecisions ||
-        !shouldShowTechnicalEvent(entry.event)
+        !input.runtime.isEntryVisibleToParticipant(entry, input.participantId)
       ) {
         continue;
       }
-
-      visibleEntries.push({
-        ...entry,
-        sortAt,
-      });
-      continue;
     }
 
-    visibleEntries.push({
-      ...entry,
-      sortAt,
-    });
+    visibleEntries.push({ ...entry, sortAt, isMuted });
   }
 
   return visibleEntries.sort(compareVisibleTimelineEntries);
@@ -75,23 +60,26 @@ function getActiveManualCutoffIndex(timeline: TimelineEntry[]): number | null {
   return null;
 }
 
-function shouldShowTechnicalEvent(event: RuntimeEvent): boolean {
-  return event.type === 'silent-decision' || event.type === 'runtime-error';
-}
-
 function compareVisibleTimelineEntries(
   left: VisibleTimelineEntry,
   right: VisibleTimelineEntry,
 ): number {
-  if (left.sortAt !== right.sortAt) {
-    return left.sortAt - right.sortAt;
-  }
+  const leftSort = (left as { sortAt: number }).sortAt;
+  const rightSort = (right as { sortAt: number }).sortAt;
+  if (leftSort !== rightSort) return leftSort - rightSort;
 
-  const priority = {
+  const priority: Record<TimelineEntry['kind'], number> = {
     'history-cutoff': 0,
-    message: 1,
-    'technical-event': 2,
-  } as const;
+    'participant-message': 1,
+    'participant-joined': 1,
+    'participant-left': 1,
+    'topic-changed': 1,
+    'silent-decision': 2,
+    'runtime-error': 2,
+    'sweep-started': 2,
+    'sweep-finished': 2,
+    'sweep-stopped': 2,
+  };
 
   return priority[left.kind] - priority[right.kind];
 }

@@ -1,10 +1,8 @@
 import type {
   AgentConfig,
-  ChatMessage,
-  RuntimeEvent,
+  ChatEntry,
+  ChatEntryBase,
   TimelineHistoryCutoffEntry,
-  TimelineMessageEntry,
-  TimelineTechnicalEventEntry,
 } from '../core';
 
 export type CostDisplayMode = 'off' | 'request' | 'net';
@@ -14,23 +12,23 @@ export interface ChatViewPreferences {
   costDisplayMode: CostDisplayMode;
 }
 
-export type VisibleTimelineMessageEntry = TimelineMessageEntry & {
-  sortAt: number;
-  isMuted: boolean;
-};
-
-export type VisibleTimelineTechnicalEventEntry = TimelineTechnicalEventEntry & {
+// All ChatEntry kinds get isMuted and sortAt for ordering.
+export type VisibleChatEntry = ChatEntry & { sortAt: number; isMuted: boolean };
+// HistoryCutoffEntry gets sortAt but not isMuted.
+export type VisibleHistoryCutoffEntry = TimelineHistoryCutoffEntry & {
   sortAt: number;
 };
+export type VisibleTimelineEntry = VisibleChatEntry | VisibleHistoryCutoffEntry;
 
-export type VisibleTimelineManualCutoffEntry = TimelineHistoryCutoffEntry & {
-  sortAt: number;
-};
-
-export type VisibleTimelineEntry =
-  | VisibleTimelineMessageEntry
-  | VisibleTimelineTechnicalEventEntry
-  | VisibleTimelineManualCutoffEntry;
+// CostTrackedItem references ChatEntryBase fields
+export type CostTrackedItem = Pick<
+  ChatEntryBase,
+  | 'costUsd'
+  | 'requestCostUsd'
+  | 'ownPromptCostUsd'
+  | 'downstreamPromptCostUsd'
+  | 'downstreamPromptCostContributors'
+>;
 
 export interface RenderedTab {
   id: string;
@@ -50,14 +48,5 @@ export interface RenderedParticipant {
   showMoney: boolean;
   spentSummary: string;
 }
-
-export type CostTrackedItem = Pick<
-  ChatMessage | RuntimeEvent,
-  | 'costUsd'
-  | 'requestCostUsd'
-  | 'ownPromptCostUsd'
-  | 'downstreamPromptCostUsd'
-  | 'downstreamPromptCostContributors'
->;
 
 export type RenderedAgent = AgentConfig;

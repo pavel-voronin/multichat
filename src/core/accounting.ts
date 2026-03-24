@@ -4,7 +4,7 @@ import type {
   ChatTabState,
   TransportUsage,
 } from './types';
-import { findMessageEntryById } from './diagnostics';
+import { findParticipantEntryById } from './diagnostics';
 import { emptyMetrics } from './workspace';
 
 export function getPromptCostUsd(
@@ -49,13 +49,12 @@ export function applyDownstreamPromptCost(
 
   const promptCostPerMessage = promptCostUsd / listenedMessages.length;
   for (const visibleMessage of listenedMessages) {
-    const entry = findMessageEntryById(visibleMessage.id, tab);
+    const entry = findParticipantEntryById(visibleMessage.id, tab);
     if (!entry) continue;
-    const message = entry.message;
 
-    message.downstreamPromptCostUsd =
-      (message.downstreamPromptCostUsd ?? 0) + promptCostPerMessage;
-    const existingContributors = message.downstreamPromptCostContributors ?? [];
+    entry.downstreamPromptCostUsd =
+      (entry.downstreamPromptCostUsd ?? 0) + promptCostPerMessage;
+    const existingContributors = entry.downstreamPromptCostContributors ?? [];
     const existingContributor = existingContributors.find(
       (c) => c.agentId === receivingAgent.id,
     );
@@ -69,8 +68,8 @@ export function applyDownstreamPromptCost(
         listenCount: 1,
       });
     }
-    message.downstreamPromptCostContributors = existingContributors;
-    message.costUsd =
-      (message.requestCostUsd ?? 0) + message.downstreamPromptCostUsd;
+    entry.downstreamPromptCostContributors = existingContributors;
+    entry.costUsd =
+      (entry.requestCostUsd ?? 0) + entry.downstreamPromptCostUsd;
   }
 }

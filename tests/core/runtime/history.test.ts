@@ -117,7 +117,8 @@ describe('MultiChatRuntime history cutoffs', () => {
     const firstMessageEntry = runtime
       .getTimelineEntries()
       .find(
-        (entry) => entry.kind === 'message' && entry.message.content === 'two',
+        (entry) =>
+          entry.kind === 'participant-message' && entry.content === 'two',
       );
 
     runtime.moveManualCutoffBefore(firstMessageEntry?.id ?? null);
@@ -271,16 +272,11 @@ describe('MultiChatRuntime history cutoffs', () => {
             timeline: [
               {
                 id: 'm-1',
-                kind: 'message',
+                kind: 'participant-message',
                 createdAt: '2026-03-16T10:00:00.000Z',
-                message: {
-                  id: 'm-1',
-                  author: { type: 'participant', participantId: 'human' },
-                  kind: 'participant',
-                  target: 'public',
-                  content: 'persisted',
-                  createdAt: '2026-03-16T10:00:00.000Z',
-                },
+                authorId: 'human',
+                target: 'public',
+                content: 'persisted',
               },
               {
                 id: 'cutoff-1',
@@ -299,7 +295,7 @@ describe('MultiChatRuntime history cutoffs', () => {
               stopRequested: false,
             },
             requestTraces: {},
-            messageInspectionIndex: {},
+            entryInspectionIndex: {},
           },
         ],
       },

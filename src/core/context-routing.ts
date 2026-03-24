@@ -1,89 +1,108 @@
 import type {
   AgentConfig,
   AgentContextMessage,
-  ChatMessage,
   ChatTabState,
+  ParticipantJoinedEntry,
+  ParticipantLeftEntry,
+  ParticipantMessageEntry,
+  TopicChangedEntry,
 } from './types';
-import { getActiveManualCutoffIndex, getTimelineMessages } from './diagnostics';
-import {
-  getMessageSenderId,
-  isSystemMessage,
-  SYSTEM_AUTHOR_NAME,
-} from './messages';
+import { getActiveManualCutoffIndex } from './diagnostics';
 import { DEFAULT_HUMAN } from './workspace';
 
-export function getVisibleContextMessages(tab: ChatTabState): ChatMessage[] {
-  const cutoffIndex = getActiveManualCutoffIndex(tab);
-  if (cutoffIndex === null) {
-    return getTimelineMessages(tab);
-  }
+export type ContextEntry =
+  | ParticipantMessageEntry
+  | ParticipantJoinedEntry
+  | ParticipantLeftEntry
+  | TopicChangedEntry;
 
-  return tab.timeline
-    .slice(cutoffIndex + 1)
-    .filter((entry) => entry.kind === 'message')
-    .map((entry) => entry.message);
+export function getVisibleContextEntries(tab: ChatTabState): ContextEntry[] {
+  const cutoffIndex = getActiveManualCutoffIndex(tab);
+  const source =
+    cutoffIndex === null ? tab.timeline : tab.timeline.slice(cutoffIndex + 1);
+
+  return source.filter(
+    (entry): entry is ContextEntry =>
+      entry.kind === 'participant-message' ||
+      entry.kind === 'participant-joined' ||
+      entry.kind === 'participant-left' ||
+      entry.kind === 'topic-changed',
+  );
 }
 
-export function isMessageVisibleToAgent(
-  message: ChatMessage,
+export function isEntryVisibleToAgent(
+  entry: ContextEntry,
   agentId: string,
 ): boolean {
-  if (message.target === 'public') {
-    return true;
-  }
+  if (entry.kind !== 'participant-message') return true;
+  if (entry.target === 'public') return true;
+  return entry.authorId === agentId || entry.recipientId === agentId;
+}
 
+export function isEntryVisibleToParticipant(
+  entry: ContextEntry,
+  participantId: string,
+): boolean {
+  if (entry.kind !== 'participant-message') return true;
+  if (entry.target === 'public') return true;
   return (
-    getMessageSenderId(message) === agentId || message.recipientId === agentId
+    participantId === DEFAULT_HUMAN.id ||
+    entry.authorId === participantId ||
+    entry.recipientId === participantId
   );
 }
 
-export function isMessageVisibleToParticipant(
-  message: ChatMessage,
-  participantId: string,
-): boolean {
-  if (message.target === 'public') {
-    return true;
+function systemEventContent(
+  entry: ParticipantJoinedEntry | ParticipantLeftEntry | TopicChangedEntry,
+): string {
+  switch (entry.kind) {
+    case 'participant-joined':
+      return `${entry.participantName} joined the chat`;
+    case 'participant-left':
+      return `${entry.participantName} left the chat`;
+    case 'topic-changed':
+      return `Topic changed to: ${entry.topicTitle}`;
   }
-
-  return (
-    participantId === DEFAULT_HUMAN.id ||
-    getMessageSenderId(message) === participantId ||
-    message.recipientId === participantId
-  );
 }
 
 export function getVisibleMessagesForAgent(
   agentId: string,
   tab: ChatTabState,
 ): AgentContextMessage[] {
-  const visibleMessages = getVisibleContextMessages(tab).filter((message) =>
-    isMessageVisibleToAgent(message, agentId),
-  );
-
-  return visibleMessages.map((message) => {
-    const senderId = getMessageSenderId(message);
-    const sender = tab.participants.find(
-      (participant) => participant.id === senderId,
-    );
-    const recipient = tab.participants.find(
-      (participant) => participant.id === message.recipientId,
-    );
-
-    return {
-      id: message.id,
-      authorType: message.author.type,
-      senderId: senderId ?? undefined,
-      senderName: isSystemMessage(message)
-        ? SYSTEM_AUTHOR_NAME
-        : (sender?.name ?? senderId ?? ''),
-      target: message.target,
-      recipientId: message.recipientId,
-      recipientName: recipient?.name,
-      content: message.content,
-      createdAt: message.createdAt,
-    };
-  });
+  return getVisibleContextEntries(tab)
+    .filter((entry) => isEntryVisibleToAgent(entry, agentId))
+    .map((entry) => {
+      if (entry.kind === 'participant-message') {
+        const sender = tab.participants.find((p) => p.id === entry.authorId);
+        const recipient = tab.participants.find(
+          (p) => p.id === entry.recipientId,
+        );
+        return {
+          id: entry.id,
+          authorType: 'participant' as const,
+          senderId: entry.authorId,
+          senderName: sender?.name ?? entry.authorId,
+          target: entry.target,
+          recipientId: entry.recipientId,
+          recipientName: recipient?.name,
+          content: entry.content,
+          createdAt: entry.createdAt,
+        };
+      }
+      return {
+        id: entry.id,
+        authorType: 'system' as const,
+        senderName: 'System',
+        target: 'public' as const,
+        content: systemEventContent(entry),
+        createdAt: entry.createdAt,
+      };
+    });
 }
+
+// Keep old function name as alias for backward compat during migration
+export const isMessageVisibleToAgent = isEntryVisibleToAgent;
+export const isMessageVisibleToParticipant = isEntryVisibleToParticipant;
 
 export function getNonSelfVisibleMessageIds(
   agentId: string,

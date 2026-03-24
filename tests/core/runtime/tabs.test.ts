@@ -214,10 +214,8 @@ describe('MultiChatRuntime tabs', () => {
     expect(
       runtime
         .getTimelineEntries(firstTabId)
-        .filter((entry) => entry.kind === 'message')
-        .map((entry) =>
-          entry.kind === 'message' ? entry.message.content : '',
-        ),
+        .filter((entry) => entry.kind === 'participant-message')
+        .map((entry) => entry.content),
     ).toContain('background reply');
   });
 });

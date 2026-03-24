@@ -2,12 +2,14 @@ import { vi } from 'vitest';
 import { MultiChatRuntime } from '../../../src/core/runtime';
 import type {
   AgentTurnResult,
-  ChatMessage,
   OpenRouterTransport,
+  ParticipantMessageEntry,
   RuntimeConfig,
-  RuntimeEvent,
-  TimelineMessageEntry,
-  TimelineTechnicalEventEntry,
+  SilentDecisionEntry,
+  SweepFinishedEntry,
+  SweepStartedEntry,
+  SweepStoppedEntry,
+  RuntimeErrorEntry,
 } from '../../../src/core';
 
 export function createTransport(
@@ -43,20 +45,28 @@ export function createRuntime(config?: Partial<RuntimeConfig>) {
   });
 }
 
-export function timelineMessages(runtime: MultiChatRuntime): ChatMessage[] {
-  return runtime
-    .getTimelineEntries()
-    .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
-    .filter((entry) => entry.message.kind !== 'system')
-    .map((entry) => entry.message);
-}
-
-export function timelineEvents(runtime: MultiChatRuntime): RuntimeEvent[] {
+export function timelineMessages(runtime: MultiChatRuntime): ParticipantMessageEntry[] {
   return runtime
     .getTimelineEntries()
     .filter(
-      (entry): entry is TimelineTechnicalEventEntry =>
-        entry.kind === 'technical-event',
-    )
-    .map((entry) => entry.event);
+      (entry): entry is ParticipantMessageEntry =>
+        entry.kind === 'participant-message',
+    );
+}
+
+type TechnicalEntry =
+  | SilentDecisionEntry
+  | SweepStartedEntry
+  | SweepFinishedEntry
+  | SweepStoppedEntry
+  | RuntimeErrorEntry;
+
+export function timelineEvents(runtime: MultiChatRuntime): TechnicalEntry[] {
+  return runtime.getTimelineEntries().filter((entry): entry is TechnicalEntry =>
+    entry.kind === 'silent-decision' ||
+    entry.kind === 'sweep-started' ||
+    entry.kind === 'sweep-finished' ||
+    entry.kind === 'sweep-stopped' ||
+    entry.kind === 'runtime-error',
+  );
 }

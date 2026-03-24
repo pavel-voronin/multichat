@@ -36,15 +36,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { RuntimeEvent } from '../../core';
+import type { SilentDecisionEntry, RuntimeErrorEntry } from '../../core';
 import { useRuntimeStore } from '../stores/runtime';
 import { useTimelineStore } from '../stores/timeline';
-import type { VisibleTimelineEntry } from '../types';
+import type { VisibleChatEntry, VisibleTimelineEntry } from '../types';
 import { setOverlayControls } from '../useOverlayControls';
-import {
-  formatMessageAuthor,
-  formatTechnicalEventLabel,
-} from '../utils/chatFormatting';
+import { formatParticipantName } from '../utils/chatFormatting';
 import {
   aggregateAgentSpendFromTraces,
   displayedMessageCost,
@@ -69,19 +66,20 @@ const { state, diagnostics } = storeToRefs(useRuntimeStore());
 const agents = computed(() => state.value.agents);
 const chatTimelineEntries = visibleTimelineEntries;
 const visibleMessages = computed(() =>
-  chatTimelineEntries.value
-    .filter(
-      (entry): entry is Extract<VisibleTimelineEntry, { kind: 'message' }> =>
-        entry.kind === 'message',
-    )
-    .map((entry) => entry.message),
+  chatTimelineEntries.value.filter(
+    (entry): entry is Extract<VisibleChatEntry, { kind: 'participant-message' }> =>
+      entry.kind === 'participant-message',
+  ),
 );
+
+type VisibleCostEvent = (SilentDecisionEntry | RuntimeErrorEntry) & {
+  sortAt: number;
+  isMuted: boolean;
+};
 const visibleCostEvents = computed(() =>
   chatTimelineEntries.value.filter(
-    (
-      entry,
-    ): entry is Extract<VisibleTimelineEntry, { kind: 'technical-event' }> =>
-      entry.kind === 'technical-event',
+    (entry): entry is VisibleCostEvent =>
+      entry.kind === 'silent-decision' || entry.kind === 'runtime-error',
   ),
 );
 
@@ -93,14 +91,14 @@ const modelPriceBubblePlacement = modelPriceBubble.bubblePlacement;
 const hoveredCostMessage = computed(
   () =>
     visibleMessages.value.find(
-      (message) => message.id === costBubble.hoveredId.value,
+      (entry) => entry.id === costBubble.hoveredId.value,
     ) ?? null,
 );
-const hoveredCostEvent = computed<RuntimeEvent | null>(
+const hoveredCostEvent = computed(
   () =>
     visibleCostEvents.value.find(
-      (entry) => entry.event.id === costBubble.hoveredId.value,
-    )?.event ?? null,
+      (entry) => entry.id === costBubble.hoveredId.value,
+    ) ?? null,
 );
 const hoveredCostItem = computed(
   () => hoveredCostMessage.value ?? hoveredCostEvent.value,
@@ -174,14 +172,21 @@ const costBubbleTitle = computed(() => {
   }
 
   if (hoveredCostEvent.value) {
-    return `Net cost for ${formatTechnicalEventLabel(hoveredCostEvent.value, {
-      byId: participantNameById,
-    })}`;
+    const ev = hoveredCostEvent.value;
+    const agentName = ev.agentId ? participantNameById(ev.agentId) : null;
+    const label =
+      ev.kind === 'silent-decision'
+        ? agentName
+          ? `[silent ${agentName}]`
+          : '[silent]'
+        : agentName
+          ? `[error ${agentName}]`
+          : '[error]';
+    return `Net cost for ${label}`;
   }
 
-  return `Net cost for ${formatMessageAuthor(hoveredCostMessage.value!, {
-    byId: participantNameById,
-  })}`;
+  const msg = hoveredCostMessage.value!;
+  return `Net cost for ${formatParticipantName(msg.authorId, msg.target, msg.recipientId, { byId: participantNameById })}`;
 });
 
 const modelPromptCost = computed(() => hoveredModelSpend.value.promptCostUsd);

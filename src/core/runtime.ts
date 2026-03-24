@@ -1,16 +1,15 @@
 import type {
   AgentConfig,
   AgentContextMessage,
-  ChatMessage,
   ChatTabState,
   DiagnosticsState,
   ModelsCatalogSnapshot,
   OpenRouterModel,
+  ParticipantMessageEntry,
   RequestTrace,
   RuntimeConfig,
   RuntimeState,
   SendMessageInput,
-  SendSystemMessageInput,
   TabMutationSource,
   TimelineEntry,
   WorkspaceState,
@@ -18,9 +17,9 @@ import type {
 import {
   createManualCutoffEntry,
   getActiveManualCutoffIndex,
-  getTimelineMessages,
+  getTimelineParticipantEntries,
   pushDebugLog,
-  pushRuntimeEvent,
+  pushSweepStopped,
 } from './diagnostics';
 import {
   getInspectionSubjectForMessage as getInspectionSubjectFn,
@@ -28,11 +27,17 @@ import {
   getRelatedRequestTraces as getRelatedRequestTracesFn,
 } from './traces';
 import {
+  type ContextEntry,
   getVisibleMessagesForAgent as getVisibleMessagesForAgentFn,
-  isMessageVisibleToAgent as isMessageVisibleToAgentFn,
-  isMessageVisibleToParticipant as isMessageVisibleToParticipantFn,
+  isEntryVisibleToAgent as isEntryVisibleToAgentFn,
+  isEntryVisibleToParticipant as isEntryVisibleToParticipantFn,
 } from './context-routing';
-import { publishMessageToTab, publishSystemMessageToTab } from './messaging';
+import {
+  publishParticipantJoined,
+  publishParticipantLeft,
+  publishParticipantMessage,
+  publishTopicChanged,
+} from './messaging';
 import { runAgentSweepFn, type ExecutionContext } from './execution';
 import { IndexedDbPersistenceAdapter, NoopPersistenceAdapter } from './storage';
 import { createId, deepClone, fingerprintApiKey } from './utils';
@@ -181,27 +186,14 @@ export class MultiChatRuntime {
   async sendMessage(
     input: SendMessageInput,
     tabId = this.workspace.activeTabId,
-  ): Promise<ChatMessage> {
-    const { message, triggersSweep } = this.publishMessage(input, tabId);
+  ): Promise<ParticipantMessageEntry> {
+    const { entry, triggersSweep } = this.publishMessage(input, tabId);
 
     if (triggersSweep) {
       await this.runAgentSweep('message', tabId);
     }
 
-    return message;
-  }
-
-  async sendSystemMessage(
-    input: SendSystemMessageInput,
-    tabId = this.workspace.activeTabId,
-  ): Promise<ChatMessage> {
-    const { message, triggersSweep } = this.publishSystemMessage(input, tabId);
-
-    if (triggersSweep) {
-      await this.runAgentSweep('message', tabId);
-    }
-
-    return message;
+    return entry;
   }
 
   createAgent(
@@ -230,18 +222,18 @@ export class MultiChatRuntime {
         details: `model=${agent.modelId}`,
       },
     });
-    const { triggersSweep } = this.publishSystemMessage(
+    const { triggersSweep } = publishParticipantJoined(
       {
-        content: `${agent.name} joined the chat`,
-        system: {
-          type: 'participant_joined',
-          participantId: agent.id,
-          participantName: agent.name,
-        },
+        participantId: agent.id,
+        participantName: agent.name,
         triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
       },
-      tab.id,
+      tab,
+      this.workspace,
+      this.now,
+      this.createId,
     );
+    this.persistAndNotify();
     if (triggersSweep) {
       void this.runAgentSweep('message', tab.id);
     }
@@ -297,18 +289,18 @@ export class MultiChatRuntime {
         details: 'agent hidden and disabled',
       },
     });
-    const { triggersSweep } = this.publishSystemMessage(
+    const { triggersSweep } = publishParticipantLeft(
       {
-        content: `${agent.name} left the chat`,
-        system: {
-          type: 'participant_left',
-          participantId: agent.id,
-          participantName: agent.name,
-        },
+        participantId: agent.id,
+        participantName: agent.name,
         triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
       },
-      tab.id,
+      tab,
+      this.workspace,
+      this.now,
+      this.createId,
     );
+    this.persistAndNotify();
     if (triggersSweep) {
       void this.runAgentSweep('message', tab.id);
     }
@@ -353,7 +345,7 @@ export class MultiChatRuntime {
       workspace: this.workspace,
       payload: {
         kind: 'history-cutoff-set',
-        messageId: getTimelineMessages(tab).at(-1)?.id,
+        messageId: getTimelineParticipantEntries(tab).at(-1)?.id,
         details: `cutoff=${cutoff.id}`,
       },
     });
@@ -546,17 +538,17 @@ export class MultiChatRuntime {
         details: `tabId=${tab.id} from=${JSON.stringify(previousTitle)} to=${JSON.stringify(nextTitle)} source=${_source}`,
       },
     });
-    const { triggersSweep } = this.publishSystemMessage(
+    const { triggersSweep } = publishTopicChanged(
       {
-        content: `Topic changed to: ${nextTitle}`,
-        system: {
-          type: 'topic_changed',
-          topicTitle: nextTitle,
-        },
+        topicTitle: nextTitle,
         triggerSweep: Boolean(this.workspace.settings.openRouterApiKey),
       },
-      tab.id,
+      tab,
+      this.workspace,
+      this.now,
+      this.createId,
     );
+    this.persistAndNotify();
     if (triggersSweep) {
       void this.runAgentSweep('message', tab.id);
     }
@@ -642,14 +634,10 @@ export class MultiChatRuntime {
     tab.execution.stopRequested = true;
     tab.execution.queuedSweep = false;
     this.abortControllers.get(tabId)?.abort();
-    pushRuntimeEvent({
+    pushSweepStopped({
       createId: this.createId,
       now: this.now,
       tab,
-      payload: {
-        type: 'sweep-stopped',
-        details: 'User requested stop',
-      },
     });
     pushDebugLog({
       now: this.now,
@@ -696,43 +684,23 @@ export class MultiChatRuntime {
     return getVisibleMessagesForAgentFn(agentId, this.requireTab(tabId));
   }
 
-  isMessageVisibleToAgent(message: ChatMessage, agentId: string): boolean {
-    return isMessageVisibleToAgentFn(message, agentId);
+  isEntryVisibleToAgent(entry: ContextEntry, agentId: string): boolean {
+    return isEntryVisibleToAgentFn(entry, agentId);
   }
 
-  isMessageVisibleToParticipant(
-    message: ChatMessage,
+  isEntryVisibleToParticipant(
+    entry: ContextEntry,
     participantId: string,
   ): boolean {
-    return isMessageVisibleToParticipantFn(message, participantId);
-  }
-
-  private publishSystemMessage(
-    input: SendSystemMessageInput,
-    tabId: string,
-  ): { message: ChatMessage; triggersSweep: boolean } {
-    const tab = this.requireTab(tabId);
-    const result = publishSystemMessageToTab(
-      input,
-      tab,
-      this.workspace,
-      this.now,
-      this.createId,
-    );
-    this.persistAndNotify();
-    return result;
+    return isEntryVisibleToParticipantFn(entry, participantId);
   }
 
   private publishMessage(
-    input: Omit<SendMessageInput, 'senderId'> & {
-      senderId?: string;
-      kind?: ChatMessage['kind'];
-      system?: ChatMessage['system'];
-    },
+    input: SendMessageInput,
     tabId: string,
-  ): { message: ChatMessage; triggersSweep: boolean } {
+  ): { entry: ParticipantMessageEntry; triggersSweep: boolean } {
     const tab = this.requireTab(tabId);
-    const result = publishMessageToTab(
+    const result = publishParticipantMessage(
       input,
       tab,
       this.workspace,
@@ -793,7 +761,7 @@ export class MultiChatRuntime {
       debugLogs: this.workspace.debugLogs,
       errors: this.workspace.errors,
       requestTraces: tab.requestTraces,
-      messageInspectionIndex: tab.messageInspectionIndex,
+      entryInspectionIndex: tab.entryInspectionIndex,
     });
   }
 

@@ -1,7 +1,10 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed } from 'vue';
-import type { MultiChatRuntime, RuntimeEvent } from '../../core';
-import type { ChatViewPreferences, VisibleTimelineEntry } from '../types';
+import type { MultiChatRuntime } from '../../core';
+import type {
+  ChatViewPreferences,
+  VisibleTimelineEntry,
+} from '../types';
 import { buildVisibleTimelineEntries } from '../utils/timeline';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';
@@ -35,6 +38,15 @@ export const useTimelineStore = defineStore('timeline', () => {
     }),
   );
 
+  // Set of entry IDs that are muted (before active cutoff). Used by useEntryMuted composable.
+  const mutedEntryIds = computed<Set<string>>(() => {
+    const muted = new Set<string>();
+    for (const entry of visibleTimelineEntries.value) {
+      if ('isMuted' in entry && entry.isMuted) muted.add(entry.id);
+    }
+    return muted;
+  });
+
   function participantNameById(participantId: string): string | null {
     return (
       state.value.participants.find(
@@ -43,16 +55,12 @@ export const useTimelineStore = defineStore('timeline', () => {
     );
   }
 
-  function canInspectEvent(event: RuntimeEvent): boolean {
-    return Boolean(event.sourceTraceId);
-  }
-
   return {
     state,
     preferences,
     humanParticipant,
     visibleTimelineEntries,
+    mutedEntryIds,
     participantNameById,
-    canInspectEvent,
   };
 });

@@ -1,10 +1,10 @@
 import { defineStore, storeToRefs } from 'pinia';
 import { computed, ref } from 'vue';
-import {
-  type AgentConfig,
-  type ChatMessage,
-  type RequestTrace,
-  type RuntimeState,
+import type {
+  AgentConfig,
+  ParticipantMessageEntry,
+  RequestTrace,
+  RuntimeState,
 } from '../../core';
 import type { AgentToolCall } from '../../core/types';
 import { useDiagnosticsStore } from './diagnostics';
@@ -27,70 +27,73 @@ export const useInspectionStore = defineStore('inspection', () => {
     () => inspectionHistoryIndex.value < inspectionHistory.value.length - 1,
   );
 
-  // ── Current message and its trace / agent ──────────────────────
-  const currentInspectedMessage = computed<ChatMessage | null>(() => {
-    const messageId = inspectionHistory.value[inspectionHistoryIndex.value];
-    if (!messageId) return null;
-    return findMessageById(state.value, messageId);
+  // ── Current entry and its trace / agent ────────────────────────
+  const currentInspectedEntry = computed<ParticipantMessageEntry | null>(() => {
+    const entryId = inspectionHistory.value[inspectionHistoryIndex.value];
+    if (!entryId) return null;
+    return findParticipantEntryById(state.value, entryId);
   });
 
-  const traceForCurrentMessage = computed<RequestTrace | null>(() => {
-    const message = currentInspectedMessage.value;
-    if (!message?.sourceTraceId) return null;
-    return diagnostics.value.requestTraces[message.sourceTraceId] ?? null;
+  const traceForCurrentEntry = computed<RequestTrace | null>(() => {
+    const entry = currentInspectedEntry.value;
+    if (!entry?.sourceTraceId) return null;
+    return diagnostics.value.requestTraces[entry.sourceTraceId] ?? null;
   });
 
-  const agentForCurrentMessage = computed<AgentConfig | null>(() => {
-    const trace = traceForCurrentMessage.value;
+  const agentForCurrentEntry = computed<AgentConfig | null>(() => {
+    const trace = traceForCurrentEntry.value;
     if (!trace) return null;
     return state.value.agents.find((a) => a.id === trace.agentId) ?? null;
   });
 
-  const contextMessagesForCurrentTrace = computed<ChatMessage[]>(() => {
-    const trace = traceForCurrentMessage.value;
-    if (!trace) return [];
-    return trace.visibleMessageIds
-      .map((id) => findMessageById(state.value, id))
-      .filter((m): m is ChatMessage => m !== null);
-  });
+  const contextEntriesForCurrentTrace = computed<ParticipantMessageEntry[]>(
+    () => {
+      const trace = traceForCurrentEntry.value;
+      if (!trace) return [];
+      return trace.visibleMessageIds
+        .map((id) => findParticipantEntryById(state.value, id))
+        .filter((e): e is ParticipantMessageEntry => e !== null);
+    },
+  );
 
   const currentActionForTrace = computed<AgentToolCall | null>(() => {
-    const payload = traceForCurrentMessage.value?.payloads.normalizedActionJson;
+    const payload = traceForCurrentEntry.value?.payloads.normalizedActionJson;
     if (!payload || typeof payload !== 'object') return null;
     return payload as AgentToolCall;
   });
 
-  const usedInMessagesForCurrentMessage = computed<ChatMessage[]>(() => {
-    const messageId = currentInspectedMessage.value?.id;
-    if (!messageId) return [];
-    const index = diagnostics.value.messageInspectionIndex[messageId];
-    if (!index) return [];
-    return index.downstreamTraceIds
-      .map((traceId) => diagnostics.value.requestTraces[traceId])
-      .filter(Boolean)
-      .map((trace) =>
-        trace.producedMessageId
-          ? findMessageById(state.value, trace.producedMessageId)
-          : null,
-      )
-      .filter((m): m is ChatMessage => m !== null);
-  });
+  const usedInEntriesForCurrentEntry = computed<ParticipantMessageEntry[]>(
+    () => {
+      const entryId = currentInspectedEntry.value?.id;
+      if (!entryId) return [];
+      const index = diagnostics.value.entryInspectionIndex[entryId];
+      if (!index) return [];
+      return index.downstreamTraceIds
+        .map((traceId) => diagnostics.value.requestTraces[traceId])
+        .filter(Boolean)
+        .map((trace) =>
+          trace.producedMessageId
+            ? findParticipantEntryById(state.value, trace.producedMessageId)
+            : null,
+        )
+        .filter((e): e is ParticipantMessageEntry => e !== null);
+    },
+  );
 
   // ── Navigation ─────────────────────────────────────────────────
-  function openForMessage(messageId: string): void {
-    inspectionHistory.value = [messageId];
+  function openForEntry(entryId: string): void {
+    inspectionHistory.value = [entryId];
     inspectionHistoryIndex.value = 0;
     ui.showRequestInspection = true;
     ui.activeInspectionTab = 'participant';
   }
 
-  function navigateTo(messageId: string): void {
-    // Truncate forward history before pushing
+  function navigateTo(entryId: string): void {
     inspectionHistory.value = inspectionHistory.value.slice(
       0,
       inspectionHistoryIndex.value + 1,
     );
-    inspectionHistory.value.push(messageId);
+    inspectionHistory.value.push(entryId);
     inspectionHistoryIndex.value = inspectionHistory.value.length - 1;
     if (!ui.showRequestInspection) {
       ui.showRequestInspection = true;
@@ -119,10 +122,6 @@ export const useInspectionStore = defineStore('inspection', () => {
   }
 
   // ── Utilities ──────────────────────────────────────────────────
-  function canInspectMessage(_message: ChatMessage): boolean {
-    return true;
-  }
-
   function participantName(participantId?: string): string {
     if (!participantId) return '';
     return (
@@ -138,31 +137,30 @@ export const useInspectionStore = defineStore('inspection', () => {
     // Computed
     canGoBack,
     canGoForward,
-    currentInspectedMessage,
-    traceForCurrentMessage,
-    agentForCurrentMessage,
-    contextMessagesForCurrentTrace,
+    currentInspectedEntry,
+    traceForCurrentEntry,
+    agentForCurrentEntry,
+    contextEntriesForCurrentTrace,
     currentActionForTrace,
-    usedInMessagesForCurrentMessage,
+    usedInEntriesForCurrentEntry,
     // Actions
-    openForMessage,
+    openForEntry,
     navigateTo,
     navigateBack,
     navigateForward,
     reset,
     close,
-    canInspectMessage,
     participantName,
   };
 });
 
-function findMessageById(
+function findParticipantEntryById(
   state: RuntimeState,
-  messageId: string,
-): ChatMessage | null {
+  entryId: string,
+): ParticipantMessageEntry | null {
   for (const entry of state.timeline) {
-    if (entry.kind === 'message' && entry.message.id === messageId) {
-      return entry.message;
+    if (entry.kind === 'participant-message' && entry.id === entryId) {
+      return entry;
     }
   }
   return null;

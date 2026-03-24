@@ -1,15 +1,18 @@
 import type {
   AgentConfig,
   AgentExecutionMode,
-  ChatMessage,
   ChatTabState,
   DebugLogEntry,
-  MessageInspectionIndex,
+  EntryInspectionIndex,
+  ParticipantMessageEntry,
   RequestTrace,
   RuntimeError,
-  RuntimeEvent,
+  RuntimeErrorEntry,
+  SilentDecisionEntry,
+  SweepFinishedEntry,
+  SweepStartedEntry,
+  SweepStoppedEntry,
   TimelineHistoryCutoffEntry,
-  TimelineMessageEntry,
   TransportUsage,
   WorkspaceState,
 } from './types';
@@ -59,11 +62,11 @@ export function createRequestTrace(input: {
     trace.links.push({ kind: 'parent', traceId: trace.parentTraceId });
   }
   for (const messageId of trace.triggeringMessageIds) {
-    linkTraceToMessage(messageId, trace.id, 'triggering', input.tab);
+    linkTraceToEntry(messageId, trace.id, 'triggering', input.tab);
     trace.links.push({ kind: 'triggering-message', messageId });
   }
   for (const messageId of trace.visibleMessageIds) {
-    linkTraceToMessage(messageId, trace.id, 'visible', input.tab);
+    linkTraceToEntry(messageId, trace.id, 'visible', input.tab);
     trace.links.push({ kind: 'visible-message', messageId });
   }
   return trace;
@@ -126,12 +129,12 @@ export function attachProducedMessageToTrace(
   trace.producedMessageId = messageId;
   trace.downstreamMessageIds.push(messageId);
   trace.links.push({ kind: 'produced-message', messageId });
-  const index = getMessageInspectionIndexEntry(messageId, tab);
+  const index = getEntryInspectionIndexEntry(messageId, tab);
   index.sourceTraceId = traceId;
 }
 
-export function updateMessageSourceTrace(
-  messageId: string,
+export function updateEntrySourceTrace(
+  entryId: string,
   traceId: string | undefined,
   tab: ChatTabState,
 ): void {
@@ -139,30 +142,30 @@ export function updateMessageSourceTrace(
     return;
   }
 
-  const index = getMessageInspectionIndexEntry(messageId, tab);
+  const index = getEntryInspectionIndexEntry(entryId, tab);
   index.sourceTraceId = traceId;
 }
 
-export function getMessageInspectionIndexEntry(
-  messageId: string,
+export function getEntryInspectionIndexEntry(
+  entryId: string,
   tab: ChatTabState,
-): MessageInspectionIndex {
-  tab.messageInspectionIndex[messageId] ??= {
+): EntryInspectionIndex {
+  tab.entryInspectionIndex[entryId] ??= {
     sourceTraceId: undefined,
     downstreamTraceIds: [],
     triggeringTraceIds: [],
     visibleTraceIds: [],
   };
-  return tab.messageInspectionIndex[messageId]!;
+  return tab.entryInspectionIndex[entryId]!;
 }
 
-export function linkTraceToMessage(
-  messageId: string,
+export function linkTraceToEntry(
+  entryId: string,
   traceId: string,
   kind: 'triggering' | 'visible',
   tab: ChatTabState,
 ): void {
-  const index = getMessageInspectionIndexEntry(messageId, tab);
+  const index = getEntryInspectionIndexEntry(entryId, tab);
   const target =
     kind === 'triggering' ? index.triggeringTraceIds : index.visibleTraceIds;
   if (!target.includes(traceId)) {
@@ -183,41 +186,114 @@ export function cloneTraces(
     .map((item) => deepClone(item));
 }
 
-export function getMessageById(
-  messageId: string,
+export function getTimelineParticipantEntries(
   tab: ChatTabState,
-): ChatMessage | null {
-  return findMessageEntryById(messageId, tab)?.message ?? null;
+): ParticipantMessageEntry[] {
+  return tab.timeline.filter(
+    (entry): entry is ParticipantMessageEntry =>
+      entry.kind === 'participant-message',
+  );
 }
 
-export function pushRuntimeEvent(input: {
+export function findParticipantEntryById(
+  entryId: string,
+  tab: ChatTabState,
+): ParticipantMessageEntry | undefined {
+  return tab.timeline.find(
+    (entry): entry is ParticipantMessageEntry =>
+      entry.kind === 'participant-message' && entry.id === entryId,
+  );
+}
+
+export function getParticipantEntryById(
+  entryId: string,
+  tab: ChatTabState,
+): ParticipantMessageEntry | null {
+  return findParticipantEntryById(entryId, tab) ?? null;
+}
+
+export function pushSweepStarted(input: {
   createId: () => string;
   now: () => Date;
   tab: ChatTabState;
-  payload: Pick<
-    RuntimeEvent,
-    | 'type'
-    | 'agentId'
-    | 'details'
-    | 'sourceTraceId'
-    | 'costUsd'
-    | 'requestCostUsd'
-    | 'ownPromptCostUsd'
-    | 'downstreamPromptCostUsd'
-    | 'downstreamPromptCostContributors'
-  >;
+  agentId?: string;
 }): void {
-  const event: RuntimeEvent = {
+  const entry: SweepStartedEntry = {
     id: input.createId(),
     createdAt: input.now().toISOString(),
-    ...input.payload,
+    kind: 'sweep-started',
+    agentId: input.agentId,
   };
-  input.tab.timeline.push({
-    id: event.id,
-    createdAt: event.createdAt,
-    kind: 'technical-event',
-    event,
-  });
+  input.tab.timeline.push(entry);
+}
+
+export function pushSweepFinished(input: {
+  createId: () => string;
+  now: () => Date;
+  tab: ChatTabState;
+  agentId?: string;
+  costUsd?: number;
+  requestCostUsd?: number;
+  ownPromptCostUsd?: number;
+  downstreamPromptCostUsd?: number;
+  downstreamPromptCostContributors?: SweepFinishedEntry['downstreamPromptCostContributors'];
+}): void {
+  const entry: SweepFinishedEntry = {
+    id: input.createId(),
+    createdAt: input.now().toISOString(),
+    kind: 'sweep-finished',
+    agentId: input.agentId,
+    costUsd: input.costUsd,
+    requestCostUsd: input.requestCostUsd,
+    ownPromptCostUsd: input.ownPromptCostUsd,
+    downstreamPromptCostUsd: input.downstreamPromptCostUsd,
+    downstreamPromptCostContributors: input.downstreamPromptCostContributors,
+  };
+  input.tab.timeline.push(entry);
+}
+
+export function pushSweepStopped(input: {
+  createId: () => string;
+  now: () => Date;
+  tab: ChatTabState;
+  agentId?: string;
+}): void {
+  const entry: SweepStoppedEntry = {
+    id: input.createId(),
+    createdAt: input.now().toISOString(),
+    kind: 'sweep-stopped',
+    agentId: input.agentId,
+  };
+  input.tab.timeline.push(entry);
+}
+
+export function pushSilentDecision(input: {
+  createId: () => string;
+  now: () => Date;
+  tab: ChatTabState;
+  agentId: string;
+  reason: string;
+  sourceTraceId?: string;
+  costUsd?: number;
+  requestCostUsd?: number;
+  ownPromptCostUsd?: number;
+  downstreamPromptCostUsd?: number;
+  downstreamPromptCostContributors?: SilentDecisionEntry['downstreamPromptCostContributors'];
+}): void {
+  const entry: SilentDecisionEntry = {
+    id: input.createId(),
+    createdAt: input.now().toISOString(),
+    kind: 'silent-decision',
+    agentId: input.agentId,
+    reason: input.reason,
+    sourceTraceId: input.sourceTraceId,
+    costUsd: input.costUsd,
+    requestCostUsd: input.requestCostUsd,
+    ownPromptCostUsd: input.ownPromptCostUsd,
+    downstreamPromptCostUsd: input.downstreamPromptCostUsd,
+    downstreamPromptCostContributors: input.downstreamPromptCostContributors,
+  };
+  input.tab.timeline.push(entry);
 }
 
 export function pushRuntimeError(input: {
@@ -236,17 +312,15 @@ export function pushRuntimeError(input: {
     createdAt: input.now().toISOString(),
     ...input.payload,
   });
-  pushRuntimeEvent({
-    createId: input.createId,
-    now: input.now,
-    tab: input.tab,
-    payload: {
-      type: 'runtime-error',
-      agentId: input.payload.agentId,
-      details: input.payload.details ?? input.payload.message,
-      sourceTraceId: input.payload.sourceTraceId,
-    },
-  });
+  const entry: RuntimeErrorEntry = {
+    id: input.createId(),
+    createdAt: input.now().toISOString(),
+    kind: 'runtime-error',
+    agentId: input.payload.agentId ?? '',
+    details: input.payload.details ?? input.payload.message,
+    sourceTraceId: input.payload.sourceTraceId,
+  };
+  input.tab.timeline.push(entry);
   pushDebugLog({
     now: input.now,
     workspace: input.workspace,
@@ -272,22 +346,6 @@ export function pushDebugLog(input: {
     createdAt: input.now().toISOString(),
     ...input.payload,
   });
-}
-
-export function getTimelineMessages(tab: ChatTabState): ChatMessage[] {
-  return tab.timeline
-    .filter((entry): entry is TimelineMessageEntry => entry.kind === 'message')
-    .map((entry) => entry.message);
-}
-
-export function findMessageEntryById(
-  messageId: string,
-  tab: ChatTabState,
-): TimelineMessageEntry | undefined {
-  return tab.timeline.find(
-    (entry): entry is TimelineMessageEntry =>
-      entry.kind === 'message' && entry.message.id === messageId,
-  );
 }
 
 export function getActiveManualCutoffIndex(tab: ChatTabState): number | null {
