@@ -60,9 +60,17 @@ interface ChatTabState {
 }
 ```
 
-`sliding_cycle.offset` is part of the persisted config. It is incremented by `runtime.ts` after each sweep completes, using the existing `updateTab`-style mechanism.
+`sliding_cycle.offset` is part of the persisted config. See "Sliding Cycle Offset Management" below.
 
-`keywords` keys are agent names (case-insensitive match at runtime).
+`keywords` keys are agent names; matching is case-insensitive at runtime.
+
+---
+
+## Migration
+
+`createEmptyTabState()` in `workspace.ts` must include `turnOrdering: DEFAULT_TURN_ORDERING` in its return value.
+
+`normalizeTabState()` in `workspace.ts` must fall back to `DEFAULT_TURN_ORDERING` when the persisted data has no `turnOrdering` field, to handle chats created before this feature.
 
 ---
 
@@ -76,9 +84,15 @@ export function buildAgentQueue(
 ): AgentConfig[]
 ```
 
-`execution.ts` replaces `getActiveAgents(tab)` with `buildAgentQueue(tab, triggeringMessage)`.
+`execution.ts` replaces the `getActiveAgents(tab)` call in the **sweep loop** with `buildAgentQueue(tab, triggeringMessage)`. The separate `getActiveAgents(tab)` call in `getPromptParticipants` is **not replaced** — it is about prompt context, not turn ordering.
 
-`sweepCount` from `ExecutionState` is passed into strategy functions for seeding random.
+`buildAgentQueue` reads `tab.execution.sweepCount` internally and forwards it to all strategy functions.
+
+### Sourcing `triggeringMessage`
+
+At the `buildAgentQueue` call site in `runAgentSweepFn`, `triggeringMessage` is the most recent `ParticipantMessageEntry` authored by a human participant in `tab.timeline` at the moment the sweep begins. If no such entry exists (e.g. the sweep was triggered by an agent join or a manual trigger with no human message yet), `triggeringMessage` is `null`.
+
+This single lookup happens once at the start of each sweep, before the agent loop begins.
 
 ---
 
@@ -86,11 +100,11 @@ export function buildAgentQueue(
 
 ### Step 1: Private Exclusive Delivery
 
-If `triggeringMessage` is private and has a recipient: return `[recipient]` immediately. Steps 2 and 3 are skipped.
-
-- Only the recipient participates in this sweep
-- Other agents receive no context, no turn
-- After the exclusive sweep, normal ordering resumes
+If `triggeringMessage` is private and has a named recipient:
+- Return `[recipient]` immediately; steps 2 and 3 are skipped.
+- Other agents are excluded from the queue and receive no turn this sweep.
+- Context visibility of the private message for non-recipients is already enforced separately by `isEntryVisibleToAgent` in `context-routing.ts`; `buildAgentQueue` does not change visibility logic.
+- After the exclusive sweep, normal ordering resumes on the next sweep.
 
 ### Step 2: Base Order (strategy)
 
@@ -100,32 +114,44 @@ Each strategy file exports a pure function:
 (agents: AgentConfig[], config: StrategyConfig, sweepCount: number) => AgentConfig[]
 ```
 
+The `agents` list is the result of `getActiveAgents(tab)` (filtered for enabled, non-hidden agents) before any ordering is applied.
+
 | Strategy | Logic |
 |---|---|
 | `sequential` | Chat agent order |
-| `cheap_first` | Sort ascending by model price; tie-break by chat order |
-| `expensive_first` | Sort descending by model price; tie-break by chat order |
-| `random` | Seeded shuffle; seed = `sweepCount`; reproducible per sweep |
-| `keywords` | Agents with keyword match in last message go first; tie-break by chat order; no match → fallback to chat order |
-| `manual_order` | Follow `order[]` by agent name; unlisted agents appended by chat order |
+| `cheap_first` | Sort ascending by model price; agents with missing pricing treated as price 0 (sort first); tie-break by chat order |
+| `expensive_first` | Sort descending by model price; agents with missing pricing treated as price 0 (sort last); tie-break by chat order |
+| `random` | Seeded shuffle; seed = `sweepCount`; reproducible within a session (same sweep count → same order); cross-session reproducibility is not required |
+| `keywords` | Agents with keyword match in triggering message go first; tie-break by chat order; no match or `triggeringMessage` is `null` → fallback to chat order |
+| `manual_order` | Follow `order[]` by agent name (case-insensitive); unlisted agents appended by chat order |
 | `sliding_cycle` | Rotate ring by `offset` positions; ring defined by chat agent order |
 
 **Fallback rule:** All tie-breaking and unlisted-agent ordering falls back to the agent's position in `tab.agents`.
 
 ### Step 3: Mention Boost
 
-Parse the prefix of `triggeringMessage.content` for pattern `Name:` or `Name1, Name2:` (case-insensitive). Mentioned agents move to the front in mention order; remaining agents keep their Step 2 order.
+Inspect `triggeringMessage.content`. Match the following pattern at the very start of the string (before any other content):
 
-If the prefix does not match the pattern: queue is unchanged.
+```
+/^([A-Za-z0-9_ ]+(?:,\s*[A-Za-z0-9_ ]+)*)\s*:/
+```
+
+- Match is case-insensitive against agent names.
+- Capture group is split on `,` and each token is trimmed.
+- Only agents present in the active agent list are boosted; unknown names are ignored.
+- Boosted agents move to the front of the queue in the order they appear in the match.
+- Remaining agents keep their Step 2 order.
+- If the prefix does not match the pattern: queue is unchanged.
 
 ---
 
 ## Sliding Cycle Offset Management
 
-- `offset` is stored in `TurnOrderingConfig` and persisted with the chat
-- After each sweep where strategy is `sliding_cycle`, runtime increments `offset` by 1 modulo agent count
-- When an agent is added: added to the start of the ring; offset unchanged
-- When an agent is removed: removed from the ring; offset unchanged (wraps naturally)
+- `offset` is stored in `TurnOrderingConfig` and persisted with the chat.
+- After each sweep completes normally, `MultiChatRuntime.runAgentSweep()` checks whether the current strategy is `sliding_cycle`. If so, it increments `offset` by 1 modulo the current active agent count, then persists the updated `turnOrdering` config.
+- A sweep that is stopped early (`stopRequested`) does **not** advance the offset — the sweep did not fully complete.
+- When an agent is added: added to the start of the ring; offset unchanged.
+- When an agent is removed: removed from the ring; offset unchanged (wraps naturally via modulo).
 
 ---
 
@@ -151,21 +177,22 @@ Rendered below the dropdown, conditional on selection:
 | Strategy | UI |
 |---|---|
 | `sequential`, `cheap_first`, `expensive_first`, `random`, `sliding_cycle` | No parameters shown |
-| `keywords` | Table: one row per agent, agent name + text input for comma-separated keywords |
-| `manual_order` | Drag-and-drop list of all active agents; drag to reorder |
+| `keywords` | Table: one row per active agent, agent name label + text input for comma-separated keywords |
+| `manual_order` | Drag-and-drop list of all currently active (enabled, non-hidden) agents |
 
 ### `manual_order` drag-and-drop
 
-- Shows all currently active agents as draggable items
-- User reorders by dragging
-- Saved order is written to `TurnOrderingConfig.order` as an array of agent names
-- Agents added after saving are appended to the queue by chat order (existing fallback rule)
+- Shows all currently active agents as draggable items.
+- Disabled or hidden agents are not shown in the list.
+- User reorders by dragging.
+- Saved order is written to `TurnOrderingConfig.order` as an array of agent names.
+- Agents added after saving appear at the end of the queue via the fallback rule (chat order).
 
 ---
 
 ## Open Questions
 
-- **Keywords UI:** How keyword config is surfaced for agents with many keywords is not fully specified for v1. The table approach above is the working assumption.
+- **Keywords UI:** How keyword configuration is surfaced for chats with many agents is not fully specified for v1. The per-agent table approach above is the working assumption.
 
 ---
 
@@ -175,11 +202,13 @@ Rendered below the dropdown, conditional on selection:
 2. Runtime builds the base queue using the selected strategy.
 3. Mention boost is applied on top of any strategy.
 4. Multiple mentions in prefix are ordered as written.
-5. Private message triggers exclusive sweep for the recipient only.
-6. Private message does not enter visibility or ordering of other agents.
-7. `keywords` matches only the triggering message; rule-based only, no LLM.
-8. `random` uses seeded shuffle; same sweep count → same order.
-9. `sliding_cycle` advances offset by 1 per sweep.
-10. `manual_order` drag-and-drop saves agent order by name.
+5. Private message triggers exclusive sweep for the recipient only; other agents receive no turn.
+6. Private message visibility for non-recipients is unchanged (enforced by existing `isEntryVisibleToAgent`).
+7. `keywords` matches only the triggering message; rule-based only, no LLM; falls back to chat order when `triggeringMessage` is `null`.
+8. `random` uses seeded shuffle; same `sweepCount` → same order.
+9. `sliding_cycle` advances offset by 1 per sweep; offset wraps to 0 when it reaches active agent count.
+10. `manual_order` drag-and-drop saves agent order by name; disabled/hidden agents are excluded from the UI.
 11. All tie-breaking falls back to chat agent order.
 12. The orchestrator determines turn order; agents decide whether to speak.
+13. Chats persisted before this feature load without error, defaulting to `sequential`.
+14. `cheap_first` / `expensive_first` treat agents with missing pricing as price 0.
