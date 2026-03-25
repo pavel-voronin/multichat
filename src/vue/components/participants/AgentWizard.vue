@@ -217,7 +217,7 @@ function openSettings() {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .wizard-title {
   @apply m-0 text-base font-semibold;

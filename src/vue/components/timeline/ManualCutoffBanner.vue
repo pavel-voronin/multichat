@@ -61,7 +61,7 @@ const drag = useCutoffDrag();
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .cutoff-banner {
   @apply relative isolate block min-h-6 overflow-hidden break-words bg-white text-[13px] leading-6;

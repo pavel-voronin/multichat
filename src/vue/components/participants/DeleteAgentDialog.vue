@@ -54,7 +54,7 @@ function confirm() {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .delete-agent-modal-title {
   @apply m-0 text-base font-semibold;

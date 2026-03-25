@@ -57,7 +57,7 @@ function updatePinnedState() {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .chat-column {
   @apply h-full grid min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-bl-md border border-frame-border bg-white;

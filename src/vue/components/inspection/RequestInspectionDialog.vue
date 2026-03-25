@@ -310,7 +310,7 @@ async function copyJson(value: unknown): Promise<void> {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .inspection-nav-btn {
   @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-default disabled:opacity-30;

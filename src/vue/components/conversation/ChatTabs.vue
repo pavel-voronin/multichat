@@ -320,7 +320,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .chat-tabs {
   @apply min-h-0;

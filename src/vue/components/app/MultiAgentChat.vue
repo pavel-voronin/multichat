@@ -42,7 +42,7 @@ import SettingsDialog from '../settings/SettingsDialog.vue';
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .playground-shell {
   @apply relative isolate h-full min-h-0 overflow-hidden bg-neutral-100 p-2 font-mono text-[13px] text-neutral-900;

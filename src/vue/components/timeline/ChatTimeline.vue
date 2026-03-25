@@ -41,7 +41,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .timeline-root {
   @apply whitespace-pre-wrap;

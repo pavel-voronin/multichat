@@ -226,7 +226,7 @@ function handleDragEnd(): void {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .turn-ordering-root {
   @apply grid gap-3;

@@ -72,7 +72,7 @@ function updatePinnedState() {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .logs-panel {
   @apply col-span-2 grid h-56 min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-neutral-300 bg-neutral-950 text-neutral-100;

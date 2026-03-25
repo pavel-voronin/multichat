@@ -32,7 +32,7 @@ const timeLabel = computed(() => formatMessageTime(props.entry.createdAt));
 </script>
 
 <style scoped>
-@reference "../../../../styles.css";
+@reference "@styles";
 
 .entry-article {
   @apply relative;

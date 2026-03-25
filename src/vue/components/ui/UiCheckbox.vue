@@ -28,7 +28,7 @@ function handleChange(event: Event) {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .ui-checkbox {
   @apply inline-flex w-fit items-center gap-3 align-middle;

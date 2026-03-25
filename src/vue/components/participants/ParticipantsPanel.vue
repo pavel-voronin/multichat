@@ -110,7 +110,7 @@ function openParticipantEditor(participantId: string) {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .participants-column {
   @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-br-md border-y border-r border-frame-border bg-white;

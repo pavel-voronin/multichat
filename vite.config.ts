@@ -8,6 +8,11 @@ import Icons from 'unplugin-icons/vite';
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@styles': resolve(rootDir, 'src/styles.css'),
+    },
+  },
   plugins: [tailwindcss(), vue(), Icons({ compiler: 'vue3' })],
   build: {
     lib: {

@@ -44,7 +44,7 @@ const costClass = computed(() =>
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .message-cost {
   @apply relative inline;

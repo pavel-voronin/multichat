@@ -24,7 +24,7 @@ function handleChange(event: Event) {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .ui-input {
   @apply rounded-md border border-neutral-300 bg-white px-3 py-2 text-[13px] text-neutral-900 outline-none focus:border-neutral-400;

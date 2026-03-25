@@ -34,7 +34,7 @@ const buttonClass = computed(() => [
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .ui-button {
   @apply rounded-md border transition disabled:cursor-not-allowed disabled:opacity-50;

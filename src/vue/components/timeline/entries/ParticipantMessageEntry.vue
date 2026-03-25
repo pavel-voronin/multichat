@@ -76,7 +76,7 @@ function handleMention(): void {
 </script>
 
 <style scoped>
-@reference "../../../../styles.css";
+@reference "@styles";
 
 .entry-article {
   @apply relative;

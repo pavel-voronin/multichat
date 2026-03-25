@@ -88,7 +88,7 @@ const priceLabel = computed(() => {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .model-card {
   @apply flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2;

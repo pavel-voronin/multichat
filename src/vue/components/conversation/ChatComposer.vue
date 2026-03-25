@@ -73,7 +73,7 @@ defineExpose({
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .composer-panel {
   @apply border-t border-neutral-300 bg-neutral-50 px-3 py-2;

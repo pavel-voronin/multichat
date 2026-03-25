@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .ui-modal-backdrop {
   @apply fixed inset-0 z-40 flex items-center justify-center bg-neutral-950/20 p-4 backdrop-blur-sm;

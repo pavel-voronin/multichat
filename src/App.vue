@@ -9,7 +9,7 @@ import { MultiAgentChat } from './vue';
 </script>
 
 <style scoped>
-@reference "./styles.css";
+@reference "@styles";
 
 .app-shell {
   @apply h-screen overflow-hidden bg-neutral-100 text-neutral-950;

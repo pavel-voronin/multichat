@@ -255,7 +255,7 @@ const sorted = computed(() => {
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .browser-title {
   @apply text-[13px] font-semibold text-neutral-900;

@@ -75,7 +75,7 @@ const ui = useUiStore();
 </script>
 
 <style scoped>
-@reference "../../../styles.css";
+@reference "@styles";
 
 .playground-toolbar {
   @apply flex min-h-0 w-full items-center gap-2 bg-transparent px-3 py-1.5;
