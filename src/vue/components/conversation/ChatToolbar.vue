@@ -49,13 +49,6 @@
       >
         Stop
       </UiButton>
-      <UiButton
-        class="toolbar-button"
-        size="md"
-        @click="ui.showSettings = true"
-      >
-        Settings
-      </UiButton>
     </div>
   </header>
 </template>

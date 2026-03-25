@@ -2,7 +2,11 @@
   <div class="playground-shell">
     <div class="playground-layout">
       <div class="playground-tabs-row">
-        <ChatTabs />
+        <ChatTabs>
+          <template #right-controls>
+            <SettingsButton />
+          </template>
+        </ChatTabs>
       </div>
 
       <div class="playground-toolbar-row">
@@ -38,6 +42,7 @@ import DeleteAgentDialog from '../participants/DeleteAgentDialog.vue';
 import HumanNameDialog from '../participants/HumanNameDialog.vue';
 import ParticipantsPanel from '../participants/ParticipantsPanel.vue';
 import LogsPanel from '../panels/LogsPanel.vue';
+import SettingsButton from '../settings/SettingsButton.vue';
 import SettingsDialog from '../settings/SettingsDialog.vue';
 </script>
 

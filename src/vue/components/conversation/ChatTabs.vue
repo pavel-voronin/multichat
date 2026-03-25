@@ -1,10 +1,6 @@
 <template>
   <section class="chat-tabs">
-    <div
-      class="chat-tabs-rail"
-      :class="{ 'chat-tabs-rail-with-secondary': hasRightControls }"
-      @click="handleRailClick"
-    >
+    <div class="chat-tabs-rail" @click="handleRailClick">
       <div class="chat-tabs-primary" @click="handleRailClick" @dblclick="createTab">
         <div class="chat-tabs-track">
           <div class="chat-tabs-list" :style="tabListStyle">
@@ -84,7 +80,7 @@
         />
       </div>
 
-      <div v-if="hasRightControls" class="chat-tabs-secondary">
+      <div class="chat-tabs-secondary">
         <slot name="right-controls" />
       </div>
     </div>
@@ -93,7 +89,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { RenderedTab } from '../../types';
 import { useInspectionStore } from '../../stores/inspection';
 import { useTabsStore } from '../../stores/tabs';
@@ -109,11 +105,6 @@ const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
 const draggingTabId = ref<string | null>(null);
 const editInputRefs = new Map<string, EditableInput>();
-const slots = useSlots();
-const hasRightControls = computed(() => {
-  const content = slots['right-controls']?.();
-  return Boolean(content && content.length > 0);
-});
 const tabListStyle = computed(() => ({
   width: `calc(${Math.max(renderedTabs.value.length, 1)} * var(--chat-tab-max-width))`,
 }));
@@ -273,11 +264,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-tabs-rail {
-  @apply grid min-h-0 w-full grid-cols-[minmax(0,1fr)] items-end bg-neutral-100;
-}
-
-.chat-tabs-rail-with-secondary {
-  @apply grid-cols-[minmax(0,1fr)_auto] gap-3;
+  @apply grid min-h-0 w-full grid-cols-[minmax(0,1fr)_auto] items-end bg-neutral-100;
 }
 
 .chat-tabs-primary {
@@ -418,6 +405,6 @@ onBeforeUnmount(() => {
 }
 
 .chat-tabs-secondary {
-  @apply flex min-w-0 items-end justify-end px-2;
+  @apply flex min-w-0 items-end justify-end px-2 pb-0.5;
 }
 </style>
