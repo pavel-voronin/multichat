@@ -82,8 +82,12 @@ describe('formatPricePerM', () => {
   it('formats normal price', () => {
     expect(formatPricePerM('0.000003')).toBe('$3.00');
   });
-  it('uses 4 decimal places for small prices', () => {
-    expect(formatPricePerM('0.0000001')).toBe('$0.1000');
+  it('trims insignificant trailing zeroes for fractional dollar prices', () => {
+    expect(formatPricePerM('0.00000004')).toBe('$0.04');
+    expect(formatPricePerM('0.0000001')).toBe('$0.10');
+  });
+  it('keeps significant fractional digits beyond cents', () => {
+    expect(formatPricePerM('0.000000005')).toBe('$0.005');
   });
   it('returns dash for undefined', () => {
     expect(formatPricePerM(undefined)).toBe('—');

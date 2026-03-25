@@ -47,14 +47,20 @@ export function classifyPricing(
 
 /**
  * Format a raw per-token price string to a per-million display string.
- * e.g. "0.000003" → "$3.00", "0.0000001" → "$0.1000", undefined → "—"
+ * Keep at least cents, but trim insignificant trailing zeroes beyond them.
+ * e.g. "0.000003" → "$3.00", "0.0000001" → "$0.10", "0.000000005" → "$0.005"
  */
 export function formatPricePerM(raw: string | undefined): string {
   if (!raw) return '—';
   const perM = parseFloat(raw) * 1_000_000;
   if (isNaN(perM)) return '—';
-  // Use 4 decimal places for prices below $1/M to preserve meaningful precision
-  return `$${perM.toFixed(perM < 1 ? 4 : 2)}`;
+  const fixed = perM.toFixed(6);
+  const trimmed = fixed.replace(/(\.\d*?[1-9])0+$/u, '$1').replace(/\.0+$/u, '');
+  const [whole, fraction = ''] = trimmed.split('.');
+  const normalizedFraction =
+    fraction.length >= 2 ? fraction : fraction.padEnd(2, '0');
+
+  return `$${whole}.${normalizedFraction}`;
 }
 
 /**

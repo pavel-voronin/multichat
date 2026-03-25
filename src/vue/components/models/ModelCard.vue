@@ -21,6 +21,7 @@ import { computed, watch } from 'vue';
 import type { ModelSnapshot } from '../../../core';
 import { useModelsStore } from '../../stores/models';
 import { useRuntimeStore } from '../../stores/runtime';
+import { formatPricePerM } from '../../utils/modelFormatting';
 import UiButton from '../ui/UiButton.vue';
 
 const props = defineProps<{
@@ -78,12 +79,8 @@ const priceLabel = computed(() => {
   if (isFree.value) return null;
   const pricing = liveModel.value?.pricing;
   if (!pricing?.prompt && !pricing?.completion) return null;
-  const formatPrice = (raw: string | undefined) => {
-    if (!raw) return '?';
-    const perMillion = parseFloat(raw) * 1_000_000;
-    return `$${perMillion.toFixed(perMillion < 0.01 ? 4 : 2)}`;
-  };
-  return `${formatPrice(pricing.prompt)} / ${formatPrice(pricing.completion)} per 1M`;
+
+  return `${formatPricePerM(pricing.prompt)} / ${formatPricePerM(pricing.completion)} per 1M`;
 });
 </script>
 
