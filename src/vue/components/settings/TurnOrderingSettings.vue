@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { AgentConfig, TurnOrderingConfig } from '../../../core';
+import { TURN_ORDERING_OPTIONS } from '../../turnOrderingOptions';
 import UiInput from '../ui/UiInput.vue';
 import UiSelect from '../ui/UiSelect.vue';
 
@@ -80,15 +81,7 @@ const props = defineProps<{
 
 const draggingAgentId = ref<string | null>(null);
 
-const strategyOptions = [
-  { value: 'sequential', label: 'Sequential' },
-  { value: 'random', label: 'Random' },
-  { value: 'cheap_first', label: 'Cheap first' },
-  { value: 'expensive_first', label: 'Expensive first' },
-  { value: 'keywords', label: 'Keywords' },
-  { value: 'manual_order', label: 'Manual order' },
-  { value: 'sliding_cycle', label: 'Sliding cycle' },
-] as const;
+const strategyOptions = TURN_ORDERING_OPTIONS;
 
 function currentKeywords(): Record<string, string[]> {
   return modelValue.value.strategy === 'keywords'

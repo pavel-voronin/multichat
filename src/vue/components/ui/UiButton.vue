@@ -41,11 +41,11 @@ const buttonClass = computed(() => [
 }
 
 .ui-button-sm {
-  @apply px-2 py-1 text-[11px] leading-none;
+  @apply h-6 px-2 text-[11px] leading-none;
 }
 
 .ui-button-md {
-  @apply px-3 py-2 text-[12px] leading-none;
+  @apply h-8 px-3 text-[12px] leading-none;
 }
 
 .ui-button-primary {

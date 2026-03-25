@@ -97,6 +97,20 @@ describe('MultiAgentChat layout and workflow', () => {
     wrapper.unmount();
   });
 
+  it('opens chat settings from the toolbar', async () => {
+    const runtime = createRuntime();
+    const wrapper = mountChat(runtime);
+
+    await wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text() === 'Chat settings')
+      ?.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('Chat settings');
+    wrapper.unmount();
+  });
+
   it('shows Human as the default participant name', () => {
     const runtime = createRuntime();
     const wrapper = mountChat(runtime);
@@ -120,13 +134,12 @@ describe('MultiAgentChat layout and workflow', () => {
     });
     const wrapper = mountChat(runtime);
 
-    const settingsButton = wrapper
-      .findAll('.toolbar-button')
-      .find((button) => button.text() === 'Settings');
-    expect(settingsButton).toBeDefined();
+    const settingsButton = wrapper.find('.settings-button');
+    expect(settingsButton.exists()).toBe(true);
 
-    await settingsButton?.trigger('click');
+    await settingsButton.trigger('click');
     expect(document.body.textContent).toContain('Snapshot: 1 models');
+    expect(document.body.textContent).not.toContain('Turn ordering');
 
     const invalidateButton = Array.from(
       document.body.querySelectorAll('.ui-modal-backdrop button'),
@@ -145,7 +158,7 @@ describe('MultiAgentChat layout and workflow', () => {
     wrapper.unmount();
   });
 
-  it('saves per-chat turn ordering from settings', async () => {
+  it('saves per-chat turn ordering from chat settings', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     runtime.createAgent({
       name: 'Alpha',
@@ -159,19 +172,18 @@ describe('MultiAgentChat layout and workflow', () => {
     });
     const wrapper = mountChat(runtime);
 
-    const settingsButton = wrapper
+    const chatSettingsButton = wrapper
       .findAll('.toolbar-button')
-      .find((button) => button.text() === 'Settings');
-    expect(settingsButton).toBeDefined();
-    await settingsButton?.trigger('click');
+      .find((button) => button.text() === 'Chat settings');
+    expect(chatSettingsButton).toBeDefined();
+    await chatSettingsButton?.trigger('click');
 
-    const selects = Array.from(
-      document.body.querySelectorAll('select'),
-    ) as HTMLSelectElement[];
-    const strategySelect = selects[0];
+    const strategySelect = document.body.querySelector(
+      '.ui-modal-backdrop .turn-ordering-select',
+    ) as HTMLSelectElement | null;
     expect(strategySelect).toBeDefined();
-    strategySelect.value = 'manual_order';
-    strategySelect.dispatchEvent(new Event('change'));
+    strategySelect!.value = 'manual_order';
+    strategySelect!.dispatchEvent(new Event('change'));
     await wrapper.vm.$nextTick();
 
     const items = Array.from(

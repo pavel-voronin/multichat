@@ -2,37 +2,44 @@
   <header class="playground-toolbar">
     <UiButton
       class="toolbar-button"
+      size="md"
+      @click="ui.showChatSettings = true"
+    >
+      Chat settings
+    </UiButton>
+    <UiButton
+      class="toolbar-button"
       variant="danger"
       size="md"
       @click="session.resetAgentHistoryContext()"
     >
       New topic
     </UiButton>
-    <UiButton
-      class="toolbar-button"
-      size="md"
-      @click="session.cycleCostDisplayMode"
-    >
-      {{
-        preferences.costDisplayMode === 'off'
-          ? 'Cost: off'
-          : preferences.costDisplayMode === 'request'
-            ? 'Cost: request'
-            : 'Cost: net'
-      }}
-    </UiButton>
-    <UiButton
-      class="toolbar-button"
-      size="md"
-      @click="session.toggleSilentDecisions"
-    >
-      {{
-        preferences.showSilentDecisions
-          ? 'Technical info: on'
-          : 'Technical info: off'
-      }}
-    </UiButton>
     <div class="toolbar-actions">
+      <UiButton
+        class="toolbar-button"
+        size="md"
+        @click="session.cycleCostDisplayMode"
+      >
+        {{
+          preferences.costDisplayMode === 'off'
+            ? 'Cost: off'
+            : preferences.costDisplayMode === 'request'
+              ? 'Cost: request'
+              : 'Cost: net'
+        }}
+      </UiButton>
+      <UiButton
+        class="toolbar-button"
+        size="md"
+        @click="session.toggleSilentDecisions"
+      >
+        {{
+          preferences.showSilentDecisions
+            ? 'Technical info: on'
+            : 'Technical info: off'
+        }}
+      </UiButton>
       <UiButton
         class="toolbar-button"
         size="md"
@@ -71,7 +78,7 @@ const ui = useUiStore();
 @reference "@styles";
 
 .playground-toolbar {
-  @apply flex min-h-0 w-full items-center gap-2 bg-transparent px-3 py-1.5;
+  @apply flex min-h-0 w-full flex-wrap items-center gap-2 bg-transparent px-3 py-1.5;
 }
 
 .toolbar-button {

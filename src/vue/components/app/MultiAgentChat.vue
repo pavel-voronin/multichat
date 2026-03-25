@@ -23,6 +23,7 @@
     </div>
 
     <SettingsDialog />
+    <ChatSettingsDialog />
     <HumanNameDialog />
     <AgentWizard />
     <DeleteAgentDialog />
@@ -43,6 +44,7 @@ import HumanNameDialog from '../participants/HumanNameDialog.vue';
 import ParticipantsPanel from '../participants/ParticipantsPanel.vue';
 import LogsPanel from '../panels/LogsPanel.vue';
 import SettingsButton from '../settings/SettingsButton.vue';
+import ChatSettingsDialog from '../settings/ChatSettingsDialog.vue';
 import SettingsDialog from '../settings/SettingsDialog.vue';
 </script>
 

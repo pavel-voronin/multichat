@@ -5,6 +5,7 @@ export type InspectionTab = 'participant' | 'input' | 'output' | 'used-in';
 
 export interface UiStateSnapshot {
   showSettings: boolean;
+  showChatSettings: boolean;
   showAgentWizard: boolean;
   showHumanNameModal: boolean;
   showDeleteAgentConfirm: boolean;
@@ -19,6 +20,7 @@ export interface UiStateSnapshot {
 }
 
 export interface ChatScopedUiStateSnapshot {
+  showChatSettings: boolean;
   showAgentWizard: boolean;
   showHumanNameModal: boolean;
   showDeleteAgentConfirm: boolean;
@@ -34,6 +36,7 @@ export interface ChatScopedUiStateSnapshot {
 function defaultUiState(): UiStateSnapshot {
   return {
     showSettings: false,
+    showChatSettings: false,
     showAgentWizard: false,
     showHumanNameModal: false,
     showDeleteAgentConfirm: false,
@@ -50,6 +53,7 @@ function defaultUiState(): UiStateSnapshot {
 
 export const useUiStore = defineStore('ui', () => {
   const showSettings = ref(false);
+  const showChatSettings = ref(false);
   const showAgentWizard = ref(false);
   const showHumanNameModal = ref(false);
   const showDeleteAgentConfirm = ref(false);
@@ -65,6 +69,7 @@ export const useUiStore = defineStore('ui', () => {
   function reset(): void {
     const defaults = defaultUiState();
     showSettings.value = defaults.showSettings;
+    showChatSettings.value = defaults.showChatSettings;
     showAgentWizard.value = defaults.showAgentWizard;
     showHumanNameModal.value = defaults.showHumanNameModal;
     showDeleteAgentConfirm.value = defaults.showDeleteAgentConfirm;
@@ -81,6 +86,7 @@ export const useUiStore = defineStore('ui', () => {
 
   function resetChatScopedState(): void {
     const defaults = defaultUiState();
+    showChatSettings.value = defaults.showChatSettings;
     showAgentWizard.value = defaults.showAgentWizard;
     showHumanNameModal.value = defaults.showHumanNameModal;
     showDeleteAgentConfirm.value = defaults.showDeleteAgentConfirm;
@@ -100,6 +106,7 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     showSettings,
+    showChatSettings,
     showAgentWizard,
     showHumanNameModal,
     showDeleteAgentConfirm,
