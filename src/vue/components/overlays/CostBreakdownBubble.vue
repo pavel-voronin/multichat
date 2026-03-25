@@ -58,7 +58,7 @@
 
 <script setup lang="ts">
 import { useTemplateRef, watchEffect } from 'vue';
-import type { CostDisplayMode, CostTrackedItem } from '../types';
+import type { CostDisplayMode, CostTrackedItem } from '../../types';
 
 defineProps<{
   message: (CostTrackedItem & { id: string }) | null;
@@ -96,7 +96,7 @@ watchEffect(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .message-cost-bubble {
   @apply grid min-w-56 gap-1 rounded-md border border-green-900/15 bg-white px-3 py-2 text-[11px] leading-4 text-neutral-800 shadow-lg;

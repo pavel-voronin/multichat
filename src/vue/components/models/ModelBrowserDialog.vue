@@ -120,17 +120,17 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import type { OpenRouterModel } from '../../core';
-import { useModelsStore } from '../stores/models';
+import type { OpenRouterModel } from '../../../core';
+import { useModelsStore } from '../../stores/models';
 import {
   cleanModelName,
   classifyPricing,
   formatContextLength,
   type PricingDisplay,
-} from '../utils/modelFormatting';
-import UiCheckbox from './ui/UiCheckbox.vue';
-import UiInput from './ui/UiInput.vue';
-import UiModal from './ui/UiModal.vue';
+} from '../../utils/modelFormatting';
+import UiCheckbox from '../ui/UiCheckbox.vue';
+import UiInput from '../ui/UiInput.vue';
+import UiModal from '../ui/UiModal.vue';
 
 defineEmits<{
   select: [modelId: string];
@@ -255,7 +255,7 @@ const sorted = computed(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .browser-title {
   @apply text-[13px] font-semibold text-neutral-900;

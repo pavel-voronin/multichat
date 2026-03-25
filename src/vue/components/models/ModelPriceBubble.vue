@@ -36,7 +36,7 @@
 
 <script setup lang="ts">
 import { useTemplateRef, watchEffect } from 'vue';
-import type { AgentConfig } from '../../core';
+import type { AgentConfig } from '../../../core';
 
 defineProps<{
   agent: AgentConfig | null;
@@ -62,7 +62,7 @@ watchEffect(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .message-cost-bubble {
   @apply grid min-w-56 gap-1 rounded-md border border-green-900/15 bg-white px-3 py-2 text-[11px] leading-4 text-neutral-800 shadow-lg;

@@ -23,10 +23,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAgentsStore } from '../stores/agents';
-import { useUiStore } from '../stores/ui';
-import UiButton from './ui/UiButton.vue';
-import UiModal from './ui/UiModal.vue';
+import { useAgentsStore } from '../../stores/agents';
+import { useUiStore } from '../../stores/ui';
+import UiButton from '../ui/UiButton.vue';
+import UiModal from '../ui/UiModal.vue';
 
 const agentsStore = useAgentsStore();
 const ui = useUiStore();
@@ -54,7 +54,7 @@ function confirm() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .delete-agent-modal-title {
   @apply m-0 text-base font-semibold;

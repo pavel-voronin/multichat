@@ -18,10 +18,10 @@
 
 <script setup lang="ts">
 import { computed, watch } from 'vue';
-import type { ModelSnapshot } from '../../core';
-import { useModelsStore } from '../stores/models';
-import { useRuntimeStore } from '../stores/runtime';
-import UiButton from './ui/UiButton.vue';
+import type { ModelSnapshot } from '../../../core';
+import { useModelsStore } from '../../stores/models';
+import { useRuntimeStore } from '../../stores/runtime';
+import UiButton from '../ui/UiButton.vue';
 
 const props = defineProps<{
   modelId: string;
@@ -88,7 +88,7 @@ const priceLabel = computed(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .model-card {
   @apply flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2;

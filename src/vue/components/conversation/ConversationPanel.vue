@@ -17,11 +17,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, nextTick, useTemplateRef, watch, watchEffect } from 'vue';
-import { usePinnedScroll } from '../composables/usePinnedScroll';
-import { useMessageInputStore } from '../stores/messageInput';
-import { useRuntimeStore } from '../stores/runtime';
+import { usePinnedScroll } from '../../composables/usePinnedScroll';
+import { useMessageInputStore } from '../../stores/messageInput';
+import { useRuntimeStore } from '../../stores/runtime';
 import ChatComposer from './ChatComposer.vue';
-import ChatTimeline from './ChatTimeline.vue';
+import ChatTimeline from '../timeline/ChatTimeline.vue';
 
 const messageLogRef = useTemplateRef<HTMLDivElement>('messageLog');
 const messageInputRef = useTemplateRef<{ focus: () => void }>('messageInput');
@@ -57,7 +57,7 @@ function updatePinnedState() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .chat-column {
   @apply h-full grid min-h-0 grid-rows-[minmax(0,1fr)_auto] rounded-bl-md border border-frame-border bg-white;

@@ -56,13 +56,13 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useAgentsStore } from '../stores/agents';
-import { useMessageInputStore } from '../stores/messageInput';
-import { useParticipantsStore } from '../stores/participants';
-import { useUiStore } from '../stores/ui';
-import { useOverlayControls } from '../useOverlayControls';
-import ModelBrowserDialog from './ModelBrowserDialog.vue';
-import UiButton from './ui/UiButton.vue';
+import ModelBrowserDialog from '../models/ModelBrowserDialog.vue';
+import { useAgentsStore } from '../../stores/agents';
+import { useMessageInputStore } from '../../stores/messageInput';
+import { useParticipantsStore } from '../../stores/participants';
+import { useUiStore } from '../../stores/ui';
+import { useOverlayControls } from '../../useOverlayControls';
+import UiButton from '../ui/UiButton.vue';
 
 const { participantRows } = storeToRefs(useParticipantsStore());
 const ui = useUiStore();
@@ -110,7 +110,7 @@ function openParticipantEditor(participantId: string) {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .participants-column {
   @apply grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-br-md border-y border-r border-frame-border bg-white;

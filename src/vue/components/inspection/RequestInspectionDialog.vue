@@ -221,12 +221,12 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useInspectionStore } from '../stores/inspection';
-import { useUiStore } from '../stores/ui';
-import { formatMessageTime } from '../utils/chatFormatting';
-import { formatMessageCost } from '../utils/costing';
-import ModelCard from './ModelCard.vue';
-import UiModal from './ui/UiModal.vue';
+import ModelCard from '../models/ModelCard.vue';
+import { useInspectionStore } from '../../stores/inspection';
+import { useUiStore } from '../../stores/ui';
+import { formatMessageTime } from '../../utils/chatFormatting';
+import { formatMessageCost } from '../../utils/costing';
+import UiModal from '../ui/UiModal.vue';
 
 const tabs = [
   { id: 'participant' as const, label: 'Participant' },
@@ -310,7 +310,7 @@ async function copyJson(value: unknown): Promise<void> {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .inspection-nav-btn {
   @apply flex h-6 w-6 items-center justify-center rounded text-[13px] text-neutral-500 transition hover:bg-neutral-100 disabled:cursor-default disabled:opacity-30;

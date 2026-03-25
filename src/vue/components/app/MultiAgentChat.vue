@@ -18,31 +18,31 @@
       <LogsPanel class="layout-logs-panel" />
     </div>
 
-    <SettingsModal />
-    <HumanNameModal />
+    <SettingsDialog />
+    <HumanNameDialog />
     <AgentWizard />
-    <DeleteAgentModal />
-    <RequestInspectionModal />
+    <DeleteAgentDialog />
+    <RequestInspectionDialog />
     <ChatOverlays />
   </div>
 </template>
 
 <script setup lang="ts">
-import AgentWizard from './AgentWizard.vue';
+import ChatTabs from '../conversation/ChatTabs.vue';
+import ChatToolbar from '../conversation/ChatToolbar.vue';
+import ConversationPanel from '../conversation/ConversationPanel.vue';
 import ChatOverlays from './ChatOverlays.vue';
-import ChatTabs from './ChatTabs.vue';
-import ChatToolbar from './ChatToolbar.vue';
-import ConversationPanel from './ConversationPanel.vue';
-import DeleteAgentModal from './DeleteAgentModal.vue';
-import HumanNameModal from './HumanNameModal.vue';
-import LogsPanel from './LogsPanel.vue';
-import ParticipantsPanel from './ParticipantsPanel.vue';
-import RequestInspectionModal from './RequestInspectionModal.vue';
-import SettingsModal from './SettingsModal.vue';
+import RequestInspectionDialog from '../inspection/RequestInspectionDialog.vue';
+import AgentWizard from '../participants/AgentWizard.vue';
+import DeleteAgentDialog from '../participants/DeleteAgentDialog.vue';
+import HumanNameDialog from '../participants/HumanNameDialog.vue';
+import ParticipantsPanel from '../participants/ParticipantsPanel.vue';
+import LogsPanel from '../panels/LogsPanel.vue';
+import SettingsDialog from '../settings/SettingsDialog.vue';
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .playground-shell {
   @apply relative isolate h-full min-h-0 overflow-hidden bg-neutral-100 p-2 font-mono text-[13px] text-neutral-900;

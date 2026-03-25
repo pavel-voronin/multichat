@@ -102,10 +102,10 @@ import {
   useTemplateRef,
   watch,
 } from 'vue';
-import type { RenderedTab } from '../types';
-import { useTabsStore } from '../stores/tabs';
-import { useUiStore } from '../stores/ui';
-import { useInspectionStore } from '../stores/inspection';
+import type { RenderedTab } from '../../types';
+import { useInspectionStore } from '../../stores/inspection';
+import { useTabsStore } from '../../stores/tabs';
+import { useUiStore } from '../../stores/ui';
 
 type EditableInput = HTMLInputElement | null;
 type TabElement = HTMLDivElement | null;
@@ -320,7 +320,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .chat-tabs {
   @apply min-h-0;

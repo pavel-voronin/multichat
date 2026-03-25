@@ -18,10 +18,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useCutoffDrag } from '../composables/useCutoffDrag';
-import { useTimelineStore } from '../stores/timeline';
-import ManualCutoffBanner from './timeline/ManualCutoffBanner.vue';
-import { entryRegistry } from './timeline/entryRegistry';
+import { useCutoffDrag } from '../../composables/useCutoffDrag';
+import { useTimelineStore } from '../../stores/timeline';
+import ManualCutoffBanner from './ManualCutoffBanner.vue';
+import { entryRegistry } from './entryRegistry';
 
 const timelineStore = useTimelineStore();
 const { visibleTimelineEntries } = storeToRefs(timelineStore);
@@ -41,7 +41,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .timeline-root {
   @apply whitespace-pre-wrap;

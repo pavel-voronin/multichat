@@ -1,4 +1,4 @@
-export { default as MultiAgentChat } from './components/MultiAgentChat.vue';
+export { default as MultiAgentChat } from './components/app/MultiAgentChat.vue';
 export {
   createDefaultRuntime,
   disposeChatApp,

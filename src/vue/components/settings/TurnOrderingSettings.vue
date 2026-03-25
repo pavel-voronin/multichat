@@ -66,9 +66,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { AgentConfig, TurnOrderingConfig } from '../../core';
-import UiInput from './ui/UiInput.vue';
-import UiSelect from './ui/UiSelect.vue';
+import type { AgentConfig, TurnOrderingConfig } from '../../../core';
+import UiInput from '../ui/UiInput.vue';
+import UiSelect from '../ui/UiSelect.vue';
 
 const modelValue = defineModel<TurnOrderingConfig>({
   required: true,
@@ -226,7 +226,7 @@ function handleDragEnd(): void {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .turn-ordering-root {
   @apply grid gap-3;

@@ -62,11 +62,11 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { usePreferencesStore } from '../stores/preferences';
-import { useRuntimeStore } from '../stores/runtime';
-import { useSessionStore } from '../stores/session';
-import { useUiStore } from '../stores/ui';
-import UiButton from './ui/UiButton.vue';
+import { usePreferencesStore } from '../../stores/preferences';
+import { useRuntimeStore } from '../../stores/runtime';
+import { useSessionStore } from '../../stores/session';
+import { useUiStore } from '../../stores/ui';
+import UiButton from '../ui/UiButton.vue';
 
 const session = useSessionStore();
 const preferences = usePreferencesStore();
@@ -75,7 +75,7 @@ const ui = useUiStore();
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .playground-toolbar {
   @apply flex min-h-0 w-full items-center gap-2 bg-transparent px-3 py-1.5;

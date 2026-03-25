@@ -92,17 +92,17 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { ref, watch } from 'vue';
-import { defaultPromptPreset, promptPresets } from '../promptPresets';
-import { useAgentsStore } from '../stores/agents';
-import { useModelsStore } from '../stores/models';
-import { useUiStore } from '../stores/ui';
-import ModelBrowserDialog from './ModelBrowserDialog.vue';
-import ModelCard from './ModelCard.vue';
-import UiButton from './ui/UiButton.vue';
-import UiInput from './ui/UiInput.vue';
-import UiModal from './ui/UiModal.vue';
-import UiSelect from './ui/UiSelect.vue';
-import UiTextarea from './ui/UiTextarea.vue';
+import ModelBrowserDialog from '../models/ModelBrowserDialog.vue';
+import ModelCard from '../models/ModelCard.vue';
+import { defaultPromptPreset, promptPresets } from '../../promptPresets';
+import { useAgentsStore } from '../../stores/agents';
+import { useModelsStore } from '../../stores/models';
+import { useUiStore } from '../../stores/ui';
+import UiButton from '../ui/UiButton.vue';
+import UiInput from '../ui/UiInput.vue';
+import UiModal from '../ui/UiModal.vue';
+import UiSelect from '../ui/UiSelect.vue';
+import UiTextarea from '../ui/UiTextarea.vue';
 
 const agentsStore = useAgentsStore();
 const { selectedAgent: agent, isApiKeyPresent } = storeToRefs(agentsStore);
@@ -217,7 +217,7 @@ function openSettings() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .wizard-title {
   @apply m-0 text-base font-semibold;

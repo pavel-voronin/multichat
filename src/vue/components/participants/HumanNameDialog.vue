@@ -34,12 +34,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import { useRuntimeStore } from '../stores/runtime';
-import { useSessionStore } from '../stores/session';
-import { useUiStore } from '../stores/ui';
-import UiButton from './ui/UiButton.vue';
-import UiInput from './ui/UiInput.vue';
-import UiModal from './ui/UiModal.vue';
+import { useRuntimeStore } from '../../stores/runtime';
+import { useSessionStore } from '../../stores/session';
+import { useUiStore } from '../../stores/ui';
+import UiButton from '../ui/UiButton.vue';
+import UiInput from '../ui/UiInput.vue';
+import UiModal from '../ui/UiModal.vue';
 
 const session = useSessionStore();
 const { state } = storeToRefs(useRuntimeStore());
@@ -76,7 +76,7 @@ function save() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .human-modal-title {
   @apply m-0 text-base font-semibold;

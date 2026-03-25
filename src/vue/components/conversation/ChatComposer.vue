@@ -40,8 +40,8 @@
 
 <script setup lang="ts">
 import { computed, useTemplateRef } from 'vue';
-import UiButton from './ui/UiButton.vue';
-import UiTextarea from './ui/UiTextarea.vue';
+import UiButton from '../ui/UiButton.vue';
+import UiTextarea from '../ui/UiTextarea.vue';
 
 const props = defineProps<{
   modelValue: string;
@@ -73,7 +73,7 @@ defineExpose({
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .composer-panel {
   @apply border-t border-neutral-300 bg-neutral-50 px-3 py-2;

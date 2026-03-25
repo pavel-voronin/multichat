@@ -51,15 +51,15 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, ref, watch } from 'vue';
-import type { AgentConfig } from '../../core';
-import { useRuntimeStore } from '../stores/runtime';
-import { useSessionStore } from '../stores/session';
-import { useUiStore } from '../stores/ui';
-import { useModelsStore } from '../stores/models';
+import type { AgentConfig } from '../../../core';
+import { useModelsStore } from '../../stores/models';
+import { useRuntimeStore } from '../../stores/runtime';
+import { useSessionStore } from '../../stores/session';
+import { useUiStore } from '../../stores/ui';
 import TurnOrderingSettings from './TurnOrderingSettings.vue';
-import UiButton from './ui/UiButton.vue';
-import UiInput from './ui/UiInput.vue';
-import UiModal from './ui/UiModal.vue';
+import UiButton from '../ui/UiButton.vue';
+import UiInput from '../ui/UiInput.vue';
+import UiModal from '../ui/UiModal.vue';
 
 const session = useSessionStore();
 const runtimeStore = useRuntimeStore();
@@ -119,7 +119,7 @@ function reset() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .modal-title {
   @apply m-0 text-base font-semibold;

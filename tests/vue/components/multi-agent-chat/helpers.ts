@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { createPinia, type Pinia } from 'pinia';
 import { afterEach, vi } from 'vitest';
-import MultiAgentChat from '../../../../src/vue/components/MultiAgentChat.vue';
+import MultiAgentChat from '../../../../src/vue/components/app/MultiAgentChat.vue';
 import { MultiChatRuntime } from '../../../../src/core/runtime';
 import {
   disposeChatApp,

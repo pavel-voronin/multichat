@@ -32,12 +32,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, nextTick, useTemplateRef, watch } from 'vue';
-import { usePinnedScroll } from '../composables/usePinnedScroll';
-import { useDiagnosticsStore } from '../stores/diagnostics';
-import { useSessionStore } from '../stores/session';
-import { useUiStore } from '../stores/ui';
-import { formatDebugLogLine } from '../utils/chatFormatting';
-import UiButton from './ui/UiButton.vue';
+import { usePinnedScroll } from '../../composables/usePinnedScroll';
+import { useDiagnosticsStore } from '../../stores/diagnostics';
+import { useSessionStore } from '../../stores/session';
+import { useUiStore } from '../../stores/ui';
+import { formatDebugLogLine } from '../../utils/chatFormatting';
+import UiButton from '../ui/UiButton.vue';
 
 const logsPanelRef = useTemplateRef<HTMLDivElement>('logsPanel');
 const logsScroll = usePinnedScroll(logsPanelRef);
@@ -72,7 +72,7 @@ function updatePinnedState() {
 </script>
 
 <style scoped>
-@reference "../../styles.css";
+@reference "../../../styles.css";
 
 .logs-panel {
   @apply col-span-2 grid h-56 min-h-0 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-neutral-300 bg-neutral-950 text-neutral-100;

@@ -36,12 +36,13 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { SilentDecisionEntry, RuntimeErrorEntry } from '../../core';
-import { useRuntimeStore } from '../stores/runtime';
-import { useTimelineStore } from '../stores/timeline';
-import type { VisibleChatEntry, VisibleTimelineEntry } from '../types';
-import { setOverlayControls } from '../useOverlayControls';
-import { formatParticipantName } from '../utils/chatFormatting';
+import type { SilentDecisionEntry, RuntimeErrorEntry } from '../../../core';
+import { useFloatingHoverBubble } from '../../composables/useFloatingHoverBubble';
+import { useRuntimeStore } from '../../stores/runtime';
+import { useTimelineStore } from '../../stores/timeline';
+import type { VisibleChatEntry, VisibleTimelineEntry } from '../../types';
+import { setOverlayControls } from '../../useOverlayControls';
+import { formatParticipantName } from '../../utils/chatFormatting';
 import {
   aggregateAgentSpendFromTraces,
   displayedMessageCost,
@@ -51,10 +52,9 @@ import {
   messageCostSummaryClass,
   ownPromptMessageCost,
   requestMessageCost,
-} from '../utils/costing';
-import { useFloatingHoverBubble } from '../composables/useFloatingHoverBubble';
-import CostBreakdownBubble from './CostBreakdownBubble.vue';
-import ModelPriceBubble from './ModelPriceBubble.vue';
+} from '../../utils/costing';
+import ModelPriceBubble from '../models/ModelPriceBubble.vue';
+import CostBreakdownBubble from '../overlays/CostBreakdownBubble.vue';
 
 const costBubbleElementRef = ref<HTMLDivElement | null>(null);
 const modelPriceBubbleElementRef = ref<HTMLDivElement | null>(null);
