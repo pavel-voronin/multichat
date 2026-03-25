@@ -1,91 +1,91 @@
 <template>
   <section class="chat-tabs">
-    <div class="chat-tabs-rail" @click="handleRailClick">
-      <div
-        ref="scrollElement"
-        class="chat-tabs-scroll"
-        @click="handleRailClick"
-        @dblclick="createTab"
-      >
-        <div class="chat-tabs-list">
-          <div
-            v-for="tab in renderedTabs"
-            :key="tab.id"
-            :ref="(element) => setTabElementRef(tab.id, element)"
-            class="chat-tab"
-            :class="{
-              'chat-tab-active': tab.isActive,
-              'chat-tab-dragging': draggingTabId === tab.id,
-            }"
-            draggable="true"
-            @click="activateTab(tab.id)"
-            @dblclick.stop
-            @dragstart="handleDragStart(tab.id, $event)"
-            @dragover.prevent="handleDragOver(tab.id)"
-            @drop.prevent="handleDrop(tab.id, $event)"
-            @dragend="handleDragEnd"
-          >
-            <template v-if="editingTabId === tab.id">
-              <div class="chat-tab-edit" @click.stop>
-                <input
-                  :ref="(element) => setEditInputRef(tab.id, element)"
-                  v-model="editingTitle"
-                  class="chat-tab-input"
-                  type="text"
-                  spellcheck="false"
-                  @keydown.enter.prevent="commitRename(tab)"
-                  @keydown.esc.prevent="cancelRename"
-                />
-                <button
-                  type="button"
-                  class="chat-tab-save"
-                  @click="commitRename(tab)"
-                >
-                  Save
-                </button>
-              </div>
-            </template>
-
-            <template v-else>
-              <button type="button" class="chat-tab-main">
-                <span
-                  class="chat-tab-title"
-                  @dblclick.stop="startRename(tab)"
-                  >{{ tab.header.title }}</span
-                >
-                <span v-if="tab.header.badge !== null" class="chat-tab-badge">{{
-                  tab.header.badge
-                }}</span>
-              </button>
-              <div class="chat-tab-actions" @click.stop>
-                <button
-                  type="button"
-                  class="chat-tab-close"
-                  aria-label="Close tab"
-                  @click="closeTab(tab.id)"
-                >
-                  &times;
-                </button>
-              </div>
-            </template>
-          </div>
-          <div class="chat-tabs-endcap" aria-hidden="false">
-            <button
-              type="button"
-              class="chat-tabs-add"
-              aria-label="Add tab"
-              @dblclick.stop
-              @click.stop="createTab"
-            >
-              <span class="chat-tabs-add-label">+</span>
-            </button>
+    <div
+      class="chat-tabs-rail"
+      :class="{ 'chat-tabs-rail-with-secondary': hasRightControls }"
+      @click="handleRailClick"
+    >
+      <div class="chat-tabs-primary" @click="handleRailClick" @dblclick="createTab">
+        <div class="chat-tabs-track">
+          <div class="chat-tabs-list" :style="tabListStyle">
             <div
-              class="chat-tabs-empty-zone"
-              @click.stop="handleRailClick"
-              @dblclick.stop="createTab"
-            />
+              v-for="tab in renderedTabs"
+              :key="tab.id"
+              class="chat-tab"
+              :class="{
+                'chat-tab-active': tab.isActive,
+                'chat-tab-dragging': draggingTabId === tab.id,
+              }"
+              draggable="true"
+              @click="activateTab(tab.id)"
+              @dblclick.stop
+              @dragstart="handleDragStart(tab.id, $event)"
+              @dragover.prevent="handleDragOver(tab.id)"
+              @drop.prevent="handleDrop(tab.id, $event)"
+              @dragend="handleDragEnd"
+            >
+              <template v-if="editingTabId === tab.id">
+                <div class="chat-tab-edit" @click.stop>
+                  <input
+                    :ref="(element) => setEditInputRef(tab.id, element)"
+                    v-model="editingTitle"
+                    class="chat-tab-input"
+                    type="text"
+                    spellcheck="false"
+                    @keydown.enter.prevent="commitRename(tab)"
+                    @keydown.esc.prevent="cancelRename"
+                  />
+                  <button
+                    type="button"
+                    class="chat-tab-save"
+                    @click="commitRename(tab)"
+                  >
+                    Save
+                  </button>
+                </div>
+              </template>
+
+              <template v-else>
+                <button type="button" class="chat-tab-main">
+                  <span class="chat-tab-title" @dblclick.stop="startRename(tab)">{{
+                    tab.header.title
+                  }}</span>
+                  <span v-if="tab.header.badge !== null" class="chat-tab-badge">{{
+                    tab.header.badge
+                  }}</span>
+                </button>
+                <div class="chat-tab-actions" @click.stop>
+                  <button
+                    type="button"
+                    class="chat-tab-close"
+                    aria-label="Close tab"
+                    @click="closeTab(tab.id)"
+                  >
+                    &times;
+                  </button>
+                </div>
+              </template>
+            </div>
           </div>
+          <button
+            type="button"
+            class="chat-tabs-add"
+            aria-label="Add tab"
+            @dblclick.stop
+            @click.stop="createTab"
+          >
+            <span class="chat-tabs-add-label">+</span>
+          </button>
         </div>
+        <div
+          class="chat-tabs-empty-zone"
+          @click.stop="handleRailClick"
+          @dblclick.stop="createTab"
+        />
+      </div>
+
+      <div v-if="hasRightControls" class="chat-tabs-secondary">
+        <slot name="right-controls" />
       </div>
     </div>
   </section>
@@ -93,22 +93,13 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  useTemplateRef,
-  watch,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots } from 'vue';
 import type { RenderedTab } from '../../types';
 import { useInspectionStore } from '../../stores/inspection';
 import { useTabsStore } from '../../stores/tabs';
 import { useUiStore } from '../../stores/ui';
 
 type EditableInput = HTMLInputElement | null;
-type TabElement = HTMLDivElement | null;
 
 const tabsStore = useTabsStore();
 const { workspace, renderedTabs } = storeToRefs(tabsStore);
@@ -118,8 +109,14 @@ const editingTabId = ref<string | null>(null);
 const editingTitle = ref('');
 const draggingTabId = ref<string | null>(null);
 const editInputRefs = new Map<string, EditableInput>();
-const tabElementRefs = new Map<string, TabElement>();
-const scrollElementRef = useTemplateRef<HTMLDivElement>('scrollElement');
+const slots = useSlots();
+const hasRightControls = computed(() => {
+  const content = slots['right-controls']?.();
+  return Boolean(content && content.length > 0);
+});
+const tabListStyle = computed(() => ({
+  width: `calc(${Math.max(renderedTabs.value.length, 1)} * var(--chat-tab-max-width))`,
+}));
 
 function createTab() {
   cancelRename();
@@ -127,7 +124,6 @@ function createTab() {
   ui.resetChatScopedState();
   inspection.reset();
   void nextTick(() => {
-    scrollTabIntoView(tab.id);
     const createdTab = renderedTabs.value.find((item) => item.id === tab.id);
     if (createdTab) {
       startRename(createdTab);
@@ -144,16 +140,12 @@ function activateTab(tabId: string) {
   tabsStore.activateTab(tabId);
   ui.resetChatScopedState();
   inspection.reset();
-  void nextTick(() => {
-    scrollTabIntoView(tabId);
-  });
 }
 
 function startRename(tab: RenderedTab) {
   editingTabId.value = tab.id;
   editingTitle.value = tab.title;
   void nextTick(() => {
-    scrollTabIntoView(tab.id);
     editInputRefs.get(tab.id)?.focus();
     editInputRefs.get(tab.id)?.select();
   });
@@ -259,57 +251,6 @@ function setEditInputRef(tabId: string, element: unknown) {
   );
 }
 
-function setTabElementRef(tabId: string, element: unknown) {
-  tabElementRefs.set(tabId, element instanceof HTMLDivElement ? element : null);
-}
-
-function scrollTabIntoView(tabId: string) {
-  const element = tabElementRefs.get(tabId);
-  const container = scrollElementRef.value;
-  if (!element || !container) {
-    return;
-  }
-
-  const visibilityMargin = 8;
-  const tabLeft = element.offsetLeft;
-  const tabRight = tabLeft + element.offsetWidth;
-  const viewLeft = container.scrollLeft;
-  const viewRight = viewLeft + container.clientWidth;
-  const scrollContainer = (left: number, behavior: ScrollBehavior) => {
-    if (typeof container.scrollTo === 'function') {
-      container.scrollTo({ left, behavior });
-      return;
-    }
-
-    container.scrollLeft = left;
-  };
-
-  if (tabLeft < viewLeft + visibilityMargin) {
-    scrollContainer(Math.max(0, tabLeft - visibilityMargin), 'smooth');
-    return;
-  }
-
-  if (tabRight > viewRight - visibilityMargin) {
-    scrollContainer(
-      Math.max(0, tabRight - container.clientWidth + visibilityMargin),
-      'smooth',
-    );
-  }
-}
-
-watch(
-  () =>
-    workspace.value
-      ? `${workspace.value.activeTabId}::${workspace.value.tabs.map((tab) => tab.id).join('|')}`
-      : null,
-  async () => {
-    if (!workspace.value) return;
-    await nextTick();
-    scrollTabIntoView(workspace.value.activeTabId);
-  },
-  { immediate: true },
-);
-
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown, true);
 });
@@ -324,37 +265,74 @@ onBeforeUnmount(() => {
 
 .chat-tabs {
   @apply min-h-0;
+  --chat-tab-max-width: 13rem;
+  --chat-tab-min-width: 4.5rem;
+  --chat-tab-hover-surface: #e5e5e5;
+  --chat-tab-active-surface: var(--color-toolbar-surface);
+  --chat-tab-divider: var(--color-frame-border);
 }
 
 .chat-tabs-rail {
-  @apply flex min-h-0 items-stretch bg-neutral-100;
+  @apply grid min-h-0 w-full grid-cols-[minmax(0,1fr)] items-end bg-neutral-100;
 }
 
-.chat-tabs-scroll {
-  @apply min-w-0 flex-1 overflow-x-auto overflow-y-hidden;
-  overscroll-behavior-x: none;
-  overscroll-behavior-y: none;
-  scrollbar-width: none;
+.chat-tabs-rail-with-secondary {
+  @apply grid-cols-[minmax(0,1fr)_auto] gap-3;
 }
 
-.chat-tabs-scroll::-webkit-scrollbar {
-  display: none;
+.chat-tabs-primary {
+  @apply grid min-w-0 grid-cols-[minmax(0,max-content)_1fr] items-end gap-1.5 pl-2 pr-0;
+}
+
+.chat-tabs-track {
+  @apply flex min-w-0 items-end gap-1;
 }
 
 .chat-tabs-list {
-  @apply flex items-end pt-1;
-  min-width: 100%;
-  width: max-content;
+  @apply flex min-w-0 max-w-full flex-1 items-end;
 }
 
 .chat-tab {
-  @apply relative -mr-px flex h-8 w-48 shrink-0 items-center border border-frame-border bg-neutral-200 text-[12px] text-neutral-700 transition;
-  border-top-left-radius: 0.625rem;
-  border-top-right-radius: 0.625rem;
+  @apply relative flex h-8 min-w-0 items-center text-[12px] text-neutral-800;
+  flex: 1 1 var(--chat-tab-max-width);
+  max-width: var(--chat-tab-max-width);
+  min-width: var(--chat-tab-min-width);
 }
 
 .chat-tab-active {
-  @apply z-10 border-b-transparent bg-toolbar-surface text-neutral-950;
+  @apply z-10 text-neutral-950;
+}
+
+.chat-tab::before {
+  @apply absolute left-0 top-1/2 h-5 w-px -translate-y-1/2;
+  content: '';
+  background: var(--chat-tab-divider);
+}
+
+.chat-tab::after {
+  @apply absolute right-0 top-1/2 h-5 w-px -translate-y-1/2;
+  content: '';
+  background: var(--chat-tab-divider);
+  opacity: 0;
+}
+
+.chat-tab-active::before,
+.chat-tab:hover::before,
+.chat-tab:hover + .chat-tab::before,
+.chat-tab-active + .chat-tab::before {
+  opacity: 0;
+}
+
+.chat-tab:first-child:not(.chat-tab-active):not(:hover)::before {
+  opacity: 1;
+}
+
+.chat-tab:last-child:not(.chat-tab-active)::after {
+  opacity: 1;
+}
+
+.chat-tab:last-child:hover::after {
+  opacity: 0;
 }
 
 .chat-tab-dragging {
@@ -362,11 +340,34 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-main {
-  @apply flex min-w-0 flex-1 items-center gap-2 self-stretch pl-3 pr-1 text-left;
+  @apply relative z-10 flex h-8 min-w-0 flex-1 items-center gap-2 self-end rounded-[0.625rem] border border-transparent bg-transparent pl-4 pr-8 text-left;
+}
+
+.chat-tab-main::after {
+  @apply absolute inset-x-1 inset-y-0.5 rounded-[0.625rem] bg-transparent;
+  content: '';
+  z-index: -1;
+}
+
+.chat-tab:not(.chat-tab-active) .chat-tab-main:hover::after {
+  @apply bg-[var(--chat-tab-hover-surface)];
+}
+
+.chat-tab-active .chat-tab-main {
+  @apply h-8 items-center rounded-t-[0.625rem] rounded-b-none border-frame-border border-b-transparent bg-[var(--chat-tab-active-surface)];
+  margin-bottom: -1px;
+}
+
+.chat-tab-active .chat-tab-main::after {
+  content: none;
 }
 
 .chat-tab-title {
   @apply block min-w-0 flex-1 truncate;
+}
+
+.chat-tab-active .chat-tab-title {
+  transform: translateY(-1px);
 }
 
 .chat-tab-badge {
@@ -374,48 +375,49 @@ onBeforeUnmount(() => {
 }
 
 .chat-tab-actions {
-  @apply flex shrink-0 items-center justify-end self-stretch pr-2;
+  @apply absolute right-2 top-1/2 z-10 flex -translate-y-1/2 items-center justify-end;
 }
 
 .chat-tab-close {
-  @apply relative z-10 h-full px-1 text-base leading-none text-neutral-900 opacity-55 transition hover:opacity-100;
+  @apply relative inline-flex h-5 w-5 items-center justify-center rounded-full text-[18px] leading-none text-neutral-700 opacity-80 hover:bg-black/8 hover:text-neutral-950 hover:opacity-100;
 }
 
 .chat-tab-edit {
-  @apply flex h-full w-full items-center gap-2 pl-3 pr-2;
+  @apply relative z-10 flex h-8 w-full items-center gap-2 self-end rounded-t-[0.625rem] rounded-b-none border border-frame-border border-b-transparent bg-[var(--chat-tab-active-surface)] pl-4 pr-2;
+  margin-bottom: -1px;
 }
 
 .chat-tab-input {
   @apply min-w-0 flex-1 bg-transparent text-[12px] font-semibold outline-hidden;
+  transform: translateY(-1px);
 }
 
 .chat-tab-save {
   @apply inline-flex h-5 shrink-0 items-center self-center rounded-md border border-neutral-300 bg-white px-1.5 py-0 text-[9px] font-semibold uppercase tracking-[0.04em] leading-none text-neutral-900 transition hover:bg-neutral-50;
 }
 
-.chat-tabs-endcap {
-  @apply sticky right-0 z-20 ml-px flex h-8 min-w-7 flex-1 items-stretch bg-neutral-100 pl-1;
-}
-
-.chat-tabs-endcap::after {
-  content: '';
-  position: absolute;
-  left: 1px;
-  right: 0.375rem;
-  bottom: 0;
-  border-bottom: 1px solid var(--color-frame-border);
-  pointer-events: none;
-}
-
 .chat-tabs-add {
-  @apply relative flex h-full w-7 shrink-0 items-center self-stretch bg-neutral-100 pl-2 text-left text-neutral-700;
+  @apply relative flex h-8 w-8 shrink-0 items-center justify-center self-end bg-transparent text-neutral-700 hover:text-neutral-950;
+}
+
+.chat-tabs-add::before {
+  @apply absolute inset-[2px] rounded-[0.625rem] bg-transparent;
+  content: '';
+}
+
+.chat-tabs-add:hover::before {
+  @apply bg-[var(--chat-tab-hover-surface)];
 }
 
 .chat-tabs-add-label {
-  @apply block text-[20px] font-normal leading-none;
+  @apply relative z-10 block text-[24px] font-normal leading-none;
 }
 
 .chat-tabs-empty-zone {
-  @apply min-w-0 flex-1 self-stretch bg-neutral-100;
+  @apply min-w-0 self-stretch;
+}
+
+.chat-tabs-secondary {
+  @apply flex min-w-0 items-end justify-end px-2;
 }
 </style>

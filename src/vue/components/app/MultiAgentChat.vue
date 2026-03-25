@@ -45,7 +45,7 @@ import SettingsDialog from '../settings/SettingsDialog.vue';
 @reference "@styles";
 
 .playground-shell {
-  @apply relative isolate h-full min-h-0 overflow-hidden bg-neutral-100 p-2 font-mono text-[13px] text-neutral-900;
+  @apply relative isolate h-full min-h-0 overflow-hidden bg-neutral-100 px-2 pb-2 pt-1 font-mono text-[13px] text-neutral-900;
 }
 
 .playground-layout {
@@ -58,7 +58,7 @@ import SettingsDialog from '../settings/SettingsDialog.vue';
 }
 
 .playground-toolbar-row {
-  @apply col-span-2 w-full overflow-hidden rounded-tr-md border-x border-b border-frame-border bg-toolbar-surface;
+  @apply col-span-2 w-full overflow-hidden rounded-t-[0.625rem] border border-frame-border bg-toolbar-surface;
 }
 
 .sidebar-column {
