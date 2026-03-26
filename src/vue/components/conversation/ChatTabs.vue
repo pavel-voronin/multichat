@@ -1,7 +1,11 @@
 <template>
   <section class="chat-tabs">
     <div class="chat-tabs-rail" @click="handleRailClick">
-      <div class="chat-tabs-primary" @click="handleRailClick" @dblclick="createTab">
+      <div
+        class="chat-tabs-primary"
+        @click="handleRailClick"
+        @dblclick="createTab"
+      >
         <div class="chat-tabs-track">
           <div class="chat-tabs-list" :style="tabListStyle">
             <div
@@ -43,12 +47,16 @@
 
               <template v-else>
                 <button type="button" class="chat-tab-main">
-                  <span class="chat-tab-title" @dblclick.stop="startRename(tab)">{{
-                    tab.header.title
-                  }}</span>
-                  <span v-if="tab.header.badge !== null" class="chat-tab-badge">{{
-                    tab.header.badge
-                  }}</span>
+                  <span
+                    class="chat-tab-title"
+                    @dblclick.stop="startRename(tab)"
+                    >{{ tab.header.title }}</span
+                  >
+                  <span
+                    v-if="tab.header.badge !== null"
+                    class="chat-tab-badge"
+                    >{{ tab.header.badge }}</span
+                  >
                 </button>
                 <div class="chat-tab-actions" @click.stop>
                   <button

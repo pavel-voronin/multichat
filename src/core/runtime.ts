@@ -349,10 +349,7 @@ export class MultiChatRuntime {
     this.persistAndNotify();
   }
 
-  updateMaxAutoRounds(
-    value: number,
-    tabId = this.workspace.activeTabId,
-  ): void {
+  updateMaxAutoRounds(value: number, tabId = this.workspace.activeTabId): void {
     const tab = this.requireTab(tabId);
     tab.maxAutoRounds = Math.max(1, Math.floor(value));
     pushDebugLog({

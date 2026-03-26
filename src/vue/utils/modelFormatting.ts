@@ -55,7 +55,9 @@ export function formatPricePerM(raw: string | undefined): string {
   const perM = parseFloat(raw) * 1_000_000;
   if (isNaN(perM)) return '—';
   const fixed = perM.toFixed(6);
-  const trimmed = fixed.replace(/(\.\d*?[1-9])0+$/u, '$1').replace(/\.0+$/u, '');
+  const trimmed = fixed
+    .replace(/(\.\d*?[1-9])0+$/u, '$1')
+    .replace(/\.0+$/u, '');
   const [whole, fraction = ''] = trimmed.split('.');
   const normalizedFraction =
     fraction.length >= 2 ? fraction : fraction.padEnd(2, '0');

@@ -156,7 +156,8 @@ export function normalizeTabState(
       stopRequested: false,
     },
     maxAutoRounds:
-      typeof tab.maxAutoRounds === 'number' && Number.isFinite(tab.maxAutoRounds)
+      typeof tab.maxAutoRounds === 'number' &&
+      Number.isFinite(tab.maxAutoRounds)
         ? Math.max(1, Math.floor(tab.maxAutoRounds))
         : defaultMaxAutoRounds,
     requestTraces: tab.requestTraces ?? {},
