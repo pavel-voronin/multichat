@@ -101,6 +101,10 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     draftByTabId.value = nextDrafts;
   }
 
+  function setDraftForTab(tabId: string, message: string): void {
+    draftByTabId.value = { ...draftByTabId.value, [tabId]: message };
+  }
+
   function reset(): void {
     messageInputElement.value = null;
     draftByTabId.value = {};
@@ -120,6 +124,7 @@ export const useMessageInputStore = defineStore('messageInput', () => {
     mentionParticipantById,
     setMessageInputElement,
     clearDraft,
+    setDraftForTab,
     reset,
     loadPersistedState,
   };
