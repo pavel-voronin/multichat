@@ -41,7 +41,6 @@ export interface ExecutionContext {
   transport: OpenRouterTransport;
   abortControllers: Map<string, AbortController>;
   activeSweepPromises: Map<string, Promise<void>>;
-  maxAutoSweeps: number;
   now: () => Date;
   createId: () => string;
   lastProcessedKeys: Map<string, Map<string, string>>;
@@ -91,6 +90,19 @@ function getPromptParticipants(tab: ChatTabState) {
       role: 'agent' as const,
     })),
   ];
+}
+
+function findLastParticipantMessage(
+  tab: ChatTabState,
+): ParticipantMessageEntry | null {
+  for (let index = tab.timeline.length - 1; index >= 0; index -= 1) {
+    const entry = tab.timeline[index];
+    if (entry?.kind === 'participant-message') {
+      return entry;
+    }
+  }
+
+  return null;
 }
 
 export async function handleSuccessfulAgentTurnResultFn({
@@ -482,15 +494,11 @@ export async function runAgentSweepFn(
 
       const nextTab = getTab(tabId, ctx);
       if (nextTab) {
-        currentTriggeringMessage =
-          nextTab.timeline.findLast(
-            (entry): entry is ParticipantMessageEntry =>
-              entry.kind === 'participant-message',
-          ) ?? null;
+        currentTriggeringMessage = findLastParticipantMessage(nextTab);
       }
     } while (
       getTab(tabId, ctx)?.execution.queuedSweep &&
-      loops < ctx.maxAutoSweeps &&
+      loops < (getTab(tabId, ctx)?.maxAutoRounds ?? 1) &&
       !getTab(tabId, ctx)?.execution.stopRequested
     );
 

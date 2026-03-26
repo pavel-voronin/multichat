@@ -277,6 +277,7 @@ export interface ChatTabState {
   timeline: TimelineEntry[];
   metrics: Record<string, AgentMetrics>;
   execution: ExecutionState;
+  maxAutoRounds: number;
   requestTraces: Record<string, RequestTrace>;
   entryInspectionIndex: Record<string, EntryInspectionIndex>;
   turnOrdering: TurnOrderingConfig;
@@ -299,6 +300,7 @@ export interface RuntimeState {
   metrics: Record<string, AgentMetrics>;
   settings: SettingsState;
   execution: ExecutionState;
+  maxAutoRounds: number;
   turnOrdering: TurnOrderingConfig;
 }
 

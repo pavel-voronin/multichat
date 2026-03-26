@@ -45,6 +45,7 @@ import { createId, deepClone, fingerprintApiKey } from './utils';
 import type { TurnOrderingConfig } from './turn-ordering/types';
 import {
   DEFAULT_HUMAN,
+  DEFAULT_MAX_AUTO_ROUNDS,
   createEmptyTabState,
   emptyMetrics,
   initialWorkspace,
@@ -62,7 +63,7 @@ export class MultiChatRuntime {
   private readonly diagnosticsListeners = new Set<DiagnosticsListener>();
   private readonly now: () => Date;
   private readonly createId: () => string;
-  private readonly maxAutoSweeps: number;
+  private readonly defaultMaxAutoRounds: number;
   private readonly storage;
   private readonly lastProcessedVisibleContextKeys = new Map<
     string,
@@ -78,7 +79,7 @@ export class MultiChatRuntime {
   constructor(private readonly config: RuntimeConfig) {
     this.now = config.now ?? (() => new Date());
     this.createId = config.idGenerator ?? createId;
-    this.maxAutoSweeps = config.maxAutoSweeps ?? 12;
+    this.defaultMaxAutoRounds = config.maxAutoSweeps ?? DEFAULT_MAX_AUTO_ROUNDS;
     this.storage = config.storage ?? new NoopPersistenceAdapter();
     this.workspace = mergePersistedWorkspace(
       initialWorkspace(config),
@@ -348,6 +349,23 @@ export class MultiChatRuntime {
     this.persistAndNotify();
   }
 
+  updateMaxAutoRounds(
+    value: number,
+    tabId = this.workspace.activeTabId,
+  ): void {
+    const tab = this.requireTab(tabId);
+    tab.maxAutoRounds = Math.max(1, Math.floor(value));
+    pushDebugLog({
+      now: this.now,
+      workspace: this.workspace,
+      payload: {
+        kind: 'settings-updated',
+        details: `maxAutoRounds=${tab.maxAutoRounds}`,
+      },
+    });
+    this.persistAndNotify();
+  }
+
   resetAgentHistoryContext(tabId = this.workspace.activeTabId): void {
     const tab = this.requireTab(tabId);
     tab.timeline = tab.timeline.filter(
@@ -517,6 +535,7 @@ export class MultiChatRuntime {
       id: this.createId(),
       title: resolveAutoTabTitle(this.workspace.tabs, input?.title),
       human,
+      maxAutoRounds: this.defaultMaxAutoRounds,
     });
     this.workspace.tabs.push(tab);
     if (input?.activate ?? true) {
@@ -689,7 +708,6 @@ export class MultiChatRuntime {
       transport: this.config.transport,
       abortControllers: this.abortControllers,
       activeSweepPromises: this.activeSweepPromises,
-      maxAutoSweeps: this.maxAutoSweeps,
       now: this.now,
       createId: this.createId,
       lastProcessedKeys: this.lastProcessedVisibleContextKeys,
@@ -779,6 +797,7 @@ export class MultiChatRuntime {
       metrics: tab.metrics,
       settings: this.workspace.settings,
       execution: tab.execution,
+      maxAutoRounds: tab.maxAutoRounds,
       turnOrdering: tab.turnOrdering,
     });
   }

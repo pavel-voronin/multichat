@@ -25,6 +25,12 @@ export const useSessionStore = defineStore('session', () => {
     runtime.value.updateTurnOrdering(patch);
   }
 
+  function updateMaxAutoRounds(
+    value: Parameters<MultiChatRuntime['updateMaxAutoRounds']>[0],
+  ): void {
+    runtime.value.updateMaxAutoRounds(value);
+  }
+
   function toggleSilentDecisions(): void {
     preferencesStore.showSilentDecisions =
       !preferencesStore.showSilentDecisions;
@@ -78,6 +84,7 @@ export const useSessionStore = defineStore('session', () => {
   return {
     updateRuntimeSettings,
     updateTurnOrdering,
+    updateMaxAutoRounds,
     toggleSilentDecisions,
     cycleCostDisplayMode,
     resetAgentHistoryContext,

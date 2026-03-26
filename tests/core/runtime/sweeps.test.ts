@@ -152,6 +152,77 @@ describe('MultiChatRuntime sweeps', () => {
     });
   });
 
+  it('stops automatic chaining after the chat max auto-rounds limit', async () => {
+    const turns: Record<string, number> = {};
+    let alphaId = '';
+    let betaId = '';
+    const runtime = createRuntime({
+      maxAutoSweeps: 1,
+      transport: createTransport(async (agentId) => {
+        turns[agentId] = (turns[agentId] ?? 0) + 1;
+        const visible = runtime
+          .getVisibleMessagesForAgent(agentId)
+          .map((message) => `${message.senderId}:${message.content}`);
+
+        if (
+          agentId === alphaId &&
+          visible.some((message) => message === 'human:start') &&
+          !visible.some((message) => message === `${alphaId}:reply from alpha`)
+        ) {
+          return {
+            mode: 'tools',
+            action: { type: 'speak_public', text: 'reply from alpha' },
+          };
+        }
+
+        if (
+          agentId === betaId &&
+          visible.some(
+            (message) => message === `${alphaId}:reply from alpha`,
+          ) &&
+          !visible.some((message) => message === `${betaId}:reply from beta`)
+        ) {
+          return {
+            mode: 'tools',
+            action: { type: 'speak_public', text: 'reply from beta' },
+          };
+        }
+
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'done' },
+        };
+      }),
+    });
+
+    runtime.createAgent({
+      name: 'Alpha',
+      modelId: 'a',
+      systemPrompt: 'prompt',
+    });
+    runtime.createAgent({
+      name: 'Beta',
+      modelId: 'b',
+      systemPrompt: 'prompt',
+    });
+    [alphaId, betaId] = runtime.getState().agents.map((agent) => agent.id);
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'start',
+      target: 'public',
+    });
+
+    expect(timelineMessages(runtime).map((message) => message.content)).toEqual(
+      ['start', 'reply from alpha', 'reply from beta'],
+    );
+    expect(turns).toEqual({
+      [alphaId]: 1,
+      [betaId]: 1,
+    });
+  });
+
   it('does not let an agent repeat on unchanged visible context', async () => {
     let alphaId = '';
     const runtime = createRuntime({

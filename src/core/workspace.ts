@@ -17,6 +17,7 @@ export const DEFAULT_HUMAN = {
 } as const;
 
 export const DEFAULT_TAB_TITLE = '#default';
+export const DEFAULT_MAX_AUTO_ROUNDS = 12;
 
 export function emptyMetrics(): AgentMetrics {
   return {
@@ -56,6 +57,7 @@ export function createEmptyTabState(input: {
   id: string;
   title?: string;
   human: ChatTabState['participants'][number];
+  maxAutoRounds?: number;
 }): ChatTabState {
   return {
     id: input.id,
@@ -65,6 +67,7 @@ export function createEmptyTabState(input: {
     timeline: [],
     metrics: {},
     execution: initialExecutionState(),
+    maxAutoRounds: input.maxAutoRounds ?? DEFAULT_MAX_AUTO_ROUNDS,
     requestTraces: {},
     entryInspectionIndex: {},
     turnOrdering: deepClone(DEFAULT_TURN_ORDERING),
@@ -83,6 +86,7 @@ export function initialWorkspace(config: RuntimeConfig): WorkspaceState {
       createEmptyTabState({
         id: tabId,
         human,
+        maxAutoRounds: config.maxAutoSweeps ?? DEFAULT_MAX_AUTO_ROUNDS,
       }),
     ],
     activeTabId: tabId,
@@ -98,7 +102,7 @@ export function mergePersistedWorkspace(
   }
 
   const tabs = (persisted.tabs ?? [])
-    .map((tab) => normalizeTabState(tab))
+    .map((tab) => normalizeTabState(tab, base.tabs[0]?.maxAutoRounds))
     .filter(Boolean) as ChatTabState[];
 
   if (!tabs.length) {
@@ -124,6 +128,7 @@ export function mergePersistedWorkspace(
 
 export function normalizeTabState(
   tab: Partial<ChatTabState>,
+  defaultMaxAutoRounds = DEFAULT_MAX_AUTO_ROUNDS,
 ): ChatTabState | null {
   if (!tab.id) {
     return null;
@@ -150,6 +155,10 @@ export function normalizeTabState(
       queuedSweep: false,
       stopRequested: false,
     },
+    maxAutoRounds:
+      typeof tab.maxAutoRounds === 'number' && Number.isFinite(tab.maxAutoRounds)
+        ? Math.max(1, Math.floor(tab.maxAutoRounds))
+        : defaultMaxAutoRounds,
     requestTraces: tab.requestTraces ?? {},
     entryInspectionIndex: tab.entryInspectionIndex ?? {},
     turnOrdering: deepClone(tab.turnOrdering ?? DEFAULT_TURN_ORDERING),

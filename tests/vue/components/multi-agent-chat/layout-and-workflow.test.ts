@@ -108,6 +108,7 @@ describe('MultiAgentChat layout and workflow', () => {
     await wrapper.vm.$nextTick();
 
     expect(document.body.textContent).toContain('Chat settings');
+    expect(document.body.textContent).toContain('Max auto-rounds');
     wrapper.unmount();
   });
 
@@ -158,7 +159,7 @@ describe('MultiAgentChat layout and workflow', () => {
     wrapper.unmount();
   });
 
-  it('saves per-chat turn ordering from chat settings', async () => {
+  it('saves per-chat settings from chat settings', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     runtime.createAgent({
       name: 'Alpha',
@@ -177,6 +178,18 @@ describe('MultiAgentChat layout and workflow', () => {
       .find((button) => button.text() === 'Chat settings');
     expect(chatSettingsButton).toBeDefined();
     await chatSettingsButton?.trigger('click');
+
+    expect(document.body.textContent).toContain(
+      'Limits how many automatic agent rounds can run after one triggering event.',
+    );
+
+    const autoRoundsInput = document.body.querySelector(
+      '.ui-modal-backdrop .chat-settings-input',
+    ) as HTMLInputElement | null;
+    expect(autoRoundsInput).toBeDefined();
+    autoRoundsInput!.value = '5';
+    autoRoundsInput!.dispatchEvent(new Event('input'));
+    await wrapper.vm.$nextTick();
 
     const strategySelect = document.body.querySelector(
       '.ui-modal-backdrop .turn-ordering-select',
@@ -214,6 +227,7 @@ describe('MultiAgentChat layout and workflow', () => {
       strategy: 'manual_order',
       order: [beta.id, runtime.getState().agents[0]!.id],
     });
+    expect(runtime.getState().maxAutoRounds).toBe(5);
     wrapper.unmount();
   });
 
