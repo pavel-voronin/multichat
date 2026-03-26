@@ -71,18 +71,6 @@ describe('buildAgentQueue', () => {
     ).toEqual(['Gamma', 'Beta', 'Alpha']);
   });
 
-  it('returns only recipient on private triggering messages', () => {
-    const alpha = makeAgent('alpha', 'Alpha');
-    const beta = makeAgent('beta', 'Beta');
-    const tab = makeTab([alpha, beta]);
-
-    expect(
-      buildAgentQueue(tab, makeMessage('private hello', 'private', 'beta')).map(
-        (agent) => agent.name,
-      ),
-    ).toEqual(['Beta']);
-  });
-
   it('uses chat order fallback for keywords when there is no match', () => {
     const alpha = makeAgent('alpha', 'Alpha');
     const beta = makeAgent('beta', 'Beta');

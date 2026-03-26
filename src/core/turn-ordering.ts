@@ -5,7 +5,6 @@ import type {
   ParticipantMessageEntry,
 } from './types';
 import { applyMentionBoost } from './turn-ordering/mention-boost';
-import { applyPrivateExclusive } from './turn-ordering/private-exclusive';
 import { applyCheapFirst } from './turn-ordering/strategies/cheap-first';
 import { applyExpensiveFirst } from './turn-ordering/strategies/expensive-first';
 import { applyKeywords } from './turn-ordering/strategies/keywords';
@@ -46,11 +45,6 @@ export function buildAgentQueue(
   triggeringMessage: ParticipantMessageEntry | null,
 ): AgentConfig[] {
   const activeAgents = getActiveAgents(tab);
-  const exclusiveQueue = applyPrivateExclusive(activeAgents, triggeringMessage);
-  if (exclusiveQueue) {
-    return exclusiveQueue;
-  }
-
   const baseQueue = applyStrategy(activeAgents, tab, triggeringMessage);
   return applyMentionBoost(baseQueue, triggeringMessage);
 }

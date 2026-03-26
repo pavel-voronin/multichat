@@ -405,7 +405,7 @@ describe('MultiChatRuntime sweeps', () => {
     expect(order).toEqual(['Expensive', 'Cheap', 'Mid']);
   });
 
-  it('runs private triggering sweeps only for the recipient', async () => {
+  it('private message triggers a sweep that runs all agents, only recipient gets new visible input', async () => {
     const order: string[] = [];
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
@@ -442,7 +442,7 @@ describe('MultiChatRuntime sweeps', () => {
       recipientId: betaId,
     });
 
-    expect(order).toEqual(['Beta']);
+    expect(order).toEqual(['Alpha', 'Beta']);
   });
 
   it('advances sliding cycle offset after completed sweeps only', async () => {
@@ -554,7 +554,7 @@ describe('MultiChatRuntime sweeps', () => {
     expect(turns).toEqual(['Beta', 'Alpha']);
   });
 
-  it('sendMessage sweep is restricted to the private recipient when message is private', async () => {
+  it('private sendMessage triggers a sweep that runs all agents, only recipient gets new visible input', async () => {
     const turns: string[] = [];
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => {
@@ -586,7 +586,7 @@ describe('MultiChatRuntime sweeps', () => {
       recipientId: betaId,
     });
 
-    expect(turns).toEqual(['Beta']);
+    expect(turns).toEqual(['Alpha', 'Beta']);
   });
 
   it('queued sweep uses the message that arrived during the sweep, not the original trigger', async () => {
@@ -640,5 +640,126 @@ describe('MultiChatRuntime sweeps', () => {
     });
 
     expect(allTurns).toEqual(['Alpha', 'Beta', 'Gamma', 'Beta', 'Alpha']);
+  });
+
+  it('agent with new public input gets a turn when a later agent sends private to someone else', async () => {
+    const callsPerSweep: Record<number, string[]> = {};
+    let betaId = '';
+    let gammaId = '';
+
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        const state = runtime.getState();
+        const sweep = state.execution.sweepCount;
+        const name = state.agents.find((a) => a.id === agentId)?.name ?? agentId;
+        (callsPerSweep[sweep] ??= []).push(name);
+
+        // Beta sends public "from beta" on its first turn
+        if (agentId === betaId) {
+          const visible = runtime.getVisibleMessagesForAgent(agentId);
+          if (!visible.some((m) => m.senderId === betaId)) {
+            return {
+              mode: 'tools',
+              action: { type: 'speak_public', text: 'from beta' },
+            };
+          }
+        }
+
+        // Gamma sends private to Beta on its first turn (after seeing "from beta")
+        if (agentId === gammaId) {
+          const visible = runtime.getVisibleMessagesForAgent(agentId);
+          if (
+            visible.some((m) => m.senderId === betaId) &&
+            !visible.some((m) => m.senderId === gammaId)
+          ) {
+            return {
+              mode: 'tools',
+              action: { type: 'send_private', text: 'hey beta', to: betaId },
+            };
+          }
+        }
+
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'done' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Gamma', modelId: 'c', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    [, betaId, gammaId] = runtime.getState().agents.map((a) => a.id);
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'start',
+      target: 'public',
+    });
+
+    // Sweep 1: Alpha stayed silent (no input yet when it ran),
+    // Beta sent public "from beta", Gamma sent private to Beta
+    expect(callsPerSweep[1]).toEqual(['Alpha', 'Beta', 'Gamma']);
+
+    // Sweep 2: Gamma's private to Beta was the last message in sweep 1.
+    // Alpha ran before "from beta" appeared → "from beta" is new for Alpha.
+    // Beta has Gamma's private as new input.
+    // Gamma has no new visible input (cannot see its own private in non-self context).
+    // Both Alpha and Beta must get a turn — Alpha must not be suppressed.
+    expect(callsPerSweep[2]).toEqual(['Alpha', 'Beta']);
+  });
+
+  it('agent-to-agent private: only the recipient gets a turn in the subsequent sweep', async () => {
+    const callsPerSweep: Record<number, string[]> = {};
+    let alphaId = '';
+    let betaId = '';
+
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        const state = runtime.getState();
+        const sweep = state.execution.sweepCount;
+        const name = state.agents.find((a) => a.id === agentId)?.name ?? agentId;
+        (callsPerSweep[sweep] ??= []).push(name);
+
+        // Beta sends private to Alpha on its first turn
+        if (agentId === betaId) {
+          const visible = runtime.getVisibleMessagesForAgent(agentId);
+          if (!visible.some((m) => m.senderId === betaId)) {
+            return {
+              mode: 'tools',
+              action: { type: 'send_private', text: 'just for you', to: alphaId },
+            };
+          }
+        }
+
+        return {
+          mode: 'tools',
+          action: { type: 'stay_silent', reason: 'done' },
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Gamma', modelId: 'c', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    [alphaId, betaId] = runtime.getState().agents.map((a) => a.id);
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'start',
+      target: 'public',
+    });
+
+    // Sweep 1: all three agents see "start" and get called (first-ever run).
+    // Beta sends private to Alpha.
+    expect(callsPerSweep[1]).toEqual(['Alpha', 'Beta', 'Gamma']);
+
+    // Sweep 2: only Alpha has new visible input (Beta's private message).
+    // Gamma cannot see the private message → no new input → correctly not called.
+    expect(callsPerSweep[2]).toEqual(['Alpha']);
   });
 });
