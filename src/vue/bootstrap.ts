@@ -1,6 +1,6 @@
 import type { Pinia } from 'pinia';
 import {
-  createHydratedMultiChatRuntime,
+  createMultiChatRuntime,
   IndexedDbPersistenceAdapter,
   OpenRouterHttpTransport,
   type MultiChatRuntime,
@@ -19,16 +19,32 @@ import {
 
 let stopUiWatch: WatchStopHandle | null = null;
 
-export function createDefaultRuntime(): Promise<MultiChatRuntime> {
-  return createHydratedMultiChatRuntime({
+export interface ChatAppBootstrap {
+  runtime: MultiChatRuntime;
+  isFreshWorkspace: boolean;
+}
+
+export async function createDefaultRuntime(): Promise<ChatAppBootstrap> {
+  const storage = new IndexedDbPersistenceAdapter();
+  const initialState = await storage.load();
+  const runtime = createMultiChatRuntime({
     transport: new OpenRouterHttpTransport(),
-    storage: new IndexedDbPersistenceAdapter(),
+    storage,
+    initialState,
   });
+
+  return {
+    runtime,
+    isFreshWorkspace: initialState === null,
+  };
 }
 
 export function initializeChatApp(
   pinia: Pinia,
   runtime: MultiChatRuntime,
+  options?: {
+    isFreshWorkspace?: boolean;
+  },
 ): MultiChatRuntime {
   // 1. Load persisted UI state synchronously before any resets
   const persisted = loadUiState();
@@ -45,6 +61,9 @@ export function initializeChatApp(
 
   // 4. Initialize runtime
   useRuntimeStore(pinia).initialize(runtime);
+  if (options?.isFreshWorkspace) {
+    useUiStore(pinia).enterFreshState();
+  }
 
   // 5. Set up watch to persist UI state on any change.
   // draftByTabId creates a new object reference on every keystroke; per-keystroke

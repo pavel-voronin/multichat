@@ -4,6 +4,7 @@ import { ref } from 'vue';
 export type InspectionTab = 'participant' | 'input' | 'output' | 'used-in';
 
 export interface UiStateSnapshot {
+  showWelcomeModal: boolean;
   showSettings: boolean;
   showChatSettings: boolean;
   showAgentWizard: boolean;
@@ -35,6 +36,7 @@ export interface ChatScopedUiStateSnapshot {
 
 function defaultUiState(): UiStateSnapshot {
   return {
+    showWelcomeModal: false,
     showSettings: false,
     showChatSettings: false,
     showAgentWizard: false,
@@ -52,6 +54,7 @@ function defaultUiState(): UiStateSnapshot {
 }
 
 export const useUiStore = defineStore('ui', () => {
+  const showWelcomeModal = ref(false);
   const showSettings = ref(false);
   const showChatSettings = ref(false);
   const showAgentWizard = ref(false);
@@ -68,6 +71,7 @@ export const useUiStore = defineStore('ui', () => {
 
   function reset(): void {
     const defaults = defaultUiState();
+    showWelcomeModal.value = defaults.showWelcomeModal;
     showSettings.value = defaults.showSettings;
     showChatSettings.value = defaults.showChatSettings;
     showAgentWizard.value = defaults.showAgentWizard;
@@ -82,6 +86,11 @@ export const useUiStore = defineStore('ui', () => {
       defaults.reopenAgentWizardAfterSettings;
     showRequestInspection.value = defaults.showRequestInspection;
     activeInspectionTab.value = defaults.activeInspectionTab;
+  }
+
+  function enterFreshState(): void {
+    reset();
+    showWelcomeModal.value = true;
   }
 
   function resetChatScopedState(): void {
@@ -105,6 +114,7 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   return {
+    showWelcomeModal,
     showSettings,
     showChatSettings,
     showAgentWizard,
@@ -119,6 +129,7 @@ export const useUiStore = defineStore('ui', () => {
     showRequestInspection,
     activeInspectionTab,
     reset,
+    enterFreshState,
     resetChatScopedState,
     loadPersistedState,
   };

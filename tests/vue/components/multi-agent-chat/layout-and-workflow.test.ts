@@ -19,6 +19,78 @@ function createDragEvent(
 }
 
 describe('MultiAgentChat layout and workflow', () => {
+  it('shows welcome modal for a fresh workspace on initial mount', () => {
+    const runtime = new MultiChatRuntime({
+      transport: {
+        async listModels() {
+          return [];
+        },
+        async runAgentTurn() {
+          return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+        },
+      },
+      storage: {
+        load: vi.fn().mockResolvedValue(null),
+        save: vi.fn().mockResolvedValue(undefined),
+        reset: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    const wrapper = mountChat(runtime, { isFreshWorkspace: true });
+
+    expect(document.body.textContent).toContain('Welcome to Multichat');
+    wrapper.unmount();
+  });
+
+  it('does not show welcome modal when workspace was restored from persistence', () => {
+    const runtime = new MultiChatRuntime({
+      initialState: {
+        tabs: [
+          {
+            id: 'tab-default',
+            title: '#default',
+            participants: [{ id: 'human', name: 'Human', role: 'human' }],
+            agents: [],
+            timeline: [],
+            metrics: {},
+            execution: {
+              isSweepRunning: false,
+              queuedSweep: false,
+              sweepCount: 0,
+              stopRequested: false,
+            },
+            maxAutoRounds: 12,
+            requestTraces: {},
+            entryInspectionIndex: {},
+            turnOrdering: { strategy: 'round_robin' },
+          },
+        ],
+        activeTabId: 'tab-default',
+        settings: {
+          openRouterApiKey: 'key',
+        },
+      },
+      transport: {
+        async listModels() {
+          return [];
+        },
+        async runAgentTurn() {
+          return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+        },
+      },
+      storage: {
+        load: vi.fn().mockResolvedValue(null),
+        save: vi.fn().mockResolvedValue(undefined),
+        reset: vi.fn().mockResolvedValue(undefined),
+      },
+    });
+
+    const wrapper = mountChat(runtime);
+
+    expect(document.body.textContent).not.toContain('Welcome to Multichat');
+    wrapper.unmount();
+  });
+
   it('switches from blocked agent wizard to settings instead of stacking modals', async () => {
     const transport: OpenRouterTransport = {
       async listModels() {
@@ -156,6 +228,28 @@ describe('MultiAgentChat layout and workflow', () => {
     expect(document.body.textContent).toContain(
       'No persisted models snapshot.',
     );
+    wrapper.unmount();
+  });
+
+  it('shows welcome modal after full reset', async () => {
+    const runtime = createRuntime();
+    const wrapper = mountChat(runtime);
+
+    await wrapper.find('.settings-button').trigger('click');
+
+    const resetButton = Array.from(
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
+    ).find((button) => button.textContent?.trim() === 'Full reset') as
+      | HTMLButtonElement
+      | undefined;
+    expect(resetButton).toBeDefined();
+
+    resetButton?.click();
+    await wrapper.vm.$nextTick();
+
+    const modalBackdrop = document.body.querySelector('.ui-modal-backdrop');
+    expect(modalBackdrop?.textContent).toContain('Welcome to Multichat');
+    expect(modalBackdrop?.textContent).not.toContain('OpenRouter API key');
     wrapper.unmount();
   });
 

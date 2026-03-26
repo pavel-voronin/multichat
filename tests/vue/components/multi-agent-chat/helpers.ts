@@ -93,11 +93,14 @@ export function mountChat(
   runtime: MultiChatRuntime,
   options?: {
     configure?: (pinia: Pinia) => void;
+    isFreshWorkspace?: boolean;
   },
 ) {
   const pinia = createPinia();
   lastPinia = pinia;
-  initializeChatApp(pinia, runtime);
+  initializeChatApp(pinia, runtime, {
+    isFreshWorkspace: options?.isFreshWorkspace,
+  });
   options?.configure?.(pinia);
   const wrapper = mount(MultiAgentChat, {
     attachTo: document.body,

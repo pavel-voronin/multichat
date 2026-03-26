@@ -11,9 +11,9 @@ import {
 void (async () => {
   const app = createApp(App);
   const pinia = createPinia();
-  const runtime = await createDefaultRuntime();
+  const { runtime, isFreshWorkspace } = await createDefaultRuntime();
 
-  initializeChatApp(pinia, runtime);
+  initializeChatApp(pinia, runtime, { isFreshWorkspace });
   app.use(pinia);
   app.onUnmount(() => {
     disposeChatApp(pinia);

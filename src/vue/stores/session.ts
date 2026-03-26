@@ -4,11 +4,13 @@ import type { MultiChatRuntime } from '../../core';
 import { useMessageInputStore } from './messageInput';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';
+import { useUiStore } from './ui';
 
 export const useSessionStore = defineStore('session', () => {
   const runtimeStore = useRuntimeStore();
   const preferencesStore = usePreferencesStore();
   const messageInputStore = useMessageInputStore();
+  const uiStore = useUiStore();
   const runtime = computed<MultiChatRuntime>(() =>
     runtimeStore.requireRuntime(),
   );
@@ -73,6 +75,7 @@ export const useSessionStore = defineStore('session', () => {
   function resetRuntime(): void {
     runtime.value.reset();
     messageInputStore.reset();
+    uiStore.enterFreshState();
   }
 
   function updateHumanParticipant(

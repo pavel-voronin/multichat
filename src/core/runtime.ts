@@ -895,15 +895,3 @@ export function createMultiChatRuntime(
 ): MultiChatRuntime {
   return new MultiChatRuntime(config);
 }
-
-export async function createHydratedMultiChatRuntime(
-  config: RuntimeConfig,
-): Promise<MultiChatRuntime> {
-  const storage = config.storage ?? new IndexedDbPersistenceAdapter();
-  const initialState = await storage.load();
-  return new MultiChatRuntime({
-    ...config,
-    storage,
-    initialState,
-  });
-}

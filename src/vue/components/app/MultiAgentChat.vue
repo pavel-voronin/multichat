@@ -28,6 +28,7 @@
     <AgentWizard />
     <DeleteAgentDialog />
     <RequestInspectionDialog />
+    <WelcomeDialog />
     <ChatOverlays />
   </div>
 </template>
@@ -46,6 +47,7 @@ import LogsPanel from '../panels/LogsPanel.vue';
 import SettingsButton from '../settings/SettingsButton.vue';
 import ChatSettingsDialog from '../settings/ChatSettingsDialog.vue';
 import SettingsDialog from '../settings/SettingsDialog.vue';
+import WelcomeDialog from '../welcome/WelcomeDialog.vue';
 </script>
 
 <style scoped>
