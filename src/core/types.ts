@@ -53,6 +53,20 @@ export interface AgentConfig {
   systemPrompt: string;
 }
 
+export interface ChatPresetAgent {
+  name: string;
+  systemPrompt: string;
+  modelId: string;
+}
+
+export interface ChatPreset {
+  version: 1;
+  id: string;
+  title: string;
+  initialMessage: string;
+  agents: ChatPresetAgent[];
+}
+
 export interface RequestTraceUsage {
   promptTokens?: number;
   completionTokens?: number;
