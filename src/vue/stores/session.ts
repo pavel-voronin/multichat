@@ -5,6 +5,7 @@ import { useMessageInputStore } from './messageInput';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';
 import { useUiStore } from './ui';
+import type { WelcomeChatPreset } from '../components/welcome/presets';
 
 export const useSessionStore = defineStore('session', () => {
   const runtimeStore = useRuntimeStore();
@@ -84,6 +85,16 @@ export const useSessionStore = defineStore('session', () => {
     runtime.value.updateHumanParticipant(patch);
   }
 
+  function launchPreset(preset: WelcomeChatPreset, modelId: string): void {
+    const tabId = runtime.value.getWorkspaceState().activeTabId;
+    runtime.value.renameTab(tabId, preset.title);
+    for (const agent of preset.agents) {
+      runtime.value.createAgent({ ...agent, modelId }, tabId);
+    }
+    messageInputStore.setDraftForTab(tabId, preset.initialMessage);
+    uiStore.showWelcomeModal = false;
+  }
+
   return {
     updateRuntimeSettings,
     updateTurnOrdering,
@@ -98,5 +109,6 @@ export const useSessionStore = defineStore('session', () => {
     stop,
     resetRuntime,
     updateHumanParticipant,
+    launchPreset,
   };
 });
