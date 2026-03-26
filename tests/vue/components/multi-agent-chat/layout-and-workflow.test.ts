@@ -249,7 +249,7 @@ describe('MultiAgentChat layout and workflow', () => {
 
     const modalBackdrop = document.body.querySelector('.ui-modal-backdrop');
     expect(modalBackdrop?.textContent).toContain('Welcome to Multichat');
-    expect(modalBackdrop?.textContent).not.toContain('OpenRouter API key');
+    expect(modalBackdrop?.textContent).toContain('OpenRouter API key');
     wrapper.unmount();
   });
 

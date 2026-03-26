@@ -88,3 +88,37 @@ describe('session.launchPreset', () => {
     disposeChatApp(pinia);
   });
 });
+
+describe('WelcomeDialog UI', () => {
+  it('shows the API key input and Connect button on a fresh workspace', () => {
+    const runtime = createRuntime({ createDefaultAgent: false, setApiKey: false });
+    mountChat(runtime, { isFreshWorkspace: true });
+
+    expect(document.body.textContent).toContain('Welcome to Multichat');
+    expect(document.body.querySelector('input[type="password"]')).toBeTruthy();
+    expect(document.body.textContent).toContain('Connect');
+  });
+
+  it('shows preset cards and Start exploring card', () => {
+    const runtime = createRuntime({ createDefaultAgent: false, setApiKey: false });
+    mountChat(runtime, { isFreshWorkspace: true });
+
+    expect(document.body.textContent).toContain('Fantasy world');
+    expect(document.body.textContent).toContain('Product team');
+    expect(document.body.textContent).toContain('Start exploring');
+  });
+
+  it('closes the dialog when Start exploring is clicked', async () => {
+    const runtime = createRuntime({ createDefaultAgent: false, setApiKey: false });
+    mountChat(runtime, { isFreshWorkspace: true });
+
+    const buttons = Array.from(document.body.querySelectorAll('button'));
+    const exploreButton = buttons.find((b) => b.textContent?.includes('Start exploring'));
+    expect(exploreButton).toBeTruthy();
+    exploreButton!.click();
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(document.body.textContent).not.toContain('Welcome to Multichat');
+  });
+});
