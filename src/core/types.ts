@@ -79,7 +79,7 @@ export interface RequestTraceUsage {
 export interface RequestTracePayloads {
   requestInputJson?: unknown;
   responseOutputJson?: unknown;
-  normalizedActionJson?: unknown;
+  normalizedActionsJson?: unknown;
   sanitizedJson?: unknown;
 }
 
@@ -111,7 +111,7 @@ export interface RequestTrace {
   triggeringMessageIds: string[];
   visibleMessageIds: string[];
   nonSelfVisibleMessageIds: string[];
-  producedMessageId?: string;
+  producedMessageIds: string[];
   parentTraceId?: string | null;
   childTraceIds: string[];
   upstreamMessageIds: string[];
@@ -261,12 +261,11 @@ export interface DebugLogEntry {
   mode?: AgentExecutionMode;
   fallback?: boolean;
   skipReason?: string;
-  actionType?: 'speak_public' | 'send_private' | 'stay_silent';
-  messageId?: string;
-  target?: MessageTarget;
-  recipientId?: string;
+  actionCount?: number;
+  actionTypes?: Array<AgentToolCall['type']>;
+  messageIds?: string[];
+  recipientIds?: string[];
   details?: string;
-  content?: string;
   visibleMessageIds?: string[];
   nonSelfVisibleMessageIds?: string[];
   triggeringMessageIds?: string[];
@@ -378,7 +377,7 @@ export type AgentToolCall =
 
 export interface AgentTurnResult {
   mode: AgentExecutionMode;
-  action: AgentToolCall;
+  actions: AgentToolCall[];
   usage?: TransportUsage;
 }
 
