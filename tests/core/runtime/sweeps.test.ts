@@ -762,4 +762,51 @@ describe('MultiChatRuntime sweeps', () => {
     // Gamma cannot see the private message → no new input → correctly not called.
     expect(callsPerSweep[2]).toEqual(['Alpha']);
   });
+
+  it('produces two messages when one agent turn returns speak_public and send_private', async () => {
+    let betaId = '';
+    const runtime = createRuntime({
+      transport: createTransport(async (agentId) => {
+        if (agentId === betaId) {
+          const visible = runtime.getVisibleMessagesForAgent(agentId);
+          if (!visible.some((m) => m.senderId === betaId)) {
+            return {
+              mode: 'tools',
+              actions: [
+                { type: 'speak_public', text: 'public reply' },
+                { type: 'send_private', to: 'human', text: 'private note' },
+              ],
+            };
+          }
+        }
+        return {
+          mode: 'tools',
+          actions: [{ type: 'stay_silent', reason: 'done' }],
+        };
+      }),
+    });
+
+    runtime.createAgent({ name: 'Alpha', modelId: 'a', systemPrompt: 'prompt' });
+    runtime.createAgent({ name: 'Beta', modelId: 'b', systemPrompt: 'prompt' });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+    betaId = runtime.getState().agents.find((a) => a.name === 'Beta')!.id;
+
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'go',
+      target: 'public',
+    });
+
+    const messages = timelineMessages(runtime);
+    const betaMessages = messages.filter((m) => m.authorId === betaId);
+    expect(betaMessages).toHaveLength(2);
+    expect(betaMessages[0]!.target).toBe('public');
+    expect(betaMessages[0]!.content).toBe('public reply');
+    expect(betaMessages[1]!.target).toBe('private');
+    expect(betaMessages[1]!.content).toBe('private note');
+
+    // Both messages share the same sourceTraceId
+    expect(betaMessages[0]!.sourceTraceId).toBeDefined();
+    expect(betaMessages[0]!.sourceTraceId).toBe(betaMessages[1]!.sourceTraceId);
+  });
 });
