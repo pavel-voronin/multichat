@@ -270,6 +270,56 @@ describe('MultiAgentChat request inspection', () => {
     expect(document.body.textContent).toContain('Published to public chat');
   });
 
+  it('shows both actions when a single turn emits speak_public and send_private', async () => {
+    const transport: OpenRouterTransport = {
+      async listModels() {
+        return [
+          {
+            id: 'model-a:free',
+            name: 'Model A Free',
+            context_length: 128000,
+            supported_parameters: ['tools'],
+          },
+        ];
+      },
+      async runAgentTurn() {
+        return {
+          mode: 'tools',
+          actions: [
+            { type: 'speak_public', text: 'public part' },
+            { type: 'send_private', to: 'human', text: 'private part' },
+          ],
+          usage: {
+            promptTokens: 10,
+            completionTokens: 5,
+            requestCostUsd: 0.001,
+          },
+        };
+      },
+    };
+
+    const runtime = createRuntime({ transport });
+    await runtime.sendMessage({
+      senderId: 'human',
+      content: 'please answer',
+      target: 'public',
+    });
+
+    const wrapper = mountChat(runtime);
+    // triggers[0]=human message, triggers[1]=public agent message (first action)
+    const triggers = wrapper.findAll('.chat-line-time-active');
+    await triggers[1]!.trigger('click');
+
+    const resultTab = Array.from(document.body.querySelectorAll('button')).find(
+      (b) => b.textContent?.trim() === 'Output',
+    );
+    resultTab!.click();
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('1. Published to public chat');
+    expect(document.body.textContent).toContain('2. Sent privately to');
+  });
+
   it('shows no request data on Output tab for a human message', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     await runtime.sendMessage({

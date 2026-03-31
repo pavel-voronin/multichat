@@ -154,8 +154,15 @@
       >
         <template v-if="trace">
           <div class="inspection-block">
-            <p class="inspection-field-label">Action</p>
-            <p class="inspection-field-value">{{ actionDetailLabel }}</p>
+            <p class="inspection-field-label">Actions</p>
+            <div v-if="actions.length" class="inspection-action-list">
+              <p
+                v-for="(label, i) in actionLabels"
+                :key="i"
+                class="inspection-field-value"
+              >{{ i + 1 }}. {{ label }}</p>
+            </div>
+            <p v-else class="inspection-na">No messages produced</p>
           </div>
           <div class="inspection-meta-grid">
             <div>
@@ -241,7 +248,7 @@ const {
   currentInspectedEntry: message,
   traceForCurrentEntry: trace,
   agentForCurrentEntry: agent,
-  currentActionForTrace: action,
+  currentActionsForTrace: actions,
   usedInEntriesForCurrentEntry: usedInMessages,
 } = storeToRefs(inspection);
 
@@ -285,16 +292,19 @@ const promptTokensLabel = computed(
 );
 
 // Output tab
-const actionDetailLabel = computed((): string => {
-  if (!action.value) return '—';
-  switch (action.value.type) {
-    case 'speak_public':
-      return 'Published to public chat';
-    case 'send_private':
-      return `Sent privately to ${inspection.participantName(action.value.to)}`;
-    case 'stay_silent':
-      return `Stayed silent: ${action.value.reason}`;
-  }
+const actionLabels = computed((): string[] => {
+  return actions.value.map((a) => {
+    switch (a.type) {
+      case 'speak_public':
+        return 'Published to public chat';
+      case 'send_private':
+        return `Sent privately to ${inspection.participantName(a.to)}`;
+      case 'stay_silent':
+        return `Stayed silent: ${a.reason}`;
+      default:
+        return (a as { type: string }).type;
+    }
+  });
 });
 const completionTokensLabel = computed(
   () => trace.value?.usage?.completionTokens?.toString() ?? '—',
@@ -334,6 +344,10 @@ async function copyJson(value: unknown): Promise<void> {
 
 .inspection-block {
   @apply mb-4;
+}
+
+.inspection-action-list {
+  @apply grid gap-0.5;
 }
 
 .inspection-field-label {

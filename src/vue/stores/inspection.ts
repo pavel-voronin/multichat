@@ -56,10 +56,10 @@ export const useInspectionStore = defineStore('inspection', () => {
     },
   );
 
-  const currentActionForTrace = computed<AgentToolCall | null>(() => {
+  const currentActionsForTrace = computed<AgentToolCall[]>(() => {
     const payload = traceForCurrentEntry.value?.payloads.normalizedActionsJson;
-    if (!Array.isArray(payload) || payload.length === 0) return null;
-    return payload[0] as AgentToolCall;
+    if (!Array.isArray(payload)) return [];
+    return payload as AgentToolCall[];
   });
 
   const usedInEntriesForCurrentEntry = computed<ParticipantMessageEntry[]>(
@@ -140,7 +140,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     traceForCurrentEntry,
     agentForCurrentEntry,
     contextEntriesForCurrentTrace,
-    currentActionForTrace,
+    currentActionsForTrace,
     usedInEntriesForCurrentEntry,
     // Actions
     openForEntry,
