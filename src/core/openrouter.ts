@@ -4,7 +4,7 @@ import type {
   OpenRouterModel,
   OpenRouterTransport,
 } from './types';
-import { buildMessages, buildTools, parseToolAction } from './agentProtocol';
+import { buildMessages, buildTools, parseToolActions } from './agentProtocol';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -25,7 +25,6 @@ async function callChatCompletion(
     messages: buildMessages(context),
     tools: buildTools(),
     tool_choice: 'required',
-    parallel_tool_calls: false,
   };
   let response: Response;
 
@@ -79,11 +78,16 @@ async function callChatCompletion(
     throw new Error('OpenRouter returned no choices');
   }
 
-  const action = parseToolAction(message.tool_calls?.[0] ?? {});
+  const toolCalls = message.tool_calls;
+  if (!toolCalls || toolCalls.length === 0) {
+    throw new Error('OpenRouter returned no tool calls');
+  }
+
+  const actions = parseToolActions(toolCalls);
 
   return {
     mode: 'tools',
-    action,
+    actions,
     usage: {
       promptTokens: payload.usage?.prompt_tokens,
       completionTokens: payload.usage?.completion_tokens,
