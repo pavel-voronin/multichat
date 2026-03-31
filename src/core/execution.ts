@@ -176,15 +176,17 @@ export async function handleSuccessfulAgentTurnResultFn({
   const messageIds: string[] = [];
   const recipientIds: string[] = [];
 
-  for (const action of result.actions) {
+  for (let i = 0; i < result.actions.length; i++) {
+    const action = result.actions[i]!;
+    const isFirst = i === 0;
     const sentMessage = await ctx.sendMessage(
       {
         senderId: agent.id,
         content: 'text' in action ? action.text : '',
         target: action.type === 'speak_public' ? 'public' : 'private',
         recipientId: action.type === 'send_private' ? action.to : undefined,
-        requestCostUsd: result.usage?.estimatedCost,
-        ownPromptCostUsd: getPromptCostUsd(agent, result.usage),
+        requestCostUsd: isFirst ? result.usage?.estimatedCost : undefined,
+        ownPromptCostUsd: isFirst ? getPromptCostUsd(agent, result.usage) : undefined,
         createdInSweep: tab.execution.sweepCount,
         sourceTraceId: traceId,
         triggerSweep: false,
