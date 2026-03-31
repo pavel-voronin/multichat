@@ -237,5 +237,174 @@ describe('OpenRouterHttpTransport', () => {
     expect(prompt).toContain(
       '[2026-03-17T00:13:33.000Z] <Kiryuha -> Masha> I choose red. Should we tell Pavel red?',
     );
+    expect(prompt).not.toContain('exactly one final action per turn');
+    expect(prompt).toContain('You may call any number of tools per turn');
+  });
+});
+
+describe('parseToolActions (multi-tool support)', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('returns both actions when model emits speak_public and send_private', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: 'speak_public',
+                    arguments: JSON.stringify({ text: 'hello everyone' }),
+                  },
+                },
+                {
+                  function: {
+                    name: 'send_private',
+                    arguments: JSON.stringify({ to: 'alice', text: 'just you' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    }) as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new OpenRouterHttpTransport();
+    const context: AgentTurnContext = {
+      agent: { id: 'a1', name: 'Agent', modelId: 'model', systemPrompt: '' },
+      participants: [{ id: 'a1', name: 'Agent', role: 'agent' }],
+      visibleMessages: [],
+    };
+    const result = await transport.runAgentTurn({ apiKey: 'key', context });
+
+    expect(result.actions).toHaveLength(2);
+    expect(result.actions[0]).toEqual({ type: 'speak_public', text: 'hello everyone' });
+    expect(result.actions[1]).toEqual({ type: 'send_private', to: 'alice', text: 'just you' });
+  });
+
+  it('drops stay_silent when any speaking tool is also returned', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: 'speak_public',
+                    arguments: JSON.stringify({ text: 'saying something' }),
+                  },
+                },
+                {
+                  function: {
+                    name: 'stay_silent',
+                    arguments: JSON.stringify({ reason: 'contradiction' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    }) as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new OpenRouterHttpTransport();
+    const context: AgentTurnContext = {
+      agent: { id: 'a1', name: 'Agent', modelId: 'model', systemPrompt: '' },
+      participants: [{ id: 'a1', name: 'Agent', role: 'agent' }],
+      visibleMessages: [],
+    };
+    const result = await transport.runAgentTurn({ apiKey: 'key', context });
+
+    expect(result.actions).toHaveLength(1);
+    expect(result.actions[0]).toEqual({ type: 'speak_public', text: 'saying something' });
+  });
+
+  it('returns empty actions when all tool calls are stay_silent', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: 'stay_silent',
+                    arguments: JSON.stringify({ reason: 'nothing to add' }),
+                  },
+                },
+                {
+                  function: {
+                    name: 'stay_silent',
+                    arguments: JSON.stringify({ reason: 'still nothing' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    }) as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new OpenRouterHttpTransport();
+    const context: AgentTurnContext = {
+      agent: { id: 'a1', name: 'Agent', modelId: 'model', systemPrompt: '' },
+      participants: [{ id: 'a1', name: 'Agent', role: 'agent' }],
+      visibleMessages: [],
+    };
+    const result = await transport.runAgentTurn({ apiKey: 'key', context });
+
+    expect(result.actions).toHaveLength(0);
+  });
+
+  it('does not deduplicate identical tool calls', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: 'speak_public',
+                    arguments: JSON.stringify({ text: 'repeat' }),
+                  },
+                },
+                {
+                  function: {
+                    name: 'speak_public',
+                    arguments: JSON.stringify({ text: 'repeat' }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    }) as Response);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new OpenRouterHttpTransport();
+    const context: AgentTurnContext = {
+      agent: { id: 'a1', name: 'Agent', modelId: 'model', systemPrompt: '' },
+      participants: [{ id: 'a1', name: 'Agent', role: 'agent' }],
+      visibleMessages: [],
+    };
+    const result = await transport.runAgentTurn({ apiKey: 'key', context });
+
+    expect(result.actions).toHaveLength(2);
   });
 });
