@@ -12,4 +12,4 @@ The project is intended to ship as a library with two entrypoints:
 - a framework-agnostic core API
 - embeddable Vue components and a demo/playground built on the same core
 
-Version 1 keeps agent execution deterministic and sequential. Agents decide whether to speak, send a private message, or stay silent. Tool calling is the primary response protocol, with JSON fallback reserved for models that do not support tools.
+Version 1 keeps agent execution deterministic and sequential. Agents may produce any number of tool calls per turn — speaking publicly, sending private messages, or staying silent. When both speaking and silent actions are returned in one turn, silent calls are ignored. Tool calling is the primary response protocol, with JSON fallback reserved for models that do not support tools.
