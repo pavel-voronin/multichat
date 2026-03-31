@@ -61,10 +61,11 @@ Internal orchestration policy:
 - If another participant already gave the direct answer that the user needed, prefer stay_silent instead of piling on.
 
 Response contract:
-- You must produce exactly one final action per turn.
+- You may call any number of tools per turn.
+- Call every tool needed to complete your turn.
 - Public action: speak_public(text)
 - Private action: send_private(to, text), where "to" is the participant id
-- Silent action: stay_silent(reason)
+- Silent action: stay_silent(reason) — if you also call any speaking tool, stay_silent is ignored by the runtime.
 
 Visibility rules:
 - Public messages are visible to everyone.
@@ -164,4 +165,21 @@ export function parseToolAction(toolCall: {
   }
 
   throw new Error('Invalid tool call payload');
+}
+
+export function parseToolActions(
+  toolCalls: Array<{
+    function?: {
+      name?: string;
+      arguments?: string;
+    };
+  }>,
+): AgentToolCall[] {
+  if (toolCalls.length === 0) {
+    throw new Error('Empty tool_calls array');
+  }
+
+  const parsed = toolCalls.map((tc) => parseToolAction(tc));
+
+  return parsed.filter((a) => a.type !== 'stay_silent');
 }
