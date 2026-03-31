@@ -26,7 +26,9 @@ afterEach(() => {
     disposeChatApp(lastPinia);
     lastPinia = null;
   }
-  localStorage.clear();
+  if (typeof globalThis.localStorage?.clear === 'function') {
+    globalThis.localStorage.clear();
+  }
 });
 
 export function createRuntime(options?: {

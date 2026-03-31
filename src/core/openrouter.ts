@@ -8,6 +8,13 @@ import { buildMessages, buildTools, parseToolAction } from './agentProtocol';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
+export const OPENROUTER_API_KEY_PATTERN =
+  /^sk-or-v1-(?:[a-z0-9]+-)*[a-f0-9]{64}$/;
+
+export function isOpenRouterApiKeyFormatValid(apiKey: string): boolean {
+  return OPENROUTER_API_KEY_PATTERN.test(apiKey.trim());
+}
+
 async function callChatCompletion(
   apiKey: string,
   context: AgentTurnContext,
@@ -94,6 +101,21 @@ async function callChatCompletion(
 }
 
 export class OpenRouterHttpTransport implements OpenRouterTransport {
+  async validateApiKey(apiKey: string): Promise<void> {
+    const response = await fetch(`${OPENROUTER_BASE_URL}/key`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(
+        `OpenRouter key validation failed: ${response.status} ${body}`,
+      );
+    }
+  }
+
   async listModels(apiKey: string): Promise<OpenRouterModel[]> {
     const response = await fetch(`${OPENROUTER_BASE_URL}/models`, {
       headers: {

@@ -401,6 +401,7 @@ export interface AgentTurnContext {
 }
 
 export interface OpenRouterTransport {
+  validateApiKey?(apiKey: string): Promise<void>;
   listModels(apiKey: string): Promise<OpenRouterModel[]>;
   runAgentTurn(input: {
     apiKey: string;

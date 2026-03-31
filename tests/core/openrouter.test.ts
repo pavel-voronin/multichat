@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OpenRouterHttpTransport } from '../../src/core/openrouter';
+import {
+  isOpenRouterApiKeyFormatValid,
+  OpenRouterHttpTransport,
+} from '../../src/core/openrouter';
 import type { AgentTurnContext } from '../../src/core/types';
 
 describe('OpenRouterHttpTransport.listModels', () => {
+  const originalFetch = globalThis.fetch;
+
   function makeModel(overrides: {
     id?: string;
     supportedParameters?: string[];
@@ -30,7 +35,7 @@ describe('OpenRouterHttpTransport.listModels', () => {
   }
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
   });
 
   it('returns context_length and supported_parameters', async () => {
@@ -70,9 +75,78 @@ describe('OpenRouterHttpTransport.listModels', () => {
   });
 });
 
-describe('OpenRouterHttpTransport', () => {
+describe('OpenRouter API key validation', () => {
+  const originalFetch = globalThis.fetch;
+
   afterEach(() => {
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
+  });
+
+  it('accepts documented OpenRouter key formats', () => {
+    expect(
+      isOpenRouterApiKeyFormatValid(
+        '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',
+      ),
+    ).toBe(true);
+    expect(
+      isOpenRouterApiKeyFormatValid(
+        'sk-or-v1-analytics-d3558566a246d57584c29dd02393d4a5324c7575ed9dd44d743fe1037e0b855d',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects malformed OpenRouter key formats', () => {
+    expect(isOpenRouterApiKeyFormatValid('')).toBe(false);
+    expect(isOpenRouterApiKeyFormatValid('sk-or-v1-short')).toBe(false);
+    expect(
+      isOpenRouterApiKeyFormatValid(
+        'sk-or-v1-analytics-D3558566A246D57584C29DD02393D4A5324C7575ED9DD44D743FE1037E0B855D',
+      ),
+    ).toBe(false);
+    expect(
+      isOpenRouterApiKeyFormatValid(
+        'sk-or-v1-d3558566a246d57584c29dd02393d4a5324c7575ed9dd44d743fe1037e0b85',
+      ),
+    ).toBe(false);
+    expect(
+      isOpenRouterApiKeyFormatValid(
+        'sk-test-d3558566a246d57584c29dd02393d4a5324c7575ed9dd44d743fe1037e0b855d',
+      ),
+    ).toBe(false);
+  });
+
+  it('uses the authenticated key metadata endpoint for validation', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          json: async () => ({ data: { label: 'sk-or-v1-au7...890' } }),
+        }) as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const transport = new OpenRouterHttpTransport();
+    await transport.validateApiKey?.(
+      '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',
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://openrouter.ai/api/v1/key',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization:
+            'Bearer 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',
+        }),
+      }),
+    );
+  });
+});
+
+describe('OpenRouterHttpTransport', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it('instructs agents to answer private coordination privately', async () => {

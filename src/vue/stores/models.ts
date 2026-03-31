@@ -89,6 +89,10 @@ export const useModelsStore = defineStore('models', () => {
     clearLocalCache();
   }
 
+  function reset(): void {
+    clearLocalCache();
+  }
+
   hydrateFromSnapshot();
   watch(
     () => state.value?.settings.openRouterApiKey ?? null,
@@ -109,5 +113,6 @@ export const useModelsStore = defineStore('models', () => {
     findById,
     fetchModels,
     invalidateCache,
+    reset,
   };
 });

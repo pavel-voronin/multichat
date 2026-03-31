@@ -2,15 +2,19 @@ import { defineStore } from 'pinia';
 import { computed } from 'vue';
 import type { MultiChatRuntime } from '../../core';
 import { useMessageInputStore } from './messageInput';
+import { useModelsStore } from './models';
 import { usePreferencesStore } from './preferences';
 import { useRuntimeStore } from './runtime';
 import { useUiStore } from './ui';
+import { useInspectionStore } from './inspection';
 import type { WelcomeChatPreset } from '../components/welcome/presets';
 
 export const useSessionStore = defineStore('session', () => {
   const runtimeStore = useRuntimeStore();
   const preferencesStore = usePreferencesStore();
   const messageInputStore = useMessageInputStore();
+  const modelsStore = useModelsStore();
+  const inspectionStore = useInspectionStore();
   const uiStore = useUiStore();
   const runtime = computed<MultiChatRuntime>(() =>
     runtimeStore.requireRuntime(),
@@ -20,6 +24,10 @@ export const useSessionStore = defineStore('session', () => {
     patch: Parameters<MultiChatRuntime['updateSettings']>[0],
   ): void {
     runtime.value.updateSettings(patch);
+  }
+
+  async function validateOpenRouterApiKey(apiKey: string): Promise<void> {
+    await runtime.value.validateOpenRouterApiKey(apiKey);
   }
 
   function updateTurnOrdering(
@@ -75,7 +83,10 @@ export const useSessionStore = defineStore('session', () => {
 
   function resetRuntime(): void {
     runtime.value.reset();
+    preferencesStore.reset();
     messageInputStore.reset();
+    modelsStore.reset();
+    inspectionStore.reset();
     uiStore.enterFreshState();
   }
 
@@ -96,6 +107,7 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   return {
+    validateOpenRouterApiKey,
     updateRuntimeSettings,
     updateTurnOrdering,
     updateMaxAutoRounds,

@@ -253,6 +253,55 @@ describe('MultiAgentChat layout and workflow', () => {
     wrapper.unmount();
   });
 
+  it('resets persisted toolbar preferences after full reset', async () => {
+    const runtime = createRuntime();
+    const wrapper = mountChat(runtime);
+
+    const technicalInfoButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Technical info: off'));
+    const costModeButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Cost: request'));
+    const logsButton = wrapper
+      .findAll('.toolbar-button')
+      .find((button) => button.text().includes('Logs: off'));
+
+    expect(technicalInfoButton).toBeDefined();
+    expect(costModeButton).toBeDefined();
+    expect(logsButton).toBeDefined();
+
+    await technicalInfoButton!.trigger('click');
+    await costModeButton!.trigger('click');
+    await costModeButton!.trigger('click');
+    await logsButton!.trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('Technical info: on');
+    expect(wrapper.text()).toContain('Cost: off');
+    expect(wrapper.text()).toContain('Logs: on');
+
+    await wrapper.find('.settings-button').trigger('click');
+
+    const resetButton = Array.from(
+      document.body.querySelectorAll('.ui-modal-backdrop button'),
+    ).find((button) => button.textContent?.trim() === 'Full reset') as
+      | HTMLButtonElement
+      | undefined;
+    expect(resetButton).toBeDefined();
+
+    resetButton?.click();
+    await wrapper.vm.$nextTick();
+
+    expect(document.body.textContent).toContain('Welcome to Multichat');
+    expect(wrapper.text()).toContain('Technical info: off');
+    expect(wrapper.text()).toContain('Cost: request');
+    expect(wrapper.text()).toContain('Logs: off');
+    expect(wrapper.find('.logs-panel').exists()).toBe(false);
+
+    wrapper.unmount();
+  });
+
   it('saves per-chat settings from chat settings', async () => {
     const runtime = createRuntime({ createDefaultAgent: false });
     runtime.createAgent({

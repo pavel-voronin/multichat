@@ -3,6 +3,7 @@ import type { ChatPreset, ChatPresetAgent } from '../../../core';
 type WelcomeChatPresetAgent = Omit<ChatPresetAgent, 'modelId'>;
 
 export interface WelcomeChatPreset extends Omit<ChatPreset, 'agents'> {
+  description: string;
   agents: WelcomeChatPresetAgent[];
 }
 
@@ -10,18 +11,21 @@ export const WELCOME_PRESETS: WelcomeChatPreset[] = [
   {
     version: 1,
     id: 'fantasy-world',
-    title: 'Fantasy world',
-    initialMessage: 'Does magic need rules to be meaningful?',
+    title: 'Harry Potter fanfic',
+    description:
+      'A tense Hogwarts-era argument about whether students should use a risky experimental spell to protect the school.',
+    initialMessage:
+      'Should Hogwarts students use a dangerous experimental spell if it might stop a larger threat?',
     agents: [
       {
-        name: 'Elara',
+        name: 'Hermione',
         systemPrompt:
-          'You are Elara, a wizard who believes magic must follow strict laws to be reliable and safe. You speak with calm authority and cite historical disasters caused by uncontrolled magic. Keep responses concise and in character.',
+          'You are Hermione Granger in a Harry Potter fanfic scenario. You believe dangerous magic must be approached through rules, research, and restraint. You argue with precision, cite precedent, and push back on reckless improvisation. Keep responses concise and in character.',
       },
       {
-        name: 'Dorin',
+        name: 'Sirius',
         systemPrompt:
-          'You are Dorin, a skeptical scholar who thinks magic is inherently chaotic and any attempt to codify it is self-deception. You are sardonic and enjoy poking holes in arguments. Keep responses concise and in character.',
+          'You are Sirius Black in a Harry Potter fanfic scenario. You think hesitation can be more dangerous than bold action, especially in wartime. You are sharp, protective, impatient with bureaucracy, and willing to risk a lot for the people you care about. Keep responses concise and in character.',
       },
     ],
   },
@@ -29,7 +33,10 @@ export const WELCOME_PRESETS: WelcomeChatPreset[] = [
     version: 1,
     id: 'product-team',
     title: 'Product team',
-    initialMessage: 'Should we rebuild the onboarding flow from scratch or iterate on what we have?',
+    description:
+      'A sharper product debate about pricing, adoption, and whether short-term growth is worth long-term product constraints.',
+    initialMessage:
+      'Should we launch the new AI copilot as a paid feature immediately, or keep it free until adoption is proven?',
     agents: [
       {
         name: 'Architect',

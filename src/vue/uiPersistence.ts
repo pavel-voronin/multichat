@@ -26,9 +26,35 @@ export function defaultUiState(): Omit<UiPersistedState, 'version'> {
   };
 }
 
+function getBrowserStorage(): Pick<
+  Storage,
+  'getItem' | 'setItem' | 'removeItem' | 'clear'
+> | null {
+  if (typeof globalThis.localStorage === 'undefined') {
+    return null;
+  }
+
+  const storage = globalThis.localStorage;
+  if (
+    typeof storage.getItem !== 'function' ||
+    typeof storage.setItem !== 'function' ||
+    typeof storage.removeItem !== 'function' ||
+    typeof storage.clear !== 'function'
+  ) {
+    return null;
+  }
+
+  return storage;
+}
+
 export function loadUiState(): Omit<UiPersistedState, 'version'> {
   const defaults = defaultUiState();
-  const raw = localStorage.getItem(UI_PERSISTENCE_KEY);
+  const storage = getBrowserStorage();
+  if (!storage) {
+    return defaults;
+  }
+
+  const raw = storage.getItem(UI_PERSISTENCE_KEY);
   if (!raw) return defaults;
 
   let parsed: unknown;
@@ -43,7 +69,7 @@ export function loadUiState(): Omit<UiPersistedState, 'version'> {
     parsed === null ||
     (parsed as UiPersistedState).version !== UI_PERSISTENCE_VERSION
   ) {
-    localStorage.removeItem(UI_PERSISTENCE_KEY);
+    storage.removeItem(UI_PERSISTENCE_KEY);
     return defaults;
   }
 
@@ -82,5 +108,10 @@ export function loadUiState(): Omit<UiPersistedState, 'version'> {
 }
 
 export function saveUiState(state: UiPersistedState): void {
-  localStorage.setItem(UI_PERSISTENCE_KEY, JSON.stringify(state));
+  const storage = getBrowserStorage();
+  if (!storage) {
+    return;
+  }
+
+  storage.setItem(UI_PERSISTENCE_KEY, JSON.stringify(state));
 }

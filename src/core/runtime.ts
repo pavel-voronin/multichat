@@ -128,6 +128,19 @@ export class MultiChatRuntime {
     return this.config.transport.listModels(apiKey);
   }
 
+  async validateOpenRouterApiKey(apiKey: string): Promise<void> {
+    if (!apiKey.trim()) {
+      throw new Error('OpenRouter API key is missing');
+    }
+
+    if (this.config.transport.validateApiKey) {
+      await this.config.transport.validateApiKey(apiKey);
+      return;
+    }
+
+    await this.config.transport.listModels(apiKey);
+  }
+
   getModelsCatalogSnapshot(): ModelsCatalogSnapshot | null {
     return deepClone(this.workspace.modelsCatalogSnapshot ?? null);
   }
