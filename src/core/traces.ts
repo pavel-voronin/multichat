@@ -98,7 +98,7 @@ export function getMessageInspectionGraph(
       ...trace.triggeringMessageIds,
       ...trace.visibleMessageIds,
       ...trace.downstreamMessageIds,
-      ...(trace.producedMessageId ? [trace.producedMessageId] : []),
+      ...(trace.producedMessageIds ?? []),
     ]) {
       relatedMessageIds.add(relatedMessageId);
     }

@@ -254,7 +254,7 @@ describe('MultiChatRuntime history cutoffs', () => {
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'noop' },
+        actions: [],
       })),
       initialState: {
         settings: {
@@ -296,6 +296,7 @@ describe('MultiChatRuntime history cutoffs', () => {
             },
             requestTraces: {},
             entryInspectionIndex: {},
+            maxAutoRounds: 5,
             turnOrdering: {
               strategy: 'sequential',
             },
@@ -330,7 +331,7 @@ describe('MultiChatRuntime history cutoffs', () => {
         seenAgentIds.push(agentId);
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'noop' },
+          actions: [],
         };
       }),
     });

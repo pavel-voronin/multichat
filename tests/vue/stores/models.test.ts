@@ -17,7 +17,7 @@ function createTransport(): OpenRouterTransport {
     ]),
     runAgentTurn: vi.fn().mockResolvedValue({
       mode: 'tools',
-      action: { type: 'stay_silent', reason: 'noop' },
+      actions: [],
     }),
   };
 }

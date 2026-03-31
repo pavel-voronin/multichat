@@ -44,7 +44,7 @@ describe('MultiAgentChat technical info', () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.text()).toContain('Technical info: on');
-    expect(wrapper.text()).toContain('[silent Alpha] stayed silent: noop');
+    expect(wrapper.text()).toContain('[silent Alpha] stayed silent: stay_silent');
   });
 
   it('shows cost for silent decisions after enabling technical info', async () => {
@@ -62,7 +62,7 @@ describe('MultiAgentChat technical info', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'priced noop' },
+          actions: [],
           usage: {
             promptTokens: 10,
             completionTokens: 0,
@@ -97,7 +97,7 @@ describe('MultiAgentChat technical info', () => {
 
     expect(silentCostTrigger).toBeDefined();
     expect(wrapper.text()).toContain(
-      '[silent Alpha] $0.5000 stayed silent: priced noop',
+      '[silent Alpha] $0.5000 stayed silent: stay_silent',
     );
   });
 

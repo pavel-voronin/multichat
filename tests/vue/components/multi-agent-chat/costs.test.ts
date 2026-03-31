@@ -112,7 +112,7 @@ describe('MultiAgentChat cost display', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'noop' },
+          actions: [],
           usage: {
             promptTokens: 10,
             completionTokens: 2,
@@ -158,7 +158,7 @@ describe('MultiAgentChat cost display', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'noop' },
+          actions: [],
           usage: {
             promptTokens: 10,
             completionTokens: 2,
@@ -197,7 +197,7 @@ describe('MultiAgentChat cost display', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'noop' },
+          actions: [],
           usage: {
             promptTokens: 10,
             completionTokens: 0,

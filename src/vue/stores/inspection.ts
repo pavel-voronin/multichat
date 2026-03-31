@@ -57,9 +57,9 @@ export const useInspectionStore = defineStore('inspection', () => {
   );
 
   const currentActionForTrace = computed<AgentToolCall | null>(() => {
-    const payload = traceForCurrentEntry.value?.payloads.normalizedActionJson;
-    if (!payload || typeof payload !== 'object') return null;
-    return payload as AgentToolCall;
+    const payload = traceForCurrentEntry.value?.payloads.normalizedActionsJson;
+    if (!Array.isArray(payload) || payload.length === 0) return null;
+    return payload[0] as AgentToolCall;
   });
 
   const usedInEntriesForCurrentEntry = computed<ParticipantMessageEntry[]>(
@@ -71,12 +71,11 @@ export const useInspectionStore = defineStore('inspection', () => {
       return index.downstreamTraceIds
         .map((traceId) => diagnostics.value.requestTraces[traceId])
         .filter(Boolean)
-        .map((trace) =>
-          trace.producedMessageId
-            ? findParticipantEntryById(state.value, trace.producedMessageId)
-            : null,
-        )
-        .filter((e): e is ParticipantMessageEntry => e !== null);
+        .flatMap((trace) =>
+          (trace.producedMessageIds ?? [])
+            .map((msgId) => findParticipantEntryById(state.value, msgId))
+            .filter((e): e is ParticipantMessageEntry => e !== null),
+        );
     },
   );
 

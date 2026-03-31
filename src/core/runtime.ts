@@ -392,7 +392,7 @@ export class MultiChatRuntime {
       workspace: this.workspace,
       payload: {
         kind: 'history-cutoff-set',
-        messageId: getTimelineParticipantEntries(tab).at(-1)?.id,
+        messageIds: getTimelineParticipantEntries(tab).at(-1)?.id ? [getTimelineParticipantEntries(tab).at(-1)!.id] : undefined,
         details: `cutoff=${cutoff.id}`,
       },
     });
@@ -426,7 +426,7 @@ export class MultiChatRuntime {
       workspace: this.workspace,
       payload: {
         kind: 'history-cleared',
-        messageId: cutoff.id,
+        messageIds: [cutoff.id],
         details: `cleared through ${cutoff.id}`,
       },
     });

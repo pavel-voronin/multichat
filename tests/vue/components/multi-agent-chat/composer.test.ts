@@ -86,7 +86,7 @@ describe('MultiAgentChat composer', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'Agent reply' },
+          actions: [{ type: 'speak_public', text: 'Agent reply' }],
         };
       },
     };

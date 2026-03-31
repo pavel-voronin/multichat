@@ -6,7 +6,7 @@ describe('MultiChatRuntime accounting and logs', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'metrics' },
+        actions: [],
         usage: {
           promptTokens: 5,
           completionTokens: 3,
@@ -41,13 +41,13 @@ describe('MultiChatRuntime accounting and logs', () => {
         if (agentId === 'id-1') {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'logged reply' },
+            actions: [{ type: 'speak_public', text: 'logged reply' }],
           };
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'observer' },
+          actions: [],
         };
       }),
     });
@@ -88,7 +88,8 @@ describe('MultiChatRuntime accounting and logs', () => {
         (entry) =>
           entry.kind === 'turn-result' &&
           entry.agentId === alphaId &&
-          entry.actionType === 'speak_public',
+          Array.isArray(entry.actionTypes) &&
+          entry.actionTypes.includes('speak_public'),
       ),
     ).toBe(true);
     expect(
@@ -96,8 +97,7 @@ describe('MultiChatRuntime accounting and logs', () => {
         (entry) =>
           entry.kind === 'turn-result' &&
           entry.agentId === betaId &&
-          entry.actionType === 'stay_silent' &&
-          entry.details === 'observer',
+          entry.actionCount === 0,
       ),
     ).toBe(true);
     expect(
@@ -114,10 +114,10 @@ describe('MultiChatRuntime accounting and logs', () => {
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => ({
         mode: 'tools',
-        action:
+        actions:
           agentId === 'id-1'
-            ? { type: 'send_private', to: 'id-2', text: 'logged private' }
-            : { type: 'stay_silent', reason: 'observer' },
+            ? [{ type: 'send_private', to: 'id-2', text: 'logged private' }]
+            : [],
       })),
     });
 
@@ -146,10 +146,10 @@ describe('MultiChatRuntime accounting and logs', () => {
         (entry) =>
           entry.kind === 'turn-result' &&
           entry.agentId === 'id-1' &&
-          entry.actionType === 'send_private' &&
-          entry.target === 'private' &&
-          entry.recipientId === 'id-2' &&
-          entry.content === 'logged private',
+          Array.isArray(entry.actionTypes) &&
+          entry.actionTypes.includes('send_private') &&
+          Array.isArray(entry.recipientIds) &&
+          entry.recipientIds.includes('id-2'),
       ),
     ).toBe(true);
   });

@@ -75,15 +75,10 @@ export function publishParticipantMessage(
     payload: {
       kind: 'message-created',
       sweep: entry.createdInSweep,
-      messageId: entry.id,
+      messageIds: [entry.id],
       agentId: input.senderId,
       agentName: senderName,
-      target: entry.target,
-      recipientId: entry.recipientId,
-      content: entry.content,
-      details: triggersSweep
-        ? 'message triggers sweep'
-        : 'message does not trigger sweep',
+      details: `${JSON.stringify(entry.content)} ${triggersSweep ? 'triggers sweep' : 'no sweep'}`,
     },
   });
 

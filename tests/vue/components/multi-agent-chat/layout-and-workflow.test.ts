@@ -26,7 +26,7 @@ describe('MultiAgentChat layout and workflow', () => {
           return [];
         },
         async runAgentTurn() {
-          return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+          return { mode: 'tools', actions: [] };
         },
       },
       storage: {
@@ -62,7 +62,7 @@ describe('MultiAgentChat layout and workflow', () => {
             maxAutoRounds: 12,
             requestTraces: {},
             entryInspectionIndex: {},
-            turnOrdering: { strategy: 'round_robin' },
+            turnOrdering: { strategy: 'sequential' },
           },
         ],
         activeTabId: 'tab-default',
@@ -75,7 +75,7 @@ describe('MultiAgentChat layout and workflow', () => {
           return [];
         },
         async runAgentTurn() {
-          return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+          return { mode: 'tools', actions: [] };
         },
       },
       storage: {
@@ -106,7 +106,7 @@ describe('MultiAgentChat layout and workflow', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'noop' },
+          actions: [],
         };
       },
     };

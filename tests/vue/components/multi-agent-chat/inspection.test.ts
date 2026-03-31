@@ -99,7 +99,7 @@ describe('MultiAgentChat request inspection', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'agent reply' },
+          actions: [{ type: 'speak_public', text: 'agent reply' }],
           usage: {
             promptTokens: 10,
             completionTokens: 5,
@@ -144,7 +144,7 @@ describe('MultiAgentChat request inspection', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'agent reply' },
+          actions: [{ type: 'speak_public', text: 'agent reply' }],
           usage: {
             promptTokens: 10,
             completionTokens: 5,
@@ -195,7 +195,7 @@ describe('MultiAgentChat request inspection', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'agent reply' },
+          actions: [{ type: 'speak_public', text: 'agent reply' }],
           usage: {
             promptTokens: 10,
             completionTokens: 5,
@@ -240,7 +240,7 @@ describe('MultiAgentChat request inspection', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'agent reply' },
+          actions: [{ type: 'speak_public', text: 'agent reply' }],
           usage: {
             promptTokens: 10,
             completionTokens: 5,
@@ -338,7 +338,7 @@ describe('MultiAgentChat request inspection', () => {
       async runAgentTurn() {
         return {
           mode: 'tools',
-          action: { type: 'speak_public', text: 'agent reply' },
+          actions: [{ type: 'speak_public', text: 'agent reply' }],
           usage: { promptTokens: 10, completionTokens: 5 },
         };
       },

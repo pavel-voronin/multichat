@@ -11,7 +11,7 @@ describe('MultiChatRuntime request traces', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'speak_public', text: 'trace hello' },
+        actions: [{ type: 'speak_public', text: 'trace hello' }],
         usage: {
           promptTokens: 12,
           completionTokens: 4,
@@ -51,11 +51,11 @@ describe('MultiChatRuntime request traces', () => {
     expect(trace).toEqual(
       expect.objectContaining({
         status: 'succeeded',
-        producedMessageId: agentMessage.id,
+        producedMessageIds: [agentMessage.id],
         payloads: expect.objectContaining({
           requestInputJson: { request: true },
           responseOutputJson: { response: true },
-          normalizedActionJson: { type: 'speak_public', text: 'trace hello' },
+          normalizedActionsJson: [{ type: 'speak_public', text: 'trace hello' }],
         }),
       }),
     );
@@ -66,10 +66,10 @@ describe('MultiChatRuntime request traces', () => {
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => ({
         mode: 'tools',
-        action:
+        actions:
           agentId === 'id-1'
-            ? { type: 'send_private', to: 'id-2', text: 'private trace hello' }
-            : { type: 'stay_silent', reason: 'not addressed' },
+            ? [{ type: 'send_private', to: 'id-2', text: 'private trace hello' }]
+            : [],
       })),
     });
 
@@ -105,13 +105,15 @@ describe('MultiChatRuntime request traces', () => {
     );
     expect(trace).toEqual(
       expect.objectContaining({
-        producedMessageId: privateMessage!.id,
+        producedMessageIds: [privateMessage!.id],
         payloads: expect.objectContaining({
-          normalizedActionJson: {
-            type: 'send_private',
-            to: 'id-2',
-            text: 'private trace hello',
-          },
+          normalizedActionsJson: [
+            {
+              type: 'send_private',
+              to: 'id-2',
+              text: 'private trace hello',
+            },
+          ],
         }),
       }),
     );
@@ -121,10 +123,10 @@ describe('MultiChatRuntime request traces', () => {
     const runtime = createRuntime({
       transport: createTransport(async (agentId) => ({
         mode: 'tools',
-        action:
+        actions:
           agentId === 'id-1'
-            ? { type: 'speak_public', text: 'alpha reply' }
-            : { type: 'stay_silent', reason: 'observed' },
+            ? [{ type: 'speak_public', text: 'alpha reply' }]
+            : [],
       })),
     });
 

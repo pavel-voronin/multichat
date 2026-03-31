@@ -107,6 +107,7 @@ describe('costing utils', () => {
         triggeringMessageIds: [],
         visibleMessageIds: [],
         nonSelfVisibleMessageIds: [],
+        producedMessageIds: [],
         childTraceIds: [],
         upstreamMessageIds: [],
         downstreamMessageIds: [],

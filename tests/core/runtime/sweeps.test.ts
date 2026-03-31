@@ -38,7 +38,7 @@ describe('MultiChatRuntime sweeps', () => {
         order.push(agentId);
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'ordered' },
+          actions: [],
         };
       }),
     });
@@ -79,7 +79,7 @@ describe('MultiChatRuntime sweeps', () => {
           ) {
             return {
               mode: 'tools',
-              action: { type: 'speak_public', text: 'reply from alpha' },
+              actions: [{ type: 'speak_public', text: 'reply from alpha' }],
             };
           }
 
@@ -93,7 +93,7 @@ describe('MultiChatRuntime sweeps', () => {
           ) {
             return {
               mode: 'tools',
-              action: { type: 'speak_public', text: 'follow-up from alpha' },
+              actions: [{ type: 'speak_public', text: 'follow-up from alpha' }],
             };
           }
         }
@@ -107,13 +107,13 @@ describe('MultiChatRuntime sweeps', () => {
         ) {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'reply from beta' },
+            actions: [{ type: 'speak_public', text: 'reply from beta' }],
           };
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'done' },
+          actions: [],
         };
       }),
     });
@@ -171,7 +171,7 @@ describe('MultiChatRuntime sweeps', () => {
         ) {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'reply from alpha' },
+            actions: [{ type: 'speak_public', text: 'reply from alpha' }],
           };
         }
 
@@ -184,13 +184,13 @@ describe('MultiChatRuntime sweeps', () => {
         ) {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'reply from beta' },
+            actions: [{ type: 'speak_public', text: 'reply from beta' }],
           };
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'done' },
+          actions: [],
         };
       }),
     });
@@ -230,13 +230,13 @@ describe('MultiChatRuntime sweeps', () => {
         if (agentId === alphaId) {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'need more detail' },
+            actions: [{ type: 'speak_public', text: 'need more detail' }],
           };
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'no input' },
+          actions: [],
         };
       }),
     });
@@ -276,13 +276,13 @@ describe('MultiChatRuntime sweeps', () => {
         if (agentId === alphaId) {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'answer once' },
+            actions: [{ type: 'speak_public', text: 'answer once' }],
           };
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'not addressed' },
+          actions: [],
         };
       }),
     });
@@ -331,7 +331,7 @@ describe('MultiChatRuntime sweeps', () => {
               () =>
                 resolve({
                   mode: 'tools',
-                  action: { type: 'stay_silent', reason: 'late' },
+                  actions: [],
                 }),
               200,
             );
@@ -370,7 +370,7 @@ describe('MultiChatRuntime sweeps', () => {
         );
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'ordered' },
+          actions: [],
         };
       }),
     });
@@ -415,7 +415,7 @@ describe('MultiChatRuntime sweeps', () => {
         );
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'ordered' },
+          actions: [],
         };
       }),
     });
@@ -449,7 +449,7 @@ describe('MultiChatRuntime sweeps', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'ordered' },
+        actions: [],
       })),
     });
 
@@ -492,7 +492,7 @@ describe('MultiChatRuntime sweeps', () => {
         );
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'test' },
+          actions: [],
         };
       }),
     });
@@ -532,7 +532,7 @@ describe('MultiChatRuntime sweeps', () => {
         );
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'test' },
+          actions: [],
         };
       }),
     });
@@ -564,7 +564,7 @@ describe('MultiChatRuntime sweeps', () => {
         );
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'test' },
+          actions: [],
         };
       }),
     });
@@ -606,14 +606,14 @@ describe('MultiChatRuntime sweeps', () => {
           if (!hasSpoken) {
             return {
               mode: 'tools',
-              action: { type: 'speak_public', text: 'Beta: your turn' },
+              actions: [{ type: 'speak_public', text: 'Beta: your turn' }],
             };
           }
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'done' },
+          actions: [],
         };
       }),
     });
@@ -660,7 +660,7 @@ describe('MultiChatRuntime sweeps', () => {
           if (!visible.some((m) => m.senderId === betaId)) {
             return {
               mode: 'tools',
-              action: { type: 'speak_public', text: 'from beta' },
+              actions: [{ type: 'speak_public', text: 'from beta' }],
             };
           }
         }
@@ -674,14 +674,14 @@ describe('MultiChatRuntime sweeps', () => {
           ) {
             return {
               mode: 'tools',
-              action: { type: 'send_private', text: 'hey beta', to: betaId },
+              actions: [{ type: 'send_private', text: 'hey beta', to: betaId }],
             };
           }
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'done' },
+          actions: [],
         };
       }),
     });
@@ -729,14 +729,14 @@ describe('MultiChatRuntime sweeps', () => {
           if (!visible.some((m) => m.senderId === betaId)) {
             return {
               mode: 'tools',
-              action: { type: 'send_private', text: 'just for you', to: alphaId },
+              actions: [{ type: 'send_private', text: 'just for you', to: alphaId }],
             };
           }
         }
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'done' },
+          actions: [],
         };
       }),
     });

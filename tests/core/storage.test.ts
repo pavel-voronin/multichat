@@ -28,6 +28,7 @@ function createState(): WorkspaceState {
         },
         requestTraces: {},
         entryInspectionIndex: {},
+        maxAutoRounds: 5,
         turnOrdering: {
           strategy: 'sequential',
         },

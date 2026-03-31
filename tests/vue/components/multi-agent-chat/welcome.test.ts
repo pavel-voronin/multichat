@@ -128,7 +128,7 @@ describe('WelcomeDialog UI', () => {
         ];
       },
       async runAgentTurn() {
-        return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+        return { mode: 'tools', actions: [] };
       },
     };
     const runtime = createRuntime({
@@ -173,7 +173,7 @@ describe('WelcomeDialog UI', () => {
       validateApiKey,
       listModels,
       async runAgentTurn() {
-        return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+        return { mode: 'tools', actions: [] };
       },
     };
     const runtime = createRuntime({

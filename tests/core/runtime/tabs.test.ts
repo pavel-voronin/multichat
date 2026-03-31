@@ -7,7 +7,7 @@ function createEmptyRuntime() {
   return new MultiChatRuntime({
     transport: createTransport(async () => ({
       mode: 'tools',
-      action: { type: 'stay_silent', reason: 'noop' },
+      actions: [],
     })),
     storage: {
       load: async () => null,
@@ -166,17 +166,19 @@ describe('MultiChatRuntime tabs', () => {
               if (agentId === 'id-1') {
                 resolve({
                   mode: 'tools' as const,
-                  action: {
-                    type: 'speak_public' as const,
-                    text: 'background reply',
-                  },
+                  actions: [
+                    {
+                      type: 'speak_public' as const,
+                      text: 'background reply',
+                    },
+                  ],
                 });
                 return;
               }
 
               resolve({
                 mode: 'tools' as const,
-                action: { type: 'stay_silent' as const, reason: 'noop' },
+                actions: [],
               });
             }, 5);
           }),

@@ -60,20 +60,16 @@ export function formatDebugLogLine(entry: DebugLogEntry): string {
     segments.push(`skip=${entry.skipReason}`);
   }
 
-  if (entry.actionType) {
-    segments.push(`action=${entry.actionType}`);
+  if (entry.actionTypes?.length) {
+    segments.push(`actions=[${entry.actionTypes.join(', ')}]`);
   }
 
-  if (entry.messageId) {
-    segments.push(`messageId=${entry.messageId}`);
+  if (entry.messageIds?.length) {
+    segments.push(`messageIds=[${entry.messageIds.join(', ')}]`);
   }
 
-  if (entry.target) {
-    segments.push(`target=${entry.target}`);
-  }
-
-  if (entry.recipientId) {
-    segments.push(`recipientId=${entry.recipientId}`);
+  if (entry.recipientIds?.length) {
+    segments.push(`recipientIds=[${entry.recipientIds.join(', ')}]`);
   }
 
   if (entry.triggeringMessageIds?.length) {
@@ -94,10 +90,6 @@ export function formatDebugLogLine(entry: DebugLogEntry): string {
 
   if (entry.contextKeyNext !== undefined) {
     segments.push(`ctxNext=${entry.contextKeyNext || '∅'}`);
-  }
-
-  if (entry.content) {
-    segments.push(`content=${JSON.stringify(entry.content)}`);
   }
 
   if (entry.details) {

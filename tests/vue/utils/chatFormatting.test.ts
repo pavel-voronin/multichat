@@ -11,7 +11,7 @@ describe('chatFormatting utils', () => {
       sweep: 2,
       agentId: 'alpha',
       agentName: 'Alpha',
-      messageId: 'm-1',
+      messageIds: ['m-1'],
       details: 'ok',
     };
 
@@ -19,7 +19,7 @@ describe('chatFormatting utils', () => {
     expect(line).toContain('turn-result');
     expect(line).toContain('sweep=2');
     expect(line).toContain('agent=Alpha');
-    expect(line).toContain('messageId=m-1');
+    expect(line).toContain('messageIds=[m-1]');
     expect(line).toContain('details="ok"');
   });
 });

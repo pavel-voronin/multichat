@@ -137,11 +137,11 @@ export async function handleSuccessfulAgentTurnResultFn({
     tab,
     status: 'succeeded',
     usage: result.usage,
-    action: result.action,
+    actions: result.actions,
     promptCostUsd: getPromptCostUsd(agent, result.usage),
   });
 
-  if (result.action.type === 'stay_silent') {
+  if (result.actions.length === 0) {
     const requestCostUsd = result.usage?.estimatedCost;
     const ownPromptCostUsd = getPromptCostUsd(agent, result.usage);
     pushSilentDecision({
@@ -149,7 +149,7 @@ export async function handleSuccessfulAgentTurnResultFn({
       now: ctx.now,
       tab,
       agentId: agent.id,
-      reason: result.action.reason,
+      reason: 'stay_silent',
       sourceTraceId: traceId,
       requestCostUsd,
       ownPromptCostUsd,
@@ -165,30 +165,39 @@ export async function handleSuccessfulAgentTurnResultFn({
         agentName: agent.name,
         mode: result.mode,
         fallback,
-        actionType: result.action.type,
-        details: result.action.reason,
+        actionCount: 0,
+        actionTypes: [],
       },
     });
     ctx.persistAndNotify();
     return;
   }
 
-  const sentMessage = await ctx.sendMessage(
-    {
-      senderId: agent.id,
-      content: result.action.text,
-      target: result.action.type === 'speak_public' ? 'public' : 'private',
-      recipientId:
-        result.action.type === 'send_private' ? result.action.to : undefined,
-      requestCostUsd: result.usage?.estimatedCost,
-      ownPromptCostUsd: getPromptCostUsd(agent, result.usage),
-      createdInSweep: tab.execution.sweepCount,
-      sourceTraceId: traceId,
-      triggerSweep: false,
-    },
-    tabId,
-  );
-  attachProducedMessageToTrace(traceId, sentMessage.id, tab);
+  const messageIds: string[] = [];
+  const recipientIds: string[] = [];
+
+  for (const action of result.actions) {
+    const sentMessage = await ctx.sendMessage(
+      {
+        senderId: agent.id,
+        content: 'text' in action ? action.text : '',
+        target: action.type === 'speak_public' ? 'public' : 'private',
+        recipientId: action.type === 'send_private' ? action.to : undefined,
+        requestCostUsd: result.usage?.estimatedCost,
+        ownPromptCostUsd: getPromptCostUsd(agent, result.usage),
+        createdInSweep: tab.execution.sweepCount,
+        sourceTraceId: traceId,
+        triggerSweep: false,
+      },
+      tabId,
+    );
+    attachProducedMessageToTrace(traceId, sentMessage.id, tab);
+    messageIds.push(sentMessage.id);
+    if (action.type === 'send_private') {
+      recipientIds.push(action.to);
+    }
+  }
+
   pushDebugLog({
     now: ctx.now,
     workspace: ctx.workspace,
@@ -199,11 +208,10 @@ export async function handleSuccessfulAgentTurnResultFn({
       agentName: agent.name,
       mode: result.mode,
       fallback,
-      actionType: result.action.type,
-      messageId: sentMessage.id,
-      target: sentMessage.target,
-      recipientId: sentMessage.recipientId,
-      content: result.action.text,
+      actionCount: result.actions.length,
+      actionTypes: result.actions.map((a) => a.type),
+      messageIds,
+      recipientIds: recipientIds.length > 0 ? recipientIds : undefined,
     },
   });
   tab.execution.queuedSweep = true;

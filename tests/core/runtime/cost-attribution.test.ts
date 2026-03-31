@@ -11,7 +11,7 @@ describe('MultiChatRuntime cost attribution', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'speak_public', text: 'priced reply' },
+        actions: [{ type: 'speak_public', text: 'priced reply' }],
         usage: {
           promptTokens: 5,
           completionTokens: 3,
@@ -40,7 +40,7 @@ describe('MultiChatRuntime cost attribution', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'priced noop' },
+        actions: [],
         usage: {
           promptTokens: 5,
           completionTokens: 0,
@@ -66,7 +66,7 @@ describe('MultiChatRuntime cost attribution', () => {
 
     expect(silentDecision).toMatchObject({
       kind: 'silent-decision',
-      reason: 'priced noop',
+      reason: 'stay_silent',
       requestCostUsd: 0.00042,
       ownPromptCostUsd: 0.05,
       costUsd: 0.00042,
@@ -79,7 +79,7 @@ describe('MultiChatRuntime cost attribution', () => {
         if (agentId === 'id-1') {
           return {
             mode: 'tools',
-            action: { type: 'speak_public', text: 'priced reply' },
+            actions: [{ type: 'speak_public', text: 'priced reply' }],
             usage: {
               promptTokens: 10,
               completionTokens: 5,
@@ -91,7 +91,7 @@ describe('MultiChatRuntime cost attribution', () => {
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'seen' },
+          actions: [],
           usage: {
             promptTokens: 20,
             completionTokens: 0,
@@ -144,7 +144,7 @@ describe('MultiChatRuntime cost attribution', () => {
         if (agentId === 'id-1') {
           return {
             mode: 'tools',
-            action: { type: 'stay_silent', reason: 'first reader' },
+            actions: [],
             usage: {
               promptTokens: 10,
               completionTokens: 0,
@@ -156,7 +156,7 @@ describe('MultiChatRuntime cost attribution', () => {
 
         return {
           mode: 'tools',
-          action: { type: 'stay_silent', reason: 'second reader' },
+          actions: [],
           usage: {
             promptTokens: 20,
             completionTokens: 0,
@@ -213,7 +213,7 @@ describe('MultiChatRuntime cost attribution', () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'listened' },
+        actions: [],
         usage: {
           promptTokens: 20,
           completionTokens: 0,

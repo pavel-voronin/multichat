@@ -92,7 +92,7 @@ describe('MultiChatRuntime participant lifecycle', () => {
           );
           return {
             mode: 'tools',
-            action: { type: 'stay_silent', reason: 'captured context' },
+            actions: [],
           };
         },
       },

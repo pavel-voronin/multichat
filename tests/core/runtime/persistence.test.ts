@@ -25,7 +25,7 @@ describe('MultiChatRuntime persistence coordination', () => {
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'noop' },
+        actions: [],
       })),
       storage: {
         load: async () => null,
@@ -60,7 +60,7 @@ describe('MultiChatRuntime persistence coordination', () => {
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'noop' },
+        actions: [],
       })),
       storage: {
         load: async () => null,
@@ -94,7 +94,7 @@ describe('MultiChatRuntime persistence coordination', () => {
     const runtime = new MultiChatRuntime({
       transport: createTransport(async () => ({
         mode: 'tools',
-        action: { type: 'stay_silent', reason: 'noop' },
+        actions: [],
       })),
       storage: {
         load: async () => null,

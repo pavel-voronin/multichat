@@ -38,7 +38,7 @@ function createRuntime() {
       ];
     },
     async runAgentTurn() {
-      return { mode: 'tools', action: { type: 'stay_silent', reason: 'noop' } };
+      return { mode: 'tools', actions: [] };
     },
   };
   return new MultiChatRuntime({
