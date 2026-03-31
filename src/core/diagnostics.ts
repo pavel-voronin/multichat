@@ -42,7 +42,7 @@ export function createRequestTrace(input: {
     triggeringMessageIds: input.triggeringMessageIds,
     visibleMessageIds: input.visibleMessageIds,
     nonSelfVisibleMessageIds: input.nonSelfVisibleMessageIds,
-    producedMessageId: undefined,
+    producedMessageIds: [],
     parentTraceId: input.parentTraceId,
     childTraceIds: [],
     upstreamMessageIds: input.triggeringMessageIds,
@@ -77,7 +77,7 @@ export function completeRequestTrace(input: {
   traceId: string;
   status: RequestTrace['status'];
   usage?: TransportUsage;
-  action?: unknown;
+  actions?: unknown;
   error?: string;
   tab: ChatTabState;
   promptCostUsd: number;
@@ -105,8 +105,8 @@ export function completeRequestTrace(input: {
       ...input.usage.transportMeta,
     };
   }
-  if (input.action) {
-    trace.payloads.normalizedActionJson = input.action;
+  if (input.actions) {
+    trace.payloads.normalizedActionsJson = input.actions;
   }
   if (input.error) {
     trace.transport = {
@@ -126,7 +126,7 @@ export function attachProducedMessageToTrace(
     return;
   }
 
-  trace.producedMessageId = messageId;
+  trace.producedMessageIds.push(messageId);
   trace.downstreamMessageIds.push(messageId);
   trace.links.push({ kind: 'produced-message', messageId });
   const index = getEntryInspectionIndexEntry(messageId, tab);
