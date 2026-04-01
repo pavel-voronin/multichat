@@ -209,6 +209,43 @@ describe('MultiChatRuntime cost attribution', () => {
     });
   });
 
+  it('distributes request cost proportionally by character length across multi-action messages', async () => {
+    const runtime = createRuntime({
+      transport: createTransport(async () => ({
+        mode: 'tools',
+        actions: [
+          { type: 'speak_public', text: 'short' },      // 5 chars
+          { type: 'speak_public', text: 'longer text' }, // 11 chars
+        ],
+        usage: {
+          promptTokens: 5,
+          completionTokens: 3,
+          totalTokens: 8,
+          estimatedCost: 0.16,
+        },
+      })),
+    });
+
+    runtime.createAgent({
+      name: 'Priced',
+      modelId: 'm',
+      systemPrompt: 'prompt',
+    });
+    runtime.updateSettings({ openRouterApiKey: 'test-key' });
+
+    await runtime.runAgentSweep('manual');
+
+    const messages = timelineMessages(runtime).filter((m) => m.authorId !== 'human');
+    expect(messages).toHaveLength(2);
+    // 5/(5+11) = 0.3125, 11/(5+11) = 0.6875
+    expect(messages[0]!.requestCostUsd).toBeCloseTo(0.16 * (5 / 16), 10);
+    expect(messages[1]!.requestCostUsd).toBeCloseTo(0.16 * (11 / 16), 10);
+    expect((messages[0]!.requestCostUsd ?? 0) + (messages[1]!.requestCostUsd ?? 0)).toBeCloseTo(
+      0.16,
+      10,
+    );
+  });
+
   it('prorates prompt cost across all listened messages in context', async () => {
     const runtime = createRuntime({
       transport: createTransport(async () => ({
