@@ -23,7 +23,7 @@ async function callChatCompletion(
   const requestPayload = {
     model: context.agent.modelId,
     messages: buildMessages(context),
-    tools: buildTools(),
+    tools: buildTools(context.agent),
     tool_choice: 'required',
   };
   let response: Response;
