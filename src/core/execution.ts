@@ -178,18 +178,22 @@ export async function handleSuccessfulAgentTurnResultFn({
           });
         }
       } else if (op.type === 'memory_update') {
-        const isDelete = op.content === '';
-        memory = applyMemoryUpdate(memory, op.id, op.content);
-        pushMemoryChanged({
-          createId: ctx.createId,
-          now: ctx.now,
-          tab,
-          agentId: agent.id,
-          operation: isDelete ? 'delete' : 'update',
-          entryId: op.id,
-          content: isDelete ? undefined : op.content,
-          sourceTraceId: traceId,
-        });
+        if (!(op.id in memory)) {
+          // no-op: id does not exist
+        } else {
+          const isDelete = op.content === '';
+          memory = applyMemoryUpdate(memory, op.id, op.content);
+          pushMemoryChanged({
+            createId: ctx.createId,
+            now: ctx.now,
+            tab,
+            agentId: agent.id,
+            operation: isDelete ? 'delete' : 'update',
+            entryId: op.id,
+            content: isDelete ? undefined : op.content,
+            sourceTraceId: traceId,
+          });
+        }
       } else if (op.type === 'memory_delete') {
         memory = applyMemoryDelete(memory, op.id);
         pushMemoryChanged({
