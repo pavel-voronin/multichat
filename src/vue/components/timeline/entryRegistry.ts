@@ -9,6 +9,7 @@ import RuntimeErrorEntryVue from './entries/RuntimeErrorEntry.vue';
 import SweepStartedEntryVue from './entries/SweepStartedEntry.vue';
 import SweepFinishedEntryVue from './entries/SweepFinishedEntry.vue';
 import SweepStoppedEntryVue from './entries/SweepStoppedEntry.vue';
+import AgentMemoryChangedEntryVue from './entries/AgentMemoryChangedEntry.vue';
 
 export const entryRegistry: Record<ChatEntry['kind'], Component> = {
   'participant-message': ParticipantMessageEntryVue,
@@ -20,4 +21,5 @@ export const entryRegistry: Record<ChatEntry['kind'], Component> = {
   'sweep-started': SweepStartedEntryVue,
   'sweep-finished': SweepFinishedEntryVue,
   'sweep-stopped': SweepStoppedEntryVue,
+  'agent-memory-changed': AgentMemoryChangedEntryVue,
 };
