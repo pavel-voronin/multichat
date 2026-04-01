@@ -1,6 +1,7 @@
 import type {
   AgentConfig,
   AgentContextMessage,
+  AgentToolCall,
   AgentTurnResult,
   ChatTabState,
   OpenRouterTransport,
@@ -13,12 +14,14 @@ import {
   completeRequestTrace,
   createRequestTrace,
   pushDebugLog,
+  pushMemoryChanged,
   pushRuntimeError,
   pushSilentDecision,
   pushSweepFinished,
   pushSweepStarted,
   pushSweepStopped,
 } from './diagnostics';
+import { applyMemoryAdd, applyMemoryDelete, applyMemoryUpdate } from './agentMemory';
 import {
   applyDownstreamPromptCost,
   applyUsage,
@@ -141,7 +144,70 @@ export async function handleSuccessfulAgentTurnResultFn({
     promptCostUsd: getPromptCostUsd(agent, result.usage),
   });
 
-  if (result.actions.length === 0) {
+  // Separate memory operations from conversational actions
+  const memoryActions = result.actions.filter(
+    (a): a is Extract<AgentToolCall, { type: 'memory_add' | 'memory_update' | 'memory_delete' }> =>
+      a.type === 'memory_add' || a.type === 'memory_update' || a.type === 'memory_delete',
+  );
+  const messageActions = result.actions.filter(
+    (a): a is Extract<AgentToolCall, { type: 'speak_public' | 'send_private' }> =>
+      a.type === 'speak_public' || a.type === 'send_private',
+  );
+
+  // Apply memory operations
+  if (memoryActions.length > 0) {
+    let memory: Record<number, string> = { ...(agent.memory ?? {}) };
+
+    for (const op of memoryActions) {
+      if (op.type === 'memory_add') {
+        const prevMemory = { ...memory };
+        memory = applyMemoryAdd(memory, op.content);
+        const newId = Object.keys(memory)
+          .map(Number)
+          .find((id) => !(id in prevMemory));
+        if (newId !== undefined) {
+          pushMemoryChanged({
+            createId: ctx.createId,
+            now: ctx.now,
+            tab,
+            agentId: agent.id,
+            operation: 'add',
+            entryId: newId,
+            content: op.content,
+            sourceTraceId: traceId,
+          });
+        }
+      } else if (op.type === 'memory_update') {
+        const isDelete = op.content === '';
+        memory = applyMemoryUpdate(memory, op.id, op.content);
+        pushMemoryChanged({
+          createId: ctx.createId,
+          now: ctx.now,
+          tab,
+          agentId: agent.id,
+          operation: isDelete ? 'delete' : 'update',
+          entryId: op.id,
+          content: isDelete ? undefined : op.content,
+          sourceTraceId: traceId,
+        });
+      } else if (op.type === 'memory_delete') {
+        memory = applyMemoryDelete(memory, op.id);
+        pushMemoryChanged({
+          createId: ctx.createId,
+          now: ctx.now,
+          tab,
+          agentId: agent.id,
+          operation: 'delete',
+          entryId: op.id,
+          sourceTraceId: traceId,
+        });
+      }
+    }
+
+    ctx.updateAgent(agent.id, { memory }, tabId);
+  }
+
+  if (messageActions.length === 0) {
     const requestCostUsd = result.usage?.estimatedCost;
     const ownPromptCostUsd = getPromptCostUsd(agent, result.usage);
     pushSilentDecision({
@@ -165,8 +231,8 @@ export async function handleSuccessfulAgentTurnResultFn({
         agentName: agent.name,
         mode: result.mode,
         fallback,
-        actionCount: 0,
-        actionTypes: [],
+        actionCount: result.actions.length,
+        actionTypes: result.actions.map((a) => a.type),
       },
     });
     ctx.persistAndNotify();
@@ -176,14 +242,14 @@ export async function handleSuccessfulAgentTurnResultFn({
   const messageIds: string[] = [];
   const recipientIds: string[] = [];
 
-  const actionTexts = result.actions.map((a) => ('text' in a ? a.text : ''));
+  const actionTexts = messageActions.map((a) => a.text);
   const totalChars = actionTexts.reduce((sum, t) => sum + t.length, 0);
   const totalRequestCost = result.usage?.estimatedCost;
   const totalOwnPromptCost = getPromptCostUsd(agent, result.usage);
 
-  for (let i = 0; i < result.actions.length; i++) {
-    const action = result.actions[i]!;
-    const share = totalChars > 0 ? actionTexts[i]!.length / totalChars : 1 / result.actions.length;
+  for (let i = 0; i < messageActions.length; i++) {
+    const action = messageActions[i]!;
+    const share = totalChars > 0 ? actionTexts[i]!.length / totalChars : 1 / messageActions.length;
     const sentMessage = await ctx.sendMessage(
       {
         senderId: agent.id,
