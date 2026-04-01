@@ -64,6 +64,14 @@
         </p>
         <UiTextarea v-model="systemPrompt" class="wizard-textarea" rows="10" />
       </label>
+      <div class="wizard-field">
+        <span class="wizard-label">Memory</span>
+        <label class="wizard-memory-toggle">
+          <UiCheckbox v-model="memoryEnabled" />
+          <span class="wizard-copy">Enable memory for this agent</span>
+        </label>
+        <AgentMemoryEditor v-if="memoryEnabled" v-model:memory="memory" />
+      </div>
       <div class="wizard-actions">
         <UiButton
           class="wizard-primary-button"
@@ -98,7 +106,9 @@ import { defaultPromptPreset, promptPresets } from '../../promptPresets';
 import { useAgentsStore } from '../../stores/agents';
 import { useModelsStore } from '../../stores/models';
 import { useUiStore } from '../../stores/ui';
+import AgentMemoryEditor from './AgentMemoryEditor.vue';
 import UiButton from '../ui/UiButton.vue';
+import UiCheckbox from '../ui/UiCheckbox.vue';
 import UiInput from '../ui/UiInput.vue';
 import UiModal from '../ui/UiModal.vue';
 import UiSelect from '../ui/UiSelect.vue';
@@ -114,6 +124,8 @@ const name = ref('');
 const modelId = ref('');
 const systemPrompt = ref('');
 const selectedPresetId = ref(defaultPromptPreset.id);
+const memoryEnabled = ref(false);
+const memory = ref<Record<number, string>>({});
 
 function onModelSelect(selectedId: string) {
   modelId.value = selectedId;
@@ -127,6 +139,8 @@ watch(
     modelId.value = nextAgent?.modelId ?? '';
     systemPrompt.value = nextAgent?.systemPrompt ?? defaultPromptPreset.prompt;
     selectedPresetId.value = defaultPromptPreset.id;
+    memoryEnabled.value = nextAgent?.memoryEnabled ?? false;
+    memory.value = nextAgent?.memory ? { ...nextAgent.memory } : {};
   },
   { immediate: true },
 );
@@ -142,6 +156,8 @@ watch(
       modelId.value = '';
       systemPrompt.value = defaultPromptPreset.prompt;
       selectedPresetId.value = defaultPromptPreset.id;
+      memoryEnabled.value = false;
+      memory.value = {};
       if (ui.preselectedModelId) {
         modelId.value = ui.preselectedModelId;
         ui.preselectedModelId = null;
@@ -204,6 +220,8 @@ function save() {
     pricing: liveModel?.pricing ?? agent.value?.pricing,
     modelSnapshot,
     systemPrompt: systemPrompt.value.trim(),
+    memoryEnabled: memoryEnabled.value,
+    memory: { ...memory.value },
   };
 
   if (agent.value?.id) {
@@ -255,6 +273,10 @@ function openSettings() {
 
 .wizard-copy {
   @apply m-0 text-[12px] leading-5 text-neutral-500;
+}
+
+.wizard-memory-toggle {
+  @apply flex cursor-pointer items-center gap-2;
 }
 
 .wizard-actions {

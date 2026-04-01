@@ -1,4 +1,5 @@
-import type { AgentToolCall, AgentTurnContext } from './types';
+import type { AgentConfig, AgentToolCall, AgentTurnContext } from './types';
+import { formatMemoryForPrompt } from './agentMemory';
 
 export function buildMessages(context: AgentTurnContext) {
   const selfParticipant = context.participants.find(
@@ -25,6 +26,11 @@ export function buildMessages(context: AgentTurnContext) {
         })
         .join('\n')
     : 'No visible messages yet.';
+
+  const memorySection =
+    context.agent.memoryEnabled === true
+      ? `\n\n${formatMemoryForPrompt(context.agent.memory ?? {})}`
+      : '';
 
   const sharedInstructions = `${context.agent.systemPrompt}
 
@@ -65,12 +71,15 @@ Response contract:
 - Call every tool needed to complete your turn.
 - Public action: speak_public(text)
 - Private action: send_private(to, text), where "to" is the participant id
-- Silent action: stay_silent(reason) — if you also call any speaking tool, stay_silent is ignored by the runtime.
+- Silent action: stay_silent(reason) — if you also call any speaking tool, stay_silent is ignored by the runtime.${context.agent.memoryEnabled === true ? `
+- Memory tools: memory_add(content), memory_update(id, content), memory_delete(id)
+- Use memory tools to store, update, or remove personal notes between turns.
+- Memory operations may accompany any conversational action in the same turn.` : ''}
 
 Visibility rules:
 - Public messages are visible to everyone.
 - Private messages are visible only to the sender, recipient, and the human observer.
-- You only receive the subset of conversation that is visible to you.
+- You only receive the subset of conversation that is visible to you.${memorySection}
 
 Prefer concise responses.`;
 
@@ -87,8 +96,8 @@ ${visibleHistory}`,
   ];
 }
 
-export function buildTools() {
-  return [
+export function buildTools(agent: AgentConfig) {
+  const baseTools = [
     {
       type: 'function',
       function: {
@@ -136,6 +145,52 @@ export function buildTools() {
       },
     },
   ];
+  if (agent.memoryEnabled !== true) return baseTools;
+  return [
+    ...baseTools,
+    {
+      type: 'function',
+      function: {
+        name: 'memory_add',
+        description: 'Add a new entry to your personal memory. Pass empty content to skip.',
+        parameters: {
+          type: 'object',
+          properties: { content: { type: 'string' } },
+          required: ['content'],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'memory_update',
+        description: 'Update an existing memory entry by id. Pass empty content to delete it.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'number' },
+            content: { type: 'string' },
+          },
+          required: ['id', 'content'],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'memory_delete',
+        description: 'Delete a memory entry by id.',
+        parameters: {
+          type: 'object',
+          properties: { id: { type: 'number' } },
+          required: ['id'],
+          additionalProperties: false,
+        },
+      },
+    },
+  ];
 }
 
 export function parseToolAction(toolCall: {
@@ -146,7 +201,7 @@ export function parseToolAction(toolCall: {
 }): AgentToolCall {
   const name = toolCall.function?.name;
   const rawArguments = toolCall.function?.arguments ?? '{}';
-  const args = JSON.parse(rawArguments) as Record<string, string>;
+  const args = JSON.parse(rawArguments) as Record<string, unknown>;
 
   if (name === 'speak_public' && typeof args.text === 'string') {
     return { type: 'speak_public', text: args.text };
@@ -162,6 +217,16 @@ export function parseToolAction(toolCall: {
 
   if (name === 'stay_silent' && typeof args.reason === 'string') {
     return { type: 'stay_silent', reason: args.reason };
+  }
+
+  if (name === 'memory_add' && typeof args.content === 'string') {
+    return { type: 'memory_add', content: args.content };
+  }
+  if (name === 'memory_update' && typeof args.id === 'number' && typeof args.content === 'string') {
+    return { type: 'memory_update', id: args.id, content: args.content };
+  }
+  if (name === 'memory_delete' && typeof args.id === 'number') {
+    return { type: 'memory_delete', id: args.id };
   }
 
   throw new Error('Invalid tool call payload');

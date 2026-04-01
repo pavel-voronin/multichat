@@ -51,6 +51,8 @@ export interface AgentConfig {
   };
   modelSnapshot?: ModelSnapshot;
   systemPrompt: string;
+  memoryEnabled?: boolean;
+  memory?: Record<number, string>;
 }
 
 export interface ChatPresetAgent {
@@ -230,6 +232,14 @@ export interface SweepStoppedEntry extends ChatEntryBase {
   agentId?: string;
 }
 
+export interface AgentMemoryChangedEntry extends ChatEntryBase {
+  kind: 'agent-memory-changed';
+  agentId: string;
+  operation: 'add' | 'update' | 'delete';
+  entryId: number;
+  content?: string;
+}
+
 export type ChatEntry =
   | ParticipantMessageEntry
   | ParticipantJoinedEntry
@@ -239,7 +249,8 @@ export type ChatEntry =
   | RuntimeErrorEntry
   | SweepStartedEntry
   | SweepFinishedEntry
-  | SweepStoppedEntry;
+  | SweepStoppedEntry
+  | AgentMemoryChangedEntry;
 
 export interface EntryInspectionIndex {
   sourceTraceId?: string;
@@ -373,7 +384,10 @@ export interface TransportUsage {
 export type AgentToolCall =
   | { type: 'speak_public'; text: string }
   | { type: 'send_private'; to: string; text: string }
-  | { type: 'stay_silent'; reason: string };
+  | { type: 'stay_silent'; reason: string }
+  | { type: 'memory_add'; content: string }
+  | { type: 'memory_update'; id: number; content: string }
+  | { type: 'memory_delete'; id: number };
 
 export interface AgentTurnResult {
   mode: AgentExecutionMode;

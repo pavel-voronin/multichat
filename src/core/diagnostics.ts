@@ -1,6 +1,7 @@
 import type {
   AgentConfig,
   AgentExecutionMode,
+  AgentMemoryChangedEntry,
   ChatTabState,
   DebugLogEntry,
   EntryInspectionIndex,
@@ -372,4 +373,28 @@ export function createManualCutoffEntry(input: {
       source: 'manual',
     },
   };
+}
+
+export function pushMemoryChanged(input: {
+  createId: () => string;
+  now: () => Date;
+  tab: ChatTabState;
+  agentId: string;
+  operation: AgentMemoryChangedEntry['operation'];
+  entryId: number;
+  content?: string;
+  sourceTraceId?: string;
+}): AgentMemoryChangedEntry {
+  const entry: AgentMemoryChangedEntry = {
+    id: input.createId(),
+    createdAt: input.now().toISOString(),
+    kind: 'agent-memory-changed',
+    agentId: input.agentId,
+    operation: input.operation,
+    entryId: input.entryId,
+    content: input.content,
+    sourceTraceId: input.sourceTraceId,
+  };
+  input.tab.timeline.push(entry);
+  return entry;
 }

@@ -26,7 +26,8 @@ export function buildVisibleTimelineEntries(input: {
       entry.kind === 'silent-decision' ||
       entry.kind === 'sweep-started' ||
       entry.kind === 'sweep-finished' ||
-      entry.kind === 'sweep-stopped'
+      entry.kind === 'sweep-stopped' ||
+      entry.kind === 'agent-memory-changed'
     ) {
       if (!input.preferences.showSilentDecisions) continue;
     }
@@ -75,6 +76,7 @@ function compareVisibleTimelineEntries(
     'sweep-started': 2,
     'sweep-finished': 2,
     'sweep-stopped': 2,
+    'agent-memory-changed': 2,
   };
 
   return priority[left.kind] - priority[right.kind];
