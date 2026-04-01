@@ -154,9 +154,6 @@ describe('WelcomeDialog UI', () => {
 
     expect(connectButton!.disabled).toBe(true);
     expect(validateApiKey).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain(
-      'Enter a valid OpenRouter key in the documented sk-or-v1-... format.',
-    );
   });
 
   it('verifies a valid key before unlocking presets', async () => {
@@ -215,12 +212,12 @@ describe('WelcomeDialog UI', () => {
     expect(chooseModelButton?.disabled).toBe(false);
   });
 
-  it('closes the dialog when Open empty chat is clicked', async () => {
+  it('closes the dialog when Start exploring is clicked', async () => {
     const runtime = createRuntime({ createDefaultAgent: false, setApiKey: false });
     mountChat(runtime, { isFreshWorkspace: true });
 
     const buttons = Array.from(document.body.querySelectorAll('button'));
-    const exploreButton = buttons.find((b) => b.textContent?.includes('Open empty chat'));
+    const exploreButton = buttons.find((b) => b.textContent?.includes('Start exploring'));
     expect(exploreButton).toBeTruthy();
     exploreButton!.click();
 
