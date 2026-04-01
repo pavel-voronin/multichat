@@ -71,11 +71,11 @@ Response contract:
 - Call every tool needed to complete your turn.
 - Public action: speak_public(text)
 - Private action: send_private(to, text), where "to" is the participant id
-- Silent action: stay_silent(reason) — if you also call any speaking tool, stay_silent is ignored by the runtime.
-${context.agent.memoryEnabled === true ? `
+- Silent action: stay_silent(reason) — if you also call any speaking tool, stay_silent is ignored by the runtime.${context.agent.memoryEnabled === true ? `
 - Memory tools: memory_add(content), memory_update(id, content), memory_delete(id)
 - Use memory tools to store, update, or remove personal notes between turns.
 - Memory operations may accompany any conversational action in the same turn.` : ''}
+
 Visibility rules:
 - Public messages are visible to everyone.
 - Private messages are visible only to the sender, recipient, and the human observer.

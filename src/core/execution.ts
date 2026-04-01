@@ -195,16 +195,18 @@ export async function handleSuccessfulAgentTurnResultFn({
           });
         }
       } else if (op.type === 'memory_delete') {
-        memory = applyMemoryDelete(memory, op.id);
-        pushMemoryChanged({
-          createId: ctx.createId,
-          now: ctx.now,
-          tab,
-          agentId: agent.id,
-          operation: 'delete',
-          entryId: op.id,
-          sourceTraceId: traceId,
-        });
+        if (op.id in memory) {
+          memory = applyMemoryDelete(memory, op.id);
+          pushMemoryChanged({
+            createId: ctx.createId,
+            now: ctx.now,
+            tab,
+            agentId: agent.id,
+            operation: 'delete',
+            entryId: op.id,
+            sourceTraceId: traceId,
+          });
+        }
       }
     }
 
