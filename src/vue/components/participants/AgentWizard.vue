@@ -137,9 +137,15 @@ watch(
     if (isOpen && isApiKeyPresent.value) {
       await modelsStore.fetchModels();
     }
-    if (isOpen && !agent.value && ui.preselectedModelId) {
-      modelId.value = ui.preselectedModelId;
-      ui.preselectedModelId = null;
+    if (isOpen && !agent.value) {
+      name.value = '';
+      modelId.value = '';
+      systemPrompt.value = defaultPromptPreset.prompt;
+      selectedPresetId.value = defaultPromptPreset.id;
+      if (ui.preselectedModelId) {
+        modelId.value = ui.preselectedModelId;
+        ui.preselectedModelId = null;
+      }
     }
   },
   { immediate: true },
