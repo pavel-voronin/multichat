@@ -36,9 +36,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { nextMemoryId } from '@/core/agentMemory';
-import UiButton from '@/vue/components/ui/UiButton.vue';
-import UiInput from '@/vue/components/ui/UiInput.vue';
+import { nextMemoryId } from '../../../core/agentMemory';
+import UiButton from '../ui/UiButton.vue';
+import UiInput from '../ui/UiInput.vue';
 
 const props = defineProps<{
   memory: Record<number, string>;
